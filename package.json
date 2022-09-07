@@ -5,6 +5,7 @@
   "description": "Display ThinkPad thermal and fan status using /proc/acpi/ibm/thermal and /proc/acpi/ibm/fan.",
   "private": true,
   "license": "MIT",
+  "url": "https://github.com/fmujakitz/thinkpad-thermal",
   "scripts": {
     "types:clean": "rm -rf ./@types",
     "types:lock": "rm -rf docs-lock.json && cross-env XDG_DATA_DIRS=$XDG_DATA_DIRS:/usr/share/gir-1.0:/usr/share/gnome-shell:/usr/lib/mutter-10:/usr/lib64/mutter-10 yarn run gi-ts config --lock",
