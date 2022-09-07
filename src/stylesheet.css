@@ -1,0 +1,61 @@
+/* Add your custom extension styling here */
+
+.tpt-button {}
+
+.tpt-item {
+  margin-left: 3px;
+  margin-right: 3px;
+}
+
+.tpt-item:first-child {
+  margin-left: 7px;
+}
+
+.tpt-item:last-child {
+  margin-right: 7px;
+}
+
+.tpt-item-icon {
+  margin-right: 3px;
+}
+
+.tpt-item-value {
+  margin-right: 2px;
+}
+
+.tpt-item-unit {
+  font-size: 80%;
+}
+
+.tpt-item-unit-smaller {
+  font-size: 70%;
+  margin-left: 2px;
+}
+
+.tpt-popup-title,
+.tpt-popup-item {
+  margin: 0px;
+  color: inherit;
+}
+
+.tpt-popup-title {
+  font-weight: bold;
+}
+
+.tpt-popup-item {
+  padding-top: 0px;
+  padding-right: 16px;
+  padding-bottom: 4px;
+  padding-left: 16px;
+
+  margin-bottom: 8px;
+}
+
+.tpt-popup-item .value,
+.tpt-popup-item .unit {
+  color: inherit;
+}
+
+.tpt-popup-item .label {
+  opacity: 0.5;
+}

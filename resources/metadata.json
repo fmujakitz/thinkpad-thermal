@@ -1,0 +1,10 @@
+{
+  "name": "ThinkPad Thermal",
+  "description": "ThinkPad thermal monitor",
+  "uuid": "thinkpadthermal@moonlight.drive.vk.gmail.com",
+  "url": "",
+  "version": 2,
+  "shell-version": [
+    "42"
+  ]
+}
