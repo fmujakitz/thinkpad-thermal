@@ -1,20 +1,3 @@
-/* extension.js
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 import * as Clutter from "@gi-types/clutter10"
 import * as Gio from "@gi-types/gio2"
 import * as GLib from "@gi-types/glib2"
@@ -37,6 +20,7 @@ const Me = ExtensionUtils.getCurrentExtension()
 const _ = (text: string) => text
 
 const debug = (str: string) => console.log(["[tpt] => ", str].join(''))
+
 const iconFrom = (filename: string) => {
   const p = [Me.path, 'icons', filename]
     .join('/')
@@ -91,7 +75,6 @@ class ConsoleUtil {
 
         if (ok && out) {
           const str = ByteArray.toString(out)
-          debug(["ConsoleUtil execute =>", this.command, str].join('\n'))
           return callback(str)
         }
       }
@@ -198,6 +181,7 @@ class IbmAcpiUtil extends ConsoleUtil {
     return this._data.level
   }
 }
+
 
 class SensorsUtil extends ConsoleUtil {
 
@@ -415,9 +399,6 @@ const Indicator = GObject.registerClass(
     _destroy() {
       if (this._updateInterval?.get_id()) {
         this._updateInterval.destroy()
-        if (this._updateInterval.is_destroyed()) {
-          debug("_updateInterval is destroyed")
-        }
       }
     }
 
@@ -427,11 +408,8 @@ const Indicator = GObject.registerClass(
     }
 
     appendPopupMenu() {
-      debug("appending popupmenu items...")
-
       // Sensors
       // this.menu.addMenuItem(new ThermalTitle("Sensors"))
-
       // this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem())
 
 
@@ -486,8 +464,6 @@ const Indicator = GObject.registerClass(
       })
 
       if (this._tpAcpi.available) {
-        debug("constructing layout...")
-
         // add cpu to indicators
         if (this.element('cpu')) {
           this._indicators.push(
@@ -523,7 +499,6 @@ const Indicator = GObject.registerClass(
 
       if (this._tpAcpi.available) {
         this._updateInterval = setInterval(this._update.bind(this), 5000)
-        debug("update inteval started")
 
         this.connect("destroy", this._destroy.bind(this))
       }
