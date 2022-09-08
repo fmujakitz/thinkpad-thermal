@@ -22,3 +22,18 @@ This extension is available on [GNOME Extensions Website](https://extensions.gno
 
 You can clone this repo and build the extension manually with <code>yarn build:package</code>, and extract the generated archive from <code>dist</code> to your extensions path, ie. <code>~/.local/share/gnome-shell/extensions/</code>.
 
+## Todo
+  - [x] Gnome 42
+  - [x] thinkpad-acpi
+  - [ ] lm-sensors
+  - [ ] udisks2
+  - [ ] Settings dialog
+  - [ ] Gnome 43
+
+
+\
+\
+\
+\
+\
+Have fun!
