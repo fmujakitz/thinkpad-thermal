@@ -1,9 +1,9 @@
 {
   "name": "ThinkPad Thermal",
   "description": "ThinkPad thermal monitor, display ThinkPad thermal and fan status using /proc/acpi/ibm/thermal and /proc/acpi/ibm/fan.",
-  "uuid": "thinkpad-thermal@faris.mujakic.gmail.com",
+  "uuid": "thinkpadthermal@moonlight.drive.vk.gmail.com",
   "url": "https://github.com/fmujakitz/thinkpad-thermal",
-  "version": 2,
+  "version": 3,
   "shell-version": [
     "42"
   ]
