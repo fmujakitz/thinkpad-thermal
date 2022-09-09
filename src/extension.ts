@@ -60,14 +60,37 @@ const ICON: {
 }
 
 class ConsoleUtil {
-  _available: boolean = false
-  _command: string = ''
-  _updated: boolean = false
+  private _available: boolean = false
+  private _command: string = ''
+
+  constructor(program: string | string[], ...args: string[]) {
+
+    if (typeof program === 'string') {
+      const path = GLib.find_program_in_path(program as string)
+      this._available = Boolean(path)
+
+      if (this._available) {
+        this._command = [path, ...args].join(' ')
+      }
+    }
+
+    if (typeof program === 'object' && Array.isArray(program)) {
+      this._available = program.every((file: string) => GLib.file_test(file, GLib.FileTest.EXISTS))
+
+      if (this._available) {
+        this._command = ['cat', ...program, ...args].join(' ')
+      }
+    }
+
+    debug("ConsoleUtil " + this._command)
+
+
+  }
 
   execute(callback) {
     try {
       if (this.available) {
-        const [ok, out, err] = GLib.spawn_command_line_sync(this.command)
+        const [ok, out, err] = GLib.spawn_command_line_sync(this._command)
 
         if (!ok) {
           throw new Error(ByteArray.toString(err))
@@ -84,20 +107,174 @@ class ConsoleUtil {
     }
   }
 
-  set command(cmd: string) {
-    this._command = cmd
-  }
-
-  get command() {
-    return this._command
-  }
-
-  set available(flag: boolean) {
-    this._available = flag
-  }
-
   get available() {
     return this._available
+  }
+
+}
+
+
+
+class LscpuUtil extends ConsoleUtil {
+  private _name: string
+  constructor() {
+    super('lscpu')
+    if (this.available) this.update()
+  }
+
+  private parse(str: string) {
+    debug("lscpu => parse")
+    let name = str
+      .split(/\n/)
+      .find(row => row.includes("Model name:"))
+      ?.replace("Model name:", '')
+      .split('@')[0]
+      .replace(/CPU/, ' ')
+      .replace(/ +/igm, ' ')
+      .trim()
+
+    this._name = name || "Processor"
+    debug(this.name)
+  }
+
+  update() {
+    super.execute(this.parse.bind(this))
+  }
+
+  get name() {
+    return this._name
+  }
+}
+class LsblkUtil extends ConsoleUtil {
+  private _data: {
+    [key: string]: string
+  }
+  constructor() {
+    super('lsblk', '-o', 'HCTL,MODEL,NAME,TRAN,VENDOR,TYPE', '-dnJ')
+
+    if (this.available) this.update()
+  }
+
+  private simplify(obj) {
+    return obj.blockdevices.reduce((acc, { hctl, model }) => {
+      const [a, b] = hctl.split(':')
+      const key = ['drivetemp', 'scsi', a, b].join('-')
+      acc[key] = model
+      return acc
+    }, {})
+  }
+
+  private parse(str: string) {
+    debug("lsblk => parse")
+    this._data = this.simplify(JSON.parse(str))
+    console.log(this._data)
+  }
+
+  update() {
+    super.execute(this.parse.bind(this))
+  }
+
+  name(key: string) {
+    return this._data[key]
+  }
+}
+
+type SensorsData = {
+  [key: string]: any
+}
+class SensorsUtil extends ConsoleUtil {
+  private _lscpu: LscpuUtil
+  private _lsblk: LsblkUtil
+  private _data: SensorsData
+
+  constructor() {
+    super('sensors', '-A', '-j')
+
+    if (this.available) {
+      this._lscpu = new LscpuUtil()
+      this._lsblk = new LsblkUtil()
+      this.update()
+    }
+  }
+
+  private simplify(obj) {
+    const input = new RegExp(/input$/)
+
+    return Object.keys(obj).reduce((acc, key) => {
+      const inner = Object.keys(obj[key]).find(k => input.test(k))
+
+      if (inner) {
+        const value = obj[key][inner]
+        if (value > 0) acc[key] = value
+      } else {
+        acc[key] = this.simplify(obj[key])
+      }
+
+      return acc
+    }, {})
+  }
+
+  private organize(data: object) {
+    const cores = new RegExp(/^coretemp/i)
+    const drives = new RegExp(/^drivetemp/i)
+    const batteries = new RegExp(/^bat/i)
+    const tpisa = new RegExp(/^thinkpad-isa/i)
+
+    const next = Object.keys(data).reduce((acc, key) => {
+      let value = data[key]
+
+      if (Object.keys(value).length === 1) {
+        value = Object.values(value)[0]
+      }
+
+      if (cores.test(key)) {
+        acc.cpu[this._lscpu.name] = value
+        return acc
+      }
+
+      if (drives.test(key)) {
+        acc.hdd[this._lsblk.name(key)] = value
+        return acc
+      }
+
+      if (batteries.test(key)) {
+        acc.bat[key] = value
+        return acc
+      }
+
+      if (tpisa.test(key)) {
+        const fans = new RegExp(/^fan/i)
+        acc.fan = Object.keys(value)
+          .filter(k => fans.test(k))
+          .reduce((acc, k) => {
+            acc[k] = value[k]
+            return acc
+          }, {})
+
+        console.log(acc)
+        return acc
+      }
+
+      acc.other[key] = value
+
+      return acc
+    }, {
+      cpu: {}, hdd: {}, bat: {}, fan: {}, other: {}
+    })
+    return next
+  }
+
+  parse(str: string) {
+    debug("Sensors => parse")
+    debug(str)
+
+    const data = this.simplify(JSON.parse(str))
+    console.log(this.organize(data))
+
+  }
+
+  update() {
+    super.execute(this.parse.bind(this))
   }
 }
 
@@ -118,22 +295,13 @@ class IbmAcpiUtil extends ConsoleUtil {
   }
 
   constructor() {
-    super()
-
-    const src = [
+    super([
       '/proc/acpi/ibm/thermal',
       '/proc/acpi/ibm/fan'
-    ]
+    ])
 
-    this.available =
-      GLib.file_test(src[0], GLib.FileTest.EXISTS) &&
-      GLib.file_test(src[1], GLib.FileTest.EXISTS)
-
-    if (this.available) {
-      this.command = ['cat', src[0], src[1]].join(' ')
-      // immediately get initial values
-      this.update()
-    }
+    // immediately get initial values
+    if (this.available) this.update()
   }
 
   // temperatures: 43 50 0 0 0 0 0 0
@@ -148,7 +316,7 @@ class IbmAcpiUtil extends ConsoleUtil {
       .replace(/\t+/, " ")
       .split(': ')[1]
 
-    const row = str.split("\n")
+    const row = str.split(/\n/)
 
     const [cpu, gpu] = getVal(row[0]).split(' ')
 
@@ -179,23 +347,6 @@ class IbmAcpiUtil extends ConsoleUtil {
   }
   get level() {
     return this._data.level
-  }
-}
-
-
-class SensorsUtil extends ConsoleUtil {
-
-  constructor() {
-    super()
-
-    const path = GLib.find_program_in_path('sensors')
-
-    this.available = Boolean(path)
-
-    if (this.available) {
-      this.command = [path, '-A', '-j'].join(' ')
-    }
-
   }
 }
 
@@ -360,20 +511,73 @@ type PopupGroup = {
 }
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
+    // utils
     _tpAcpi: IbmAcpiUtil
+    _sensors: SensorsUtil
+    // ui
     _elements: string[] = ['cpu', 'gpu', 'speed']
     _indicators: IndicatorItem[] = []
     _updateInterval: GLib.Source | any
     _layout: St.BoxLayout
     _popup: PopupGroup[] = []
 
+    constructor(...args) {
+      super(...args)
+
+      this._tpAcpi = new IbmAcpiUtil()
+      this._sensors = new SensorsUtil()
+
+      this._layout = new St.BoxLayout({
+        style_class: 'tpt-button'
+      })
+
+      if (this._tpAcpi.available) {
+        // add cpu to indicators
+        if (this.element('cpu')) {
+          this._indicators.push(
+            new IndicatorItem('cpu', ICON.cpu, this._tpAcpi.cpu, UNIT.celsius)
+          )
+        }
+        // add gpu to indicators
+        if (this.element('gpu')) {
+          this._indicators.push(
+            new IndicatorItem('gpu', ICON.gpu, this._tpAcpi.gpu, UNIT.celsius)
+          )
+        }
+        // add speed to indicators
+        if (this.element('speed')) {
+          this._indicators.push(
+            new IndicatorItem('speed', ICON.fan, this._tpAcpi.speed, UNIT.rpm)
+          )
+        }
+
+        // place indicators on layout
+        for (let i = 0; i < this._indicators.length; i++) {
+          this._layout.add_child(this._indicators[i])
+        }
+
+        this.appendPopupMenu()
+
+      } else {
+        this._layout.add_child(new St.Label({ text: "N/A" }))
+      }
+
+
+      this.add_actor(this._layout)
+
+      if (this._tpAcpi.available) {
+        this._updateInterval = setInterval(this._update.bind(this), 5000)
+
+        this.connect("destroy", this._destroy.bind(this))
+      }
+    }
 
     // utility fn to convert celsius to fahrenheit
     _toFahrenheit = (temp: number): number => (temp * (9 / 5)) + 32
 
     // perform update
     _update = () => {
-      if (this._tpAcpi._available) {
+      if (this._tpAcpi.available) {
         this._tpAcpi.update()
 
         // update indicator values
@@ -451,56 +655,6 @@ const Indicator = GObject.registerClass(
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem)
           }
         }
-      }
-    }
-
-    constructor(...args) {
-      super(...args)
-
-      this._tpAcpi = new IbmAcpiUtil()
-
-      this._layout = new St.BoxLayout({
-        style_class: 'tpt-button'
-      })
-
-      if (this._tpAcpi.available) {
-        // add cpu to indicators
-        if (this.element('cpu')) {
-          this._indicators.push(
-            new IndicatorItem('cpu', ICON.cpu, this._tpAcpi.cpu, UNIT.celsius)
-          )
-        }
-        // add gpu to indicators
-        if (this.element('gpu')) {
-          this._indicators.push(
-            new IndicatorItem('gpu', ICON.gpu, this._tpAcpi.gpu, UNIT.celsius)
-          )
-        }
-        // add speed to indicators
-        if (this.element('speed')) {
-          this._indicators.push(
-            new IndicatorItem('speed', ICON.fan, this._tpAcpi.speed, UNIT.rpm)
-          )
-        }
-
-        // place indicators on layout
-        for (let i = 0; i < this._indicators.length; i++) {
-          this._layout.add_child(this._indicators[i])
-        }
-
-        this.appendPopupMenu()
-
-      } else {
-        this._layout.add_child(new St.Label({ text: "N/A" }))
-      }
-
-
-      this.add_actor(this._layout)
-
-      if (this._tpAcpi.available) {
-        this._updateInterval = setInterval(this._update.bind(this), 5000)
-
-        this.connect("destroy", this._destroy.bind(this))
       }
     }
   }
