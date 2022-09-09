@@ -123,7 +123,6 @@ class LscpuUtil extends ConsoleUtil {
   }
 
   private parse(str: string) {
-    debug("lscpu => parse")
     let name = str
       .split(/\n/)
       .find(row => row.includes("Model name:"))
@@ -134,7 +133,6 @@ class LscpuUtil extends ConsoleUtil {
       .trim()
 
     this._name = name || "Processor"
-    debug(this.name)
   }
 
   update() {
@@ -165,9 +163,7 @@ class LsblkUtil extends ConsoleUtil {
   }
 
   private parse(str: string) {
-    debug("lsblk => parse")
     this._data = this.simplify(JSON.parse(str))
-    console.log(this._data)
   }
 
   update() {
@@ -180,7 +176,11 @@ class LsblkUtil extends ConsoleUtil {
 }
 
 type SensorsData = {
-  [key: string]: any
+  cpu: object,
+  hdd: object,
+  bat: object,
+  fan: object,
+  other: object
 }
 class SensorsUtil extends ConsoleUtil {
   private _lscpu: LscpuUtil
@@ -220,11 +220,14 @@ class SensorsUtil extends ConsoleUtil {
     const batteries = new RegExp(/^bat/i)
     const tpisa = new RegExp(/^thinkpad-isa/i)
 
-    const next = Object.keys(data).reduce((acc, key) => {
+    return Object.keys(data).reduce((acc, key) => {
       let value = data[key]
 
       if (Object.keys(value).length === 1) {
         value = Object.values(value)[0]
+        if (typeof value === 'number') {
+          value = value.toString()
+        }
       }
 
       if (cores.test(key)) {
@@ -238,7 +241,8 @@ class SensorsUtil extends ConsoleUtil {
       }
 
       if (batteries.test(key)) {
-        acc.bat[key] = value
+        const k = key.split('-')[0]
+        acc.bat[k] = value
         return acc
       }
 
@@ -247,35 +251,47 @@ class SensorsUtil extends ConsoleUtil {
         acc.fan = Object.keys(value)
           .filter(k => fans.test(k))
           .reduce((acc, k) => {
-            acc[k] = value[k]
+            acc[k] = value[k].toString()
             return acc
           }, {})
 
-        console.log(acc)
         return acc
       }
 
       acc.other[key] = value
 
       return acc
-    }, {
-      cpu: {}, hdd: {}, bat: {}, fan: {}, other: {}
-    })
-    return next
+    }, { cpu: {}, hdd: {}, bat: {}, fan: {}, other: {} })
   }
 
-  parse(str: string) {
-    debug("Sensors => parse")
-    debug(str)
-
-    const data = this.simplify(JSON.parse(str))
-    console.log(this.organize(data))
-
+  private parse(str: string) {
+    this._data = this.organize(this.simplify(JSON.parse(str)))
   }
 
   update() {
     super.execute(this.parse.bind(this))
   }
+
+  private verify(obj) {
+    return Object.keys(obj).length ? obj : false
+  }
+
+  get cpu() {
+    return this.verify(this._data.cpu)
+  }
+  get hdd() {
+    return this.verify(this._data.hdd)
+  }
+  get bat() {
+    return this.verify(this._data.bat)
+  }
+  get fan() {
+    return this.verify(this._data.fan)
+  }
+  get other() {
+    return this.verify(this._data.other)
+  }
+
 }
 
 type IbmAcpiData = {
@@ -286,7 +302,7 @@ type IbmAcpiData = {
   level: string
 }
 class IbmAcpiUtil extends ConsoleUtil {
-  _data: IbmAcpiData = {
+  private _data: IbmAcpiData = {
     cpu: 0,
     gpu: 0,
     status: '...',
@@ -311,7 +327,7 @@ class IbmAcpiUtil extends ConsoleUtil {
   // commands: level<level>(<level>is 0 - 7, auto, disengaged, full - speed)
   // commands: enable, disable
   // commands: watchdog<timeout>(<timeout>is 0(off), 1 - 120(seconds))
-  parse(str: string) {
+  private parse(str: string) {
     const getVal = (str: string) => str
       .replace(/\t+/, " ")
       .split(': ')[1]
@@ -519,7 +535,8 @@ const Indicator = GObject.registerClass(
     _indicators: IndicatorItem[] = []
     _updateInterval: GLib.Source | any
     _layout: St.BoxLayout
-    _popup: PopupGroup[] = []
+    _tpacpiPopup: PopupGroup[] = []
+    _sensorsPopup: any[] = []
 
     constructor(...args) {
       super(...args)
@@ -577,6 +594,7 @@ const Indicator = GObject.registerClass(
 
     // perform update
     _update = () => {
+
       if (this._tpAcpi.available) {
         this._tpAcpi.update()
 
@@ -587,14 +605,18 @@ const Indicator = GObject.registerClass(
           item.update(value)
         }
 
-        // update popup values
-        for (let i = 0; i < this._popup.length; i++) {
-          for (let j = 0; j < this._popup[i].items.length; j++) {
-            const item = this._popup[i].items[j]
+        // update _tpacpi popup values
+        for (let i = 0; i < this._tpacpiPopup.length; i++) {
+          for (let j = 0; j < this._tpacpiPopup[i].items.length; j++) {
+            const item = this._tpacpiPopup[i].items[j]
             const value = this._tpAcpi[item.id]
             item.update(value)
           }
         }
+      }
+
+      if (this._sensors.available) {
+        this._sensors.update()
 
       }
     }
@@ -613,6 +635,33 @@ const Indicator = GObject.registerClass(
 
     appendPopupMenu() {
       // Sensors
+
+      if (this._sensors.available) {
+
+        // cpu
+        if (this._sensors.cpu) {
+          const els = Object.keys(this._sensors.cpu).map(k => {
+
+            const el = this._sensors.cpu[k]
+
+            const item = new PopupMenu.PopupSubMenuMenuItem(k)
+
+            Object.keys(el).map(k => {
+
+              const subitem = new PopupMenu.PopupMenuItem(el[k].toString())
+              item.menu.addMenuItem(subitem)
+
+            })
+
+
+            this.menu.addMenuItem(item)
+
+
+          })
+        }
+
+      }
+
       // this.menu.addMenuItem(new ThermalTitle("Sensors"))
       // this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem())
 
@@ -620,7 +669,7 @@ const Indicator = GObject.registerClass(
       // tpAcpi groups
       if (this._tpAcpi.available) {
         // add ACPI group to popup
-        this._popup.push({
+        this._tpacpiPopup.push({
           title: "ACPI",
           config: [
             { id: 'cpu', label: 'CPU', value: this._tpAcpi.cpu, unit: UNIT.celsius, icon: ICON.cpu },
@@ -629,29 +678,32 @@ const Indicator = GObject.registerClass(
           items: []
         })
         // add Fan control group to popup
-        this._popup.push({
+
+        const config = [
+          { id: 'status', label: 'Status', value: this._tpAcpi.status, hideOrnament: true },
+          { id: 'speed', label: 'Speed', value: this._tpAcpi.speed, unit: UNIT.rpm, hideOrnament: true },
+          { id: 'level', label: 'Level', value: this._tpAcpi.level, hideOrnament: true }
+        ]
+
+        this._tpacpiPopup.push({
           title: "Fan control",
-          config: [
-            { id: 'status', label: 'Status', value: this._tpAcpi.status, hideOrnament: true },
-            { id: 'speed', label: 'Speed', value: this._tpAcpi.speed, unit: UNIT.rpm, hideOrnament: true },
-            { id: 'level', label: 'Level', value: this._tpAcpi.level, hideOrnament: true }
-          ],
+          config,
           items: []
         })
 
         // place popup items on layout
-        for (let i = 0; i < this._popup.length; i++) {
+        for (let i = 0; i < this._tpacpiPopup.length; i++) {
 
-          const { config, title } = this._popup[i]
+          const { config, title } = this._tpacpiPopup[i]
           this.menu.addMenuItem(new ThermalTitle(title))
 
           for (let j = 0; j < config.length; j++) {
             const item = new ThermalItem(config[j])
-            this._popup[i].items.push(item as any)
+            this._tpacpiPopup[i].items.push(item as any)
             this.menu.addMenuItem(item)
           }
 
-          if (i < (this._popup.length - 1)) {
+          if (i < (this._tpacpiPopup.length - 1)) {
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem)
           }
         }
