@@ -25,8 +25,9 @@ You can clone this repo and build the extension manually with <code>yarn build:p
 ## Todo
   - [x] Gnome 42
   - [x] thinkpad-acpi
-  - [ ] lm-sensors
-  - [ ] udisks2
+  - [x] lm-sensors
+  - [x] lscpu
+  - [x] lsblk
   - [ ] Settings dialog
   - [ ] Gnome 43
 
