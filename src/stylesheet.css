@@ -1,35 +1,30 @@
 /* Add your custom extension styling here */
 
-.tpt-button {}
+.tpt-button-layout {}
 
-.tpt-item {
+.tpt-button {
   margin-left: 3px;
   margin-right: 3px;
 }
 
-.tpt-item:first-child {
+.tpt-button:first-child {
   margin-left: 7px;
 }
 
-.tpt-item:last-child {
+.tpt-button:last-child {
   margin-right: 7px;
 }
 
-.tpt-item-icon {
+.tpt-button .icon {
   margin-right: 3px;
 }
 
-.tpt-item-value {
+.tpt-button .value {
   margin-right: 2px;
 }
 
-.tpt-item-unit {
+.tpt-button .unit {
   font-size: 80%;
-}
-
-.tpt-item-unit-smaller {
-  font-size: 70%;
-  margin-left: 2px;
 }
 
 .tpt-popup-title,
@@ -47,7 +42,6 @@
   padding-right: 16px;
   padding-bottom: 4px;
   padding-left: 16px;
-
   margin-bottom: 8px;
 }
 

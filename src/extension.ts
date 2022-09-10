@@ -27,6 +27,7 @@ const iconFrom = (filename: string) => {
     .replace(/\/+/igm, '/')
   return Gio.icon_new_for_string(p)
 }
+const $_ = (...args) => args.join('-')
 
 const UNIT = {
   celsius: "\u00b0C",
@@ -41,22 +42,10 @@ type IconType = {
 const ICON: {
   [key: string]: IconType
 } = {
-  fan: {
-    gicon: iconFrom('fan-symbolic.svg'),
-    size: 12
-  },
-  cpu: {
-    gicon: iconFrom('cpu-symbolic.svg'),
-    size: 12
-  },
-  gpu: {
-    gicon: iconFrom('gpu-symbolic.svg'),
-    size: 14
-  },
-  hdd: {
-    gicon: iconFrom('hdd-symbolic.svg'),
-    size: 14
-  },
+  fan: { gicon: iconFrom('fan-symbolic.svg'), size: 12 },
+  cpu: { gicon: iconFrom('cpu-symbolic.svg'), size: 12 },
+  gpu: { gicon: iconFrom('gpu-symbolic.svg'), size: 14 },
+  hdd: { gicon: iconFrom('hdd-symbolic.svg'), size: 14 },
 }
 
 class ConsoleUtil {
@@ -112,9 +101,6 @@ class ConsoleUtil {
   }
 
 }
-
-
-
 class LscpuUtil extends ConsoleUtil {
   private _name: string
   constructor() {
@@ -174,7 +160,6 @@ class LsblkUtil extends ConsoleUtil {
     return this._data[key]
   }
 }
-
 type SensorsData = {
   cpu: object,
   hdd: object,
@@ -204,8 +189,11 @@ class SensorsUtil extends ConsoleUtil {
       const inner = Object.keys(obj[key]).find(k => input.test(k))
 
       if (inner) {
-        const value = obj[key][inner]
-        if (value > 0) acc[key] = value
+        let value = obj[key][inner]
+        if (value > 0) {
+          if (typeof value === 'number') value = value.toString()
+          acc[key] = value
+        }
       } else {
         acc[key] = this.simplify(obj[key])
       }
@@ -266,6 +254,7 @@ class SensorsUtil extends ConsoleUtil {
 
   private parse(str: string) {
     this._data = this.organize(this.simplify(JSON.parse(str)))
+    console.log(this._data)
   }
 
   update() {
@@ -293,7 +282,6 @@ class SensorsUtil extends ConsoleUtil {
   }
 
 }
-
 type IbmAcpiData = {
   cpu: number,
   gpu: number,
@@ -373,9 +361,9 @@ const ThermalTitle = GObject.registerClass(
   class ThermalTitle extends PopupMenu.PopupBaseMenuItem {
     _title: St.Label
 
-    constructor(title: string) {
+    constructor(style_class: string, title: string) {
       super({
-        style_class: 'tpt-popup-title', reactive: false
+        style_class, reactive: false
       })
 
       this.setOrnament(PopupMenu.Ornament.HIDDEN)
@@ -392,138 +380,136 @@ const ThermalTitle = GObject.registerClass(
 )
 
 
-type ThermalItem = {
-  id: string
-  constructor: (data: ThermalItemData) => ThermalItem
-  update: (value: string, unit?: string, label?: string) => void
-} & Clutter.Actor<Clutter.LayoutManager, Clutter.ContentPrototype>
-type ThermalItemData = {
-  id: string,
-  label: string,
-  value: string,
+type ThermalItemProps = {
   unit?: string,
   icon?: IconType,
   hideOrnament?: boolean
 }
+type ThermalItem = {
+  // constructor: (data: ThermalItemData) => ThermalItem
+  update: (value: string, unit?: string, label?: string) => void
+} & Clutter.Actor<Clutter.LayoutManager, Clutter.ContentPrototype>
 const ThermalItem = GObject.registerClass(
   class ThermalItem extends PopupMenu.PopupBaseMenuItem {
-    _id: string
+    _updater: UpdaterFn
     _label: St.Label
     _value: St.Label
     _unit: St.Label
 
-    constructor(data: ThermalItemData) {
-      super({
-        style_class: 'tpt-popup-item', reactive: false
-      })
+    constructor(style_class: string, updater: UpdaterFn, label: string, opts?: ThermalItemProps) {
+      super({ style_class, reactive: false })
 
-      this._id = data.id
+      this._updater = updater
 
-      if (data.icon || data.hideOrnament) {
+      if (opts?.icon || opts?.hideOrnament) {
         this.setOrnament(PopupMenu.Ornament.HIDDEN)
       }
-      if (data.icon) {
+      if (opts?.icon) {
         this.add_child(new St.Icon({
           style_class: 'popup-menu-ornament',
           icon_size: 14,
-          gicon: data.icon?.gicon,
+          gicon: opts?.icon?.gicon,
         }))
       }
 
 
       this._label = new St.Label({
         style_class: 'label',
-        text: data.label,
+        text: label,
         x_align: Clutter.ActorAlign.START,
         x_expand: true
       })
-      this.add_child(this._label)
 
       this._value = new St.Label({
         style_class: 'value',
-        text: data.value
+        text: updater()
       })
-      this.add_child(this._value)
 
-      if (data?.unit) {
+      const els = [this._label, this._value]
+
+      if (opts?.unit) {
         this._unit = new St.Label({
           style_class: 'unit',
-          text: data.unit
+          text: opts.unit
         })
-        this.add_child(this._unit)
+        els.push(this._unit)
       }
+
+      els.forEach(el => this.add_child(el))
 
     }
 
-    update(value: string, unit?: string, label?: string) {
+    update(unit?: string, label?: string) {
+      const value = this._updater()
       this._value.set_text(value)
       if (unit) this._unit.set_text(unit)
       if (label) this._label.set_text(label)
     }
+  }
+)
 
-    get id() {
-      return this._id
+const ThermalGroup = GObject.registerClass(
+  class ThermalGroup extends St.BoxLayout {
+    _updater: UpdaterFn
+
+    constructor(style_class: string, updater: UpdaterFn, label: string, children: object) {
+      super({ style_class })
     }
   }
 )
 
-
+type UpdaterFn = () => string
 type IndicatorItem = {
-  id: string
   update: (value: string, unit?: string) => void
 } & Clutter.Actor<Clutter.LayoutManager, Clutter.ContentPrototype>
-
 const IndicatorItem = GObject.registerClass(
   class IndicatorItem extends St.BoxLayout {
-    _id: string
+    _updater: UpdaterFn
     _icon: St.Icon
     _value: St.Label
     _unit: St.Label
 
-    constructor(id: string, icon: IconType, value: string, unit: string) {
-      super({ style_class: 'tpt-item' })
+    constructor(style_class: string, updater: UpdaterFn, icon: IconType, unit: string) {
+      // constructor(id: string, icon: IconType, value: string, unit: string) {
+      super({ style_class })
 
-      this._id = id
+      this._updater = updater
 
       this._icon = new St.Icon({
         gicon: icon.gicon,
         icon_size: icon.size,
-        style_class: 'tpt-item-icon',
+        style_class: 'icon',
         y_align: Clutter.ActorAlign.CENTER
       })
 
       this._value = new St.Label({
-        text: value,
-        style_class: 'tpt-item-value',
+        text: updater(),
+        style_class: 'value',
         y_align: Clutter.ActorAlign.CENTER
       })
 
       this._unit = new St.Label({
         text: unit,
-        style_class: 'tpt-item-unit',
+        style_class: 'unit',
         y_align: Clutter.ActorAlign.CENTER
       })
 
-      this.add_child(this._icon)
-      this.add_child(this._value)
-      this.add_child(this._unit)
+      const els = [this._icon, this._value, this._unit]
+      els.forEach(el => this.add_child(el))
     }
 
-    update(value: string, unit?: string) {
+    update(unit?: string) {
+      const value = this._updater()
       this._value.set_text(value)
       if (unit) this._unit.set_text(unit)
     }
-
-    get id() {
-      return this._id
-    }
   }
 )
-
-type PopupGroup = {
-  title: string
-  config: ThermalItemData[],
-  items: ThermalItem[]
+type AttachFn = (any) => void
+type BindingType = "tpt-button" | "tpt-popup-title" | "tpt-popup-item"
+type Binding = {
+  type: BindingType
+  element: any
 }
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -531,12 +517,12 @@ const Indicator = GObject.registerClass(
     _tpAcpi: IbmAcpiUtil
     _sensors: SensorsUtil
     // ui
+    _buttonLayout: St.BoxLayout = new St.BoxLayout({ style_class: 'tpt-button-layout' })
+    // internals
+    _bindings: Binding[] = []
     _elements: string[] = ['cpu', 'gpu', 'speed']
-    _indicators: IndicatorItem[] = []
     _updateInterval: GLib.Source | any
-    _layout: St.BoxLayout
-    _tpacpiPopup: PopupGroup[] = []
-    _sensorsPopup: any[] = []
+
 
     constructor(...args) {
       super(...args)
@@ -544,47 +530,17 @@ const Indicator = GObject.registerClass(
       this._tpAcpi = new IbmAcpiUtil()
       this._sensors = new SensorsUtil()
 
-      this._layout = new St.BoxLayout({
-        style_class: 'tpt-button'
-      })
-
       if (this._tpAcpi.available) {
-        // add cpu to indicators
-        if (this.element('cpu')) {
-          this._indicators.push(
-            new IndicatorItem('cpu', ICON.cpu, this._tpAcpi.cpu, UNIT.celsius)
-          )
-        }
-        // add gpu to indicators
-        if (this.element('gpu')) {
-          this._indicators.push(
-            new IndicatorItem('gpu', ICON.gpu, this._tpAcpi.gpu, UNIT.celsius)
-          )
-        }
-        // add speed to indicators
-        if (this.element('speed')) {
-          this._indicators.push(
-            new IndicatorItem('speed', ICON.fan, this._tpAcpi.speed, UNIT.rpm)
-          )
-        }
-
-        // place indicators on layout
-        for (let i = 0; i < this._indicators.length; i++) {
-          this._layout.add_child(this._indicators[i])
-        }
-
+        this.appendButton()
         this.appendPopupMenu()
-
       } else {
-        this._layout.add_child(new St.Label({ text: "N/A" }))
+        this._buttonLayout.add_child(new St.Label({ text: "ThinkPad ACPI is not available" }))
       }
 
-
-      this.add_actor(this._layout)
+      this.add_actor(this._buttonLayout)
 
       if (this._tpAcpi.available) {
         this._updateInterval = setInterval(this._update.bind(this), 5000)
-
         this.connect("destroy", this._destroy.bind(this))
       }
     }
@@ -594,33 +550,33 @@ const Indicator = GObject.registerClass(
 
     // perform update
     _update = () => {
+      if (this._tpAcpi.available) this._tpAcpi.update()
+      if (this._sensors.available) this._sensors.update()
 
-      if (this._tpAcpi.available) {
-        this._tpAcpi.update()
+      // update values for all bound elements
+      this._bindings.forEach(({ element }) => {
+        if (typeof element.update === 'function') element.update()
+      })
+    }
+    // create and attach element to bindings
+    _attach(Element, type: BindingType, ...args) {
+      const element = new Element(type, ...args)
+      this._bindings.push({ type, element })
+      // place attached element
+      console.log('should place: ' + type)
 
-        // update indicator values
-        for (let i = 0; i < this._indicators.length; i++) {
-          const item = this._indicators[i]
-          const value = this._tpAcpi[this._indicators[i].id]
-          item.update(value)
-        }
-
-        // update _tpacpi popup values
-        for (let i = 0; i < this._tpacpiPopup.length; i++) {
-          for (let j = 0; j < this._tpacpiPopup[i].items.length; j++) {
-            const item = this._tpacpiPopup[i].items[j]
-            const value = this._tpAcpi[item.id]
-            item.update(value)
-          }
-        }
+      if (['tpt-button'].includes(type)) {
+        this._buttonLayout.add_child(element)
       }
 
-      if (this._sensors.available) {
-        this._sensors.update()
-
+      if (['tpt-popup-title', 'tpt-popup-item'].includes(type)) {
+        // place popup separator before any title
+        if (type.includes('title') && this._bindings.length > 0) {
+          this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem)
+        }
+        this.menu.addMenuItem(element)
       }
     }
-
     // cleanup on destroy
     _destroy() {
       if (this._updateInterval?.get_id()) {
@@ -633,6 +589,14 @@ const Indicator = GObject.registerClass(
       return this._elements.includes(key)
     }
 
+
+    appendButton() {
+      // attach cpu, gpu, speed indicator
+      if (this.element('cpu')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.cpu, ICON.cpu, UNIT.celsius)
+      if (this.element('gpu')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.gpu, ICON.gpu, UNIT.celsius)
+      if (this.element('speed')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.speed, ICON.fan, UNIT.rpm)
+    }
+
     appendPopupMenu() {
       // Sensors
 
@@ -640,73 +604,53 @@ const Indicator = GObject.registerClass(
 
         // cpu
         if (this._sensors.cpu) {
-          const els = Object.keys(this._sensors.cpu).map(k => {
+          Object.keys(this._sensors.cpu).forEach(k => {
 
-            const el = this._sensors.cpu[k]
-
-            const item = new PopupMenu.PopupSubMenuMenuItem(k)
-
-            Object.keys(el).map(k => {
-
-              const subitem = new PopupMenu.PopupMenuItem(el[k].toString())
-              item.menu.addMenuItem(subitem)
-
+            const parent = new PopupMenu.PopupSubMenuMenuItem(k)
+            console.log(typeof parent)
+            const items = this._sensors.cpu[k]
+            console.log(k)
+            console.log(items)
+            Object.keys(items).forEach(k => {
+              // this._attach(ThermalItem)
             })
 
-
-            this.menu.addMenuItem(item)
-
-
+            this.menu.addMenuItem(parent)
           })
+          // const els = Object.keys(this._sensors.cpu).map(k => {
+
+          //   const el = this._sensors.cpu[k]
+
+          //   const item = new PopupMenu.PopupSubMenuMenuItem(k)
+
+          //   Object.keys(el).map(k => {
+
+          //     const subitem = new PopupMenu.PopupMenuItem(el[k].toString())
+          //     item.menu.addMenuItem(subitem)
+
+          //   })
+
+
+          //   this.menu.addMenuItem(item)
+
+
+          // })
         }
 
       }
 
-      // this.menu.addMenuItem(new ThermalTitle("Sensors"))
-      // this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem())
-
-
       // tpAcpi groups
       if (this._tpAcpi.available) {
-        // add ACPI group to popup
-        this._tpacpiPopup.push({
-          title: "ACPI",
-          config: [
-            { id: 'cpu', label: 'CPU', value: this._tpAcpi.cpu, unit: UNIT.celsius, icon: ICON.cpu },
-            { id: 'gpu', label: 'GPU', value: this._tpAcpi.gpu, unit: UNIT.celsius, icon: ICON.gpu }
-          ],
-          items: []
-        })
-        // add Fan control group to popup
+        // add ACPI items to popup
+        this._attach(ThermalTitle, "tpt-popup-title", "ACPI")
+        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.cpu, "CPU", { unit: UNIT.celsius, icon: ICON.cpu })
+        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.gpu, "GPU", { unit: UNIT.celsius, icon: ICON.gpu })
 
-        const config = [
-          { id: 'status', label: 'Status', value: this._tpAcpi.status, hideOrnament: true },
-          { id: 'speed', label: 'Speed', value: this._tpAcpi.speed, unit: UNIT.rpm, hideOrnament: true },
-          { id: 'level', label: 'Level', value: this._tpAcpi.level, hideOrnament: true }
-        ]
-
-        this._tpacpiPopup.push({
-          title: "Fan control",
-          config,
-          items: []
-        })
-
-        // place popup items on layout
-        for (let i = 0; i < this._tpacpiPopup.length; i++) {
-
-          const { config, title } = this._tpacpiPopup[i]
-          this.menu.addMenuItem(new ThermalTitle(title))
-
-          for (let j = 0; j < config.length; j++) {
-            const item = new ThermalItem(config[j])
-            this._tpacpiPopup[i].items.push(item as any)
-            this.menu.addMenuItem(item)
-          }
-
-          if (i < (this._tpacpiPopup.length - 1)) {
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem)
-          }
-        }
+        // add Fan control items to popup
+        this._attach(ThermalTitle, "tpt-popup-title", "Fan control")
+        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.status, "Status", { hideOrnament: true })
+        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.speed, "Speed", { unit: UNIT.rpm, hideOrnament: true })
+        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.level, "Level", { hideOrnament: true })
       }
     }
   }
@@ -721,7 +665,7 @@ class ThinkPadThermal {
   }
 
   enable() {
-    this._indicator = new Indicator(0.0, _('ThinkPad Thermal'))
+    this._indicator = new Indicator(St.Align.START, _('ThinkPad Thermal'))
     Main.panel.addToStatusArea(this._uuid, this._indicator)
   }
 
