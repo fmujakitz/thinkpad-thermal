@@ -1,13 +1,13 @@
-![ThinkPad Thermal GNOME Shell Extension](images/preview.png)
+![ThinkPad Thermal GNOME Shell Extension](images/screen.png)
 
 # ThinkPad Thermal GNOME Shell Extension
 <b>Extension that displays thermal and fan status on ThinkPads</b>
 
-Uses <code>thinkpad_acpi</code>, ie. values from
-<code>/proc/acpi/ibm/thermal</code> and
-<code>/proc/acpi/ibm/fan</code>.
-
-Read more on https://www.kernel.org/doc/Documentation/laptops/thinkpad-acpi.txt
+## Requirements
+- [thinkpad-acpi](https://www.kernel.org/doc/Documentation/laptops/thinkpad-acpi.txt), check contents of `/proc/acpi/ibm/thermal` and `/proc/acpi/ibm/fan`
+- [lm-sensors](https://github.com/lm-sensors/lm-sensors), make sure to run `sensors-detect`
+- `lscpu`
+- `lsblk`
 
 
 ## Install
@@ -25,8 +25,9 @@ You can clone this repo and build the extension manually with <code>yarn build:p
 ## Todo
   - [x] Gnome 42
   - [x] thinkpad-acpi
-  - [ ] lm-sensors
-  - [ ] udisks2
+  - [x] lm-sensors
+  - [x] lscpu
+  - [x] lsblk
   - [ ] Settings dialog
   - [ ] Gnome 43
 
