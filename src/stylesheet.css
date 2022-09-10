@@ -41,8 +41,13 @@
   padding-top: 0px;
   padding-right: 16px;
   padding-bottom: 4px;
-  padding-left: 16px;
   margin-bottom: 8px;
+}
+
+.tpt-popup-item,
+.tpt-popup-submenu,
+.tpt-popup-submenu-item {
+  padding-left: 16px;
 }
 
 .tpt-popup-item .value,

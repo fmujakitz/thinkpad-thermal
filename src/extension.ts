@@ -21,12 +21,10 @@ const _ = (text: string) => text
 
 const debug = (str: string) => console.log(["[tpt] => ", str].join(''))
 
-const iconFrom = (filename: string) => {
-  const p = [Me.path, 'icons', filename]
-    .join('/')
-    .replace(/\/+/igm, '/')
-  return Gio.icon_new_for_string(p)
-}
+const iconFrom = (filename: string) => Gio.icon_new_for_string(
+  [Me.path, 'icons', filename].join('/').replace(/\/+/igm, '/')
+)
+
 const $_ = (...args) => args.join('-')
 
 const UNIT = {
@@ -46,6 +44,7 @@ const ICON: {
   cpu: { gicon: iconFrom('cpu-symbolic.svg'), size: 12 },
   gpu: { gicon: iconFrom('gpu-symbolic.svg'), size: 14 },
   hdd: { gicon: iconFrom('hdd-symbolic.svg'), size: 14 },
+  sensor: { gicon: iconFrom('sensor-symbolic.svg'), size: 14 }
 }
 
 class ConsoleUtil {
@@ -634,7 +633,7 @@ const Indicator = GObject.registerClass(
         // attach submenu for disks
         if (this._sensors.hdd) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.hdd, "Disks", { icon: ICON.hdd, unit: UNIT.celsius })
         // attach submenu for other thermal sensors
-        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.other, "Thermal", { icon: ICON.fan, unit: UNIT.celsius })
+        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.other, "Thermal", { icon: ICON.sensor, unit: UNIT.celsius })
         // attach submenu for fans
         if (this._sensors.fan) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.fan, "Cooling", { icon: ICON.fan, unit: UNIT.rpm })
 
