@@ -183,13 +183,14 @@ class SensorsUtil extends ConsoleUtil {
 
   private simplify(obj) {
     const input = new RegExp(/input$/)
+    const fans = new RegExp(/^fan/i)
 
     return Object.keys(obj).reduce((acc, key) => {
       const inner = Object.keys(obj[key]).find(k => input.test(k))
 
       if (inner) {
         let value = obj[key][inner]
-        if (value > 0) {
+        if (value > 0 || fans.test(key)) {
           if (typeof value === 'number') value = value.toString()
           acc[key] = value
         }
