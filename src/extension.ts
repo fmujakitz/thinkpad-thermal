@@ -71,7 +71,7 @@ class ConsoleUtil {
       }
     }
 
-    debug("ConsoleUtil " + this._command)
+    // debug("ConsoleUtil " + this._command)
 
 
   }
@@ -254,7 +254,7 @@ class SensorsUtil extends ConsoleUtil {
 
   private parse(str: string) {
     this._data = this.organize(this.simplify(JSON.parse(str)))
-    console.log(this._data)
+    // console.log(this._data)
   }
 
   update() {
@@ -447,10 +447,7 @@ const ThermalItem = GObject.registerClass(
   }
 )
 
-// const ThermalGroupItem = GObject.registerClass(
-//   class ThermalGroupItem extends PopupMenu
-// )
-type ChildrenUpdaterFn = () => object[]
+type ChildrenUpdaterFn = () => object
 type ThermalGroupChild = {
   key: string
   element: any
@@ -483,7 +480,6 @@ const ThermalGroup = GObject.registerClass(
     }
 
     update() {
-      console.log('should update thermal group')
       this._children.forEach(({ element }) => element.update())
     }
   }
@@ -554,7 +550,6 @@ const Indicator = GObject.registerClass(
     _elements: string[] = ['cpu', 'gpu', 'speed']
     _updateInterval: GLib.Source | any
 
-
     constructor(...args) {
       super(...args)
 
@@ -584,10 +579,12 @@ const Indicator = GObject.registerClass(
       if (this._tpAcpi.available) this._tpAcpi.update()
       if (this._sensors.available) this._sensors.update()
 
-      // update values for all bound elements
-      this._bindings.forEach(({ element }) => {
-        if (typeof element.update === 'function') element.update()
-      })
+      // update values for non static bound elements
+      this._bindings
+        .filter(({ type }) => !['separator', 'tpt-popup-title'].includes(type))
+        .forEach(({ element }) => {
+          if (typeof element.update === 'function') element.update()
+        })
     }
     // create and attach element to bindings
     _attach(Element, type: BindingType, ...args) {
@@ -598,8 +595,7 @@ const Indicator = GObject.registerClass(
 
       const element = new Element(type, ...args)
       this._bindings.push({ type, element })
-      // place attached element
-      console.log('should place: ' + type)
+
 
       if (['tpt-button'].includes(type))
         this._buttonLayout.add_child(element)
@@ -633,22 +629,14 @@ const Indicator = GObject.registerClass(
       if (this._sensors.available) {
 
         // attach submenu for every cpu
-        if (this._sensors.cpu) {
-          Object.keys(this._sensors.cpu)
-            .forEach(k => this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.cpu[k], k, { icon: ICON.cpu, unit: UNIT.celsius }))
-        }
-
-        if (this._sensors.hdd) {
-          this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.hdd, "Disks", { icon: ICON.hdd, unit: UNIT.celsius })
-        }
-
-        if (this._sensors.other) {
-          this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.other, "Thermal", { icon: ICON.fan, unit: UNIT.celsius })
-        }
-
-        if (this._sensors.fan) {
-          this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.fan, "Cooling", { icon: ICON.fan, unit: UNIT.rpm })
-        }
+        if (this._sensors.cpu) Object.keys(this._sensors.cpu)
+          .forEach(k => this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.cpu[k], k, { icon: ICON.cpu, unit: UNIT.celsius }))
+        // attach submenu for disks
+        if (this._sensors.hdd) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.hdd, "Disks", { icon: ICON.hdd, unit: UNIT.celsius })
+        // attach submenu for other thermal sensors
+        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.other, "Thermal", { icon: ICON.fan, unit: UNIT.celsius })
+        // attach submenu for fans
+        if (this._sensors.fan) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.fan, "Cooling", { icon: ICON.fan, unit: UNIT.rpm })
 
       }
 
