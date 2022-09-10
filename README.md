@@ -1,4 +1,4 @@
-![ThinkPad Thermal GNOME Shell Extension](images/preview.png)
+![ThinkPad Thermal GNOME Shell Extension](images/screen.png)
 
 # ThinkPad Thermal GNOME Shell Extension
 <b>Extension that displays thermal and fan status on ThinkPads</b>
