@@ -254,7 +254,7 @@ class SensorsUtil extends ConsoleUtil {
 
   private parse(str: string) {
     this._data = this.organize(this.simplify(JSON.parse(str)))
-    // console.log(this._data)
+    console.log(this._data)
   }
 
   update() {
@@ -419,9 +419,11 @@ const ThermalItem = GObject.registerClass(
         x_expand: true
       })
 
+      const value = updater()
+
       this._value = new St.Label({
         style_class: 'value',
-        text: updater()
+        text: typeof value === 'string' ? value : 'N/A'
       })
 
       const els = [this._label, this._value]
@@ -462,13 +464,14 @@ const ThermalGroup = GObject.registerClass(
 
     constructor(style_class: string, updater: ChildrenUpdaterFn, label: string, props?: ThermalGroupProps) {
       super(label, true)
-
       this.add_style_class_name(style_class)
       this.setOrnament(PopupMenu.Ornament.HIDDEN)
 
       if (props?.icon) this.icon.gicon = props?.icon.gicon
 
       const data = updater()
+      console.log("Generating Thermal group")
+      console.log(data)
       this._children = Object.keys(data).map(key => ({
         key,
         // @ts-expect-error
