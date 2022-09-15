@@ -254,7 +254,6 @@ class SensorsUtil extends ConsoleUtil {
 
   private parse(str: string) {
     this._data = this.organize(this.simplify(JSON.parse(str)))
-    console.log(this._data)
   }
 
   update() {
@@ -283,11 +282,12 @@ class SensorsUtil extends ConsoleUtil {
 
 }
 type IbmAcpiData = {
-  cpu: number,
-  gpu: number,
-  status: string,
-  speed: number,
+  cpu: number
+  gpu: number
+  status: string
+  speed: number
   level: string
+  levels: string[]
 }
 class IbmAcpiUtil extends ConsoleUtil {
   private _data: IbmAcpiData = {
@@ -295,7 +295,8 @@ class IbmAcpiUtil extends ConsoleUtil {
     gpu: 0,
     status: '...',
     speed: 0,
-    level: '...'
+    level: '...',
+    levels: []
   }
 
   constructor() {
@@ -324,17 +325,62 @@ class IbmAcpiUtil extends ConsoleUtil {
 
     const [cpu, gpu] = getVal(row[0]).split(' ')
 
+    const [mm, ...rest] = row[4]
+      .split('(<level> is')[1]
+      .replace(/ +/im, '')
+      .replace(/\)$/im, '')
+      .split(', ')
+      .filter(e => e !== 'disengaged')
+
+    const max = parseInt(mm.split('-')[1])
+    const nums = Array.from(Array(max), (_, i) => (i + 1).toString())
+    const levels = [...nums, ...rest]
+
     this._data = {
       cpu: parseInt(cpu),
       gpu: parseInt(gpu),
       status: getVal(row[1]),
       speed: parseInt(getVal(row[2])),
-      level: getVal(row[3])
+      level: getVal(row[3]),
+      levels
     }
   }
 
   update() {
     super.execute(this.parse.bind(this))
+  }
+
+  setLevel(next) {
+    const cmd = `pkexec sh -c "echo level ${next} | tee /proc/acpi/ibm/fan"`
+    const [ok, argv] = GLib.shell_parse_argv(cmd)
+
+    debug(`Setting fan level to: ${next}`)
+
+    if (ok && argv?.length) {
+
+      try {
+        let proc = Gio.Subprocess.new(
+          argv,
+          Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+        )
+        proc.communicate_utf8_async(null, null, (proc, res) => {
+          if (proc) {
+            try {
+              let [, stdout, stderr] = proc?.communicate_utf8_finish(res)
+
+              if (!proc?.get_successful()) throw new Error(stderr)
+              console.log(stdout)
+            } catch (e) {
+              logError(e)
+            }
+          }
+        })
+      } catch (e) {
+        logError(e)
+      }
+    }
+
+
   }
 
   get cpu() {
@@ -351,6 +397,9 @@ class IbmAcpiUtil extends ConsoleUtil {
   }
   get level() {
     return this._data.level
+  }
+  get levels() {
+    return this._data.levels
   }
 }
 
@@ -488,6 +537,52 @@ const ThermalGroup = GObject.registerClass(
   }
 )
 
+const ThermalDropDown = GObject.registerClass(
+  class ThermalDropDown extends PopupMenu.PopupSubMenuMenuItem {
+    _value: St.Label
+    _updater: () => string
+    _children
+
+    constructor(style_class: string, updater: () => string, label: string, items: string[], action: (id) => void) {
+      super(label, false)
+      this.add_style_class_name(style_class)
+      this.setOrnament(PopupMenu.Ornament.HIDDEN)
+
+      this._updater = updater
+
+      this._value = new St.Label({
+        style_class: 'value',
+        text: updater(),
+        x_align: Clutter.ActorAlign.END,
+        x_expand: false
+      })
+
+      this.insert_child_at_index(this._value, this.get_children().length - 1)
+
+      this._children = items.map(key => {
+        const element = new PopupMenu.PopupBaseMenuItem({
+          style_class: 'tpt-popup-dropdown-item'
+        })
+        element.add_child(new St.Label({
+          style_class: 'label',
+          text: key,
+          x_align: Clutter.ActorAlign.END,
+          x_expand: true
+        }))
+        element.connect("activate", () => action(key))
+
+        return ({ key, element })
+      })
+
+      this._children.forEach(({ element }) => this.menu.addMenuItem(element, undefined))
+    }
+
+    update() {
+      this._value.set_text(this._updater())
+    }
+  }
+)
+
 type UpdaterFn = () => string
 type IndicatorItem = {
   update: (value: string, unit?: string) => void
@@ -536,7 +631,7 @@ const IndicatorItem = GObject.registerClass(
   }
 )
 
-type BindingType = "tpt-button" | "tpt-popup-title" | "tpt-popup-item" | "tpt-popup-submenu" | "separator"
+type BindingType = "tpt-button" | "tpt-popup-title" | "tpt-popup-item" | "tpt-popup-submenu" | "separator" | "tpt-popup-dropdown"
 type Binding = {
   type: BindingType
   element: any
@@ -603,7 +698,7 @@ const Indicator = GObject.registerClass(
       if (['tpt-button'].includes(type))
         this._buttonLayout.add_child(element)
 
-      if (['tpt-popup-submenu', 'tpt-popup-title', 'tpt-popup-item'].includes(type))
+      if (['tpt-popup-dropdown', 'tpt-popup-submenu', 'tpt-popup-title', 'tpt-popup-item'].includes(type))
         this.menu.addMenuItem(element)
     }
     // cleanup on destroy
@@ -654,7 +749,13 @@ const Indicator = GObject.registerClass(
         this._attach(ThermalTitle, "tpt-popup-title", "Fan control")
         this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.status, "Status", { hideOrnament: true })
         this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.speed, "Speed", { unit: UNIT.rpm, hideOrnament: true })
-        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.level, "Level", { hideOrnament: true })
+
+        // show dropdown if fan control is enabled
+        if (this._tpAcpi.status === 'enabled') {
+          this._attach(ThermalDropDown, "tpt-popup-dropdown", () => this._tpAcpi.level, "Levels", this._tpAcpi.levels, a => this._tpAcpi.setLevel(a))
+        } else {
+          this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.level, "Level", { hideOrnament: true })
+        }
       }
     }
   }
