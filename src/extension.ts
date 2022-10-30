@@ -5,21 +5,19 @@ import * as GObject from "@gi-types/gobject2"
 import * as St from "@gi-types/st1"
 import "./stylesheet.css"
 
-// const GETTEXT_DOMAIN = 'my-indicator-extension'
-
 import * as PanelMenu from "@gnomejs/panelMenu"
 import * as PopupMenu from "@gnomejs/popupMenu"
 
 const ExtensionUtils = imports.misc.extensionUtils
 const Main = imports.ui.main
-const ByteArray = imports.byteArray
 const Me = ExtensionUtils.getCurrentExtension()
 
+
+// const GETTEXT_DOMAIN = 'my-indicator-extension'
 // const _ = ExtensionUtils.gettext
 
 const _ = (text: string) => text
-
-const debug = (str: string) => console.log(["[tpt] => ", str].join(''))
+const $$ = (...args: string[]): string => ['[tpt]', '=>', ...args].join(' ')
 
 const iconFrom = (filename: string) => Gio.icon_new_for_string(
   [Me.path, 'icons', filename].join('/').replace(/\/+/igm, '/')
@@ -69,29 +67,33 @@ class ConsoleUtil {
         this._command = ['cat', ...program, ...args].join(' ')
       }
     }
-
-    // debug("ConsoleUtil " + this._command)
-
-
   }
 
-  execute(callback) {
+  async execute(callback) {
     try {
-      if (this.available) {
-        const [ok, out, err] = GLib.spawn_command_line_sync(this._command)
+      if (!this.available) throw new Error("Util not available")
 
-        if (!ok) {
-          throw new Error(ByteArray.toString(err))
-        }
+      const [ok, argv] = GLib.shell_parse_argv(this._command)
 
-        if (ok && out) {
-          const str = ByteArray.toString(out)
-          return callback(str)
-        }
-      }
-    } catch (e: any) {
-      // error here
-      debug('catch err :: ' + e)
+      if (!ok || !argv) throw new Error("Unable to parse util arguments")
+
+      const p = new Promise((resolve, reject) => {
+        let proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
+        proc.communicate_utf8_async(null, null, (proc, res) => {
+          try {
+            if (!proc) throw new Error("Util subprocess error")
+            let [, stdout, stderr] = proc?.communicate_utf8_finish(res)
+            if (!proc?.get_successful()) throw new Error(stderr)
+            resolve(stdout)
+          } catch (e) {
+            reject(e)
+          }
+        })
+      })
+
+      callback(await p)
+    } catch (e) {
+      logError(e)
     }
   }
 
@@ -121,7 +123,7 @@ class LscpuUtil extends ConsoleUtil {
   }
 
   update() {
-    super.execute(this.parse.bind(this))
+    return super.execute(this.parse.bind(this))
   }
 
   get name() {
@@ -140,6 +142,7 @@ class LsblkUtil extends ConsoleUtil {
 
   private simplify(obj) {
     return obj.blockdevices.reduce((acc, { hctl, model }) => {
+      if (!hctl) return acc
       const [a, b] = hctl.split(':')
       const key = ['drivetemp', 'scsi', a, b].join('-')
       acc[key] = model
@@ -152,7 +155,7 @@ class LsblkUtil extends ConsoleUtil {
   }
 
   update() {
-    super.execute(this.parse.bind(this))
+    return super.execute(this.parse.bind(this))
   }
 
   name(key: string) {
@@ -257,7 +260,7 @@ class SensorsUtil extends ConsoleUtil {
   }
 
   update() {
-    super.execute(this.parse.bind(this))
+    return super.execute(this.parse.bind(this))
   }
 
   private verify(obj) {
@@ -347,14 +350,14 @@ class IbmAcpiUtil extends ConsoleUtil {
   }
 
   update() {
-    super.execute(this.parse.bind(this))
+    return super.execute(this.parse.bind(this))
   }
 
   setLevel(next) {
     const cmd = `pkexec sh -c "echo level ${next} | tee /proc/acpi/ibm/fan"`
     const [ok, argv] = GLib.shell_parse_argv(cmd)
 
-    debug(`Setting fan level to: ${next}`)
+    log(`Setting fan level to: ${next}`)
 
     if (ok && argv?.length) {
 
@@ -369,14 +372,14 @@ class IbmAcpiUtil extends ConsoleUtil {
               let [, stdout, stderr] = proc?.communicate_utf8_finish(res)
 
               if (!proc?.get_successful()) throw new Error(stderr)
-              console.log(stdout)
+              // done
             } catch (e) {
-              logError(e)
+              logError(e as Error)
             }
           }
         })
       } catch (e) {
-        logError(e)
+        logError(e as Error)
       }
     }
 
@@ -519,8 +522,7 @@ const ThermalGroup = GObject.registerClass(
       if (props?.icon) this.icon.gicon = props?.icon.gicon
 
       const data = updater()
-      console.log("Generating Thermal group")
-      console.log(data)
+
       this._children = Object.keys(data).map(key => ({
         key,
         // @ts-expect-error
@@ -654,8 +656,15 @@ const Indicator = GObject.registerClass(
       this._tpAcpi = new IbmAcpiUtil()
       this._sensors = new SensorsUtil()
 
+      console.log('Indicator constructor')
+      this._start()
+    }
+
+    _start = async () => {
       if (this._tpAcpi.available) {
+        await this._tpAcpi.update()
         this.appendButton()
+        if (this._sensors.available) await this._sensors.update()
         this.appendPopupMenu()
       } else {
         this._buttonLayout.add_child(new St.Label({ text: "ThinkPad ACPI is not available" }))
@@ -673,9 +682,12 @@ const Indicator = GObject.registerClass(
     _toFahrenheit = (temp: number): number => (temp * (9 / 5)) + 32
 
     // perform update
-    _update = () => {
-      if (this._tpAcpi.available) this._tpAcpi.update()
-      if (this._sensors.available) this._sensors.update()
+    _update = async () => {
+      // get the data
+      await Promise.all([
+        this._tpAcpi.available ? this._tpAcpi.update() : null,
+        this._sensors.available ? this._sensors.update() : null
+      ].filter(p => p != null))
 
       // update values for non static bound elements
       this._bindings

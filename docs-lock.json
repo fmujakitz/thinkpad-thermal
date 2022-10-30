@@ -1702,6 +1702,16 @@
     },
     {
         "name": "Handy",
+        "api_version": "0.0",
+        "c_prefix": [
+            "hdy"
+        ],
+        "path": "/usr/share/gir-1.0/Handy-0.0.gir",
+        "id": "Handy-0.0.gir",
+        "slug": "handy00"
+    },
+    {
+        "name": "Handy",
         "api_version": "1",
         "c_prefix": [
             "hdy"
@@ -4264,6 +4274,16 @@
         "path": "/usr/share/gir-1.0/GXPS-0.1.gir",
         "id": "GXPS-0.1.gir",
         "slug": "gxps01"
+    },
+    {
+        "name": "Handy",
+        "api_version": "0.0",
+        "c_prefix": [
+            "hdy"
+        ],
+        "path": "/usr/share/gir-1.0/Handy-0.0.gir",
+        "id": "Handy-0.0.gir",
+        "slug": "handy00"
     },
     {
         "name": "Handy",
