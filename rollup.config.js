@@ -43,8 +43,8 @@ try {
 const extensionFooter = `
 }
 catch(err) {
-  log(\`[pano] [init] \$\{err\}\`);
-  imports.ui.main.notify('Pano', \`\$\{err\}\`);
+  log(\`[tpt] [init] \$\{err\}\`);
+  imports.ui.main.notify('ThinkpadThermal', \`\$\{err\}\`);
   throw err;
 }
 `
@@ -59,8 +59,8 @@ export default [
       file: `${buildPath}/extension.js`,
       format: 'iife',
       name: 'init',
-      // banner: extensionBanner,
-      // footer: extensionFooter,
+      banner: extensionBanner,
+      footer: extensionFooter,
       exports: 'default',
       globals,
       assetFileNames: '[name][extname]',
