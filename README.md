@@ -31,7 +31,7 @@ You can clone this repo and build the extension manually with <code>yarn build:p
   - [x] lscpu
   - [x] lsblk
   - [ ] Settings dialog
-  - [ ] Gnome 43
+  - [x] Gnome 43
   - [x] Fan speed control
 
 
