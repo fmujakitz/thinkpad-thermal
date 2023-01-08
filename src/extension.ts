@@ -328,16 +328,21 @@ class IbmAcpiUtil extends ConsoleUtil {
 
     const [cpu, gpu] = getVal(row[0]).split(' ')
 
-    const [mm, ...rest] = row[4]
-      .split('(<level> is')[1]
-      .replace(/ +/im, '')
-      .replace(/\)$/im, '')
-      .split(', ')
-      .filter(e => e !== 'disengaged')
+    let levels: string[] = []
 
-    const max = parseInt(mm.split('-')[1])
-    const nums = Array.from(Array(max), (_, i) => (i + 1).toString())
-    const levels = [...nums, ...rest]
+    if (row[4]) {
+      const [mm, ...rest] = row[4]
+        .split('(<level> is')[1]
+        .replace(/ +/im, '')
+        .replace(/\)$/im, '')
+        .split(', ')
+        .filter(e => e !== 'disengaged')
+
+      const max = parseInt(mm.split('-')[1])
+      const nums = Array.from(Array(max), (_, i) => (i + 1).toString())
+      levels = [...nums, ...rest]
+    }
+
 
     this._data = {
       cpu: parseInt(cpu),
@@ -763,7 +768,7 @@ const Indicator = GObject.registerClass(
         this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.speed, "Speed", { unit: UNIT.rpm, hideOrnament: true })
 
         // show dropdown if fan control is enabled
-        if (this._tpAcpi.status === 'enabled') {
+        if (this._tpAcpi.status === 'enabled' && this._tpAcpi.levels.length) {
           this._attach(ThermalDropDown, "tpt-popup-dropdown", () => this._tpAcpi.level, "Levels", this._tpAcpi.levels, a => this._tpAcpi.setLevel(a))
         } else {
           this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.level, "Level", { hideOrnament: true })
