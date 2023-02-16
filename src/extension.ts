@@ -665,9 +665,19 @@ const Indicator = GObject.registerClass(
       this._start()
     }
 
+    _checkElements = () => {
+      // check the reading for dedicated gpu
+      // remove the element in case of anything <= 0
+      // since reading of unavailable sensor appears to be either -128 or 0
+      if (parseInt(this._tpAcpi.gpu) <= 0) {
+        this._elements = this._elements.filter(e => e !== 'gpu')
+      }
+    }
+
     _start = async () => {
       if (this._tpAcpi.available) {
         await this._tpAcpi.update()
+        this._checkElements()
         this.appendButton()
         if (this._sensors.available) await this._sensors.update()
         this.appendPopupMenu()
@@ -759,8 +769,12 @@ const Indicator = GObject.registerClass(
       if (this._tpAcpi.available) {
         // add ACPI items to popup
         this._attach(ThermalTitle, "tpt-popup-title", "ACPI")
-        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.cpu, "CPU", { unit: UNIT.celsius, icon: ICON.cpu })
-        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.gpu, "GPU", { unit: UNIT.celsius, icon: ICON.gpu })
+        if (this.element('cpu')) {
+          this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.cpu, "CPU", { unit: UNIT.celsius, icon: ICON.cpu })
+        }
+        if (this.element('gpu')) {
+          this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.gpu, "GPU", { unit: UNIT.celsius, icon: ICON.gpu })
+        }
 
         // add Fan control items to popup
         this._attach(ThermalTitle, "tpt-popup-title", "Fan control")
