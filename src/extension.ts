@@ -600,9 +600,9 @@ const IndicatorItem = GObject.registerClass(
     _icon: St.Icon
     _value: St.Label
     _unit: St.Label
+    _off: St.Label | false
 
     constructor(style_class: string, updater: UpdaterFn, icon: IconType, unit: string) {
-      // constructor(id: string, icon: IconType, value: string, unit: string) {
       super({ style_class })
 
       this._updater = updater
@@ -626,14 +626,35 @@ const IndicatorItem = GObject.registerClass(
         y_align: Clutter.ActorAlign.CENTER
       })
 
+      this._off = unit === 'RPM' ? new St.Label({
+        text: 'OFF',
+        style_class: 'unit',
+        y_align: Clutter.ActorAlign.CENTER,
+      }) : false
+
       const els = [this._icon, this._value, this._unit]
       els.forEach(el => this.add_child(el))
+
+      if (this._off) this.add_child(this._off)
+
+      this.update()
+    }
+
+    private off(hide) {
+      if (!this._off) return
+
+      this._off.visible = hide
+      this._unit.visible = !hide
+      this._value.visible = !hide
     }
 
     update(unit?: string) {
-      const value = this._updater()
-      this._value.set_text(value)
+      const v = this._updater()
+      this._value.set_text(v)
+
       if (unit) this._unit.set_text(unit)
+
+      this.off(v === "0")
     }
   }
 )
@@ -661,7 +682,6 @@ const Indicator = GObject.registerClass(
       this._tpAcpi = new IbmAcpiUtil()
       this._sensors = new SensorsUtil()
 
-      console.log('Indicator constructor')
       this._start()
     }
 
