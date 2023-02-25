@@ -10,22 +10,14 @@
     "types:clean": "rm -rf ./@types",
     "types:lock": "rm -rf docs-lock.json && cross-env XDG_DATA_DIRS=$XDG_DATA_DIRS:/usr/share/gir-1.0:/usr/share/gnome-shell:/usr/lib/mutter-10:/usr/lib64/mutter-10 yarn run gi-ts config --lock",
     "types:build": "yarn run types:clean && gi-ts generate",
-    "locale:gen": "yarn run ts-node scripts/generateLocale.ts",
-    "schema:build": "yarn run clean:schema && glib-compile-schemas ./resources/schemas --targetdir=./dist/schemas/",
-    "schema:clean": "rm -rf ./dist/schemas/*.compiled",
-    "build:old": "yarn run types:lock && yarn run types:build && yarn run build:ts && yarn run locale:gen && yarn run build:extension",
-    "build": "yarn run types:lock && yarn run types:build && yarn run build:ts",
-    "clean": "yarn run clean:ts && yarn run build:types",
-    "build:ts": "yarn run clean:ts && rollup -c",
+    "clean": "yarn run clean:ts && yarn run types:build",
     "clean:ts": "rm -rf ./dist",
-    "build:extension": "yarn run build:schema",
-    "build:package:old": "yarn run build && rm -rf './dist/name.zip' && cd ./dist && zip -qr 'name.zip' .",
+    "build": "yarn run types:lock && yarn run types:build && yarn run build:ts",
+    "build:ts": "yarn run clean:ts && rollup -c",
     "build:package": "yarn run build:ts && cd ./dist && zip -qr 'thinkpadthermal@moonlight.drive.vk.gmail.com.zip' .",
     "build:dev": "yarn build:ts && cp dist/* ~/.local/share/gnome-shell/extensions/thinkpadthermal@moonlight.drive.vk.gmail.com -r",
     "watch": "yarn run build && yarn run rollup -c --watch",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "shell:restart": "busctl --user call org.gnome.Shell /io/elhan/Pano io.elhan.Pano restart",
-    "build-and-restart": "yarn run build && yarn run shell:restart"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
     "@gi.ts/cli": "^1.5.10",
@@ -67,13 +59,6 @@
     "@gi-types/pango1": "^1.50.1",
     "@gi-types/shell0": "^0.1.1",
     "@gi-types/soup3": "^3.0.1",
-    "@gi-types/st1": "^1.0.1",
-    "date-fns": "^2.29.2",
-    "highlight.js": "^11.6.0",
-    "htmlparser2": "^8.0.1",
-    "is-url": "^1.2.4",
-    "pretty-bytes": "^6.0.0",
-    "prismjs": "^1.28.0",
-    "validate-color": "^2.2.1"
+    "@gi-types/st1": "^1.0.1"
   }
 }
