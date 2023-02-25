@@ -683,6 +683,8 @@ const Indicator = GObject.registerClass(
       this._sensors = new SensorsUtil()
 
       this._start()
+
+      this.style_class = "tpt"
     }
 
     _checkElements = () => {
@@ -821,7 +823,7 @@ class ThinkPadThermal {
   }
 
   enable() {
-    this._indicator = new Indicator(St.Align.START, _('ThinkPad Thermal'))
+    this._indicator = new Indicator(0.5, _('ThinkPad Thermal'))
     Main.panel.addToStatusArea(this._uuid, this._indicator)
   }
 
