@@ -33,3 +33,4 @@ You can clone this repo and build the extension manually with <code>yarn build:p
   - [ ] Settings dialog
   - [x] Gnome 43
   - [x] Fan speed control
+  - [x] Gnome 44
