@@ -684,7 +684,8 @@ const Indicator = GObject.registerClass(
 
       this._start()
 
-      this.style_class = "tpt"
+      // applying the style class overrides default styling
+      // this.style_class = "tpt"
     }
 
     _checkElements = () => {
