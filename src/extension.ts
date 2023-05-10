@@ -210,6 +210,7 @@ class SensorsUtil extends ConsoleUtil {
     const drives = new RegExp(/^drivetemp/i)
     const batteries = new RegExp(/^bat/i)
     const tpisa = new RegExp(/^thinkpad-isa/i)
+    const temp = new RegExp(/^temp/i)
 
     return Object.keys(data).reduce((acc, key) => {
       let value = data[key]
@@ -245,6 +246,17 @@ class SensorsUtil extends ConsoleUtil {
             acc[k] = value[k].toString()
             return acc
           }, {})
+
+        return acc
+      }
+
+      if (typeof value === 'object') {
+        Object.keys(value)
+          .filter(k => temp.test(k))
+          .map(k => {
+            const subkey = [key, k].join('-')
+            acc.other[subkey] = value[k]
+          })
 
         return acc
       }
