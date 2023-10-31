@@ -1,23 +1,27 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported ScreenShield */
 
-const {
-    AccountsService, Clutter, Gio,
-    GLib, Graphene, Meta, Shell, St,
-} = imports.gi;
-const Signals = imports.misc.signals;
+import AccountsService from 'gi://AccountsService';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Graphene from 'gi://Graphene';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const GnomeSession = imports.misc.gnomeSession;
-const OVirt = imports.gdm.oVirt;
-const LoginManager = imports.misc.loginManager;
-const Lightbox = imports.ui.lightbox;
-const Main = imports.ui.main;
-const Overview = imports.ui.overview;
-const MessageTray = imports.ui.messageTray;
-const ShellDBus = imports.ui.shellDBus;
-const SmartcardManager = imports.misc.smartcardManager;
+import * as Signals from '../misc/signals.js';
 
-const { adjustAnimationTime } = imports.ui.environment;
+import * as GnomeSession from '../misc/gnomeSession.js';
+import * as OVirt from '../gdm/oVirt.js';
+import * as LoginManager from '../misc/loginManager.js';
+import * as Lightbox from './lightbox.js';
+import * as Main from './main.js';
+import * as Overview from './overview.js';
+import * as MessageTray from './messageTray.js';
+import * as ShellDBus from './shellDBus.js';
+import * as SmartcardManager from '../misc/smartcardManager.js';
+
+import {adjustAnimationTime} from '../misc/animationUtils.js';
 
 const SCREENSAVER_SCHEMA = 'org.gnome.desktop.screensaver';
 const LOCK_ENABLED_KEY = 'lock-enabled';
@@ -33,9 +37,9 @@ const LOCKED_STATE_STR = 'screenShield.locked';
 // - MANUAL_FADE_TIME is used for lowering the shield when asked by the user,
 //   or when cancelling the dialog
 // - CURTAIN_SLIDE_TIME is used when raising the shield before unlocking
-var STANDARD_FADE_TIME = 10000;
-var MANUAL_FADE_TIME = 300;
-var CURTAIN_SLIDE_TIME = 300;
+const STANDARD_FADE_TIME = 10000;
+const MANUAL_FADE_TIME = 300;
+const CURTAIN_SLIDE_TIME = 300;
 
 /**
  * If you are setting org.gnome.desktop.session.idle-delay directly in dconf,
@@ -45,7 +49,7 @@ var CURTAIN_SLIDE_TIME = 300;
  * This will ensure that the screen blanks at the right time when it fades out.
  * https://bugzilla.gnome.org/show_bug.cgi?id=668703 explains the dependency.
  */
-var ScreenShield = class extends Signals.EventEmitter {
+export class ScreenShield extends Signals.EventEmitter {
     constructor() {
         super();
 
@@ -66,7 +70,7 @@ var ScreenShield = class extends Signals.EventEmitter {
             y_expand: true,
             reactive: true,
             can_focus: true,
-            pivot_point: new Graphene.Point({ x: 0.5, y: 0.5 }),
+            pivot_point: new Graphene.Point({x: 0.5, y: 0.5}),
             name: 'lockDialogGroup',
         });
 
@@ -89,29 +93,25 @@ var ScreenShield = class extends Signals.EventEmitter {
 
         this._smartcardManager = SmartcardManager.getSmartcardManager();
         this._smartcardManager.connect('smartcard-inserted',
-                                       (manager, token) => {
-                                           if (this._isLocked && token.UsedToLogin)
-                                               this._activateDialog();
-                                       });
+            (manager, token) => {
+                if (this._isLocked && token.UsedToLogin)
+                    this._activateDialog();
+            });
 
-        this._oVirtCredentialsManager = OVirt.getOVirtCredentialsManager();
-        this._oVirtCredentialsManager.connect('user-authenticated',
-                                              () => {
-                                                  if (this._isLocked)
-                                                      this._activateDialog();
-                                              });
+        this._credentialManagers = {};
+        this.addCredentialManager(OVirt.SERVICE_NAME, OVirt.getOVirtCredentialsManager());
 
         this._loginManager = LoginManager.getLoginManager();
         this._loginManager.connect('prepare-for-sleep',
-                                   this._prepareForSleep.bind(this));
+            this._prepareForSleep.bind(this));
 
         this._loginSession = null;
         this._getLoginSession();
 
-        this._settings = new Gio.Settings({ schema_id: SCREENSAVER_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: SCREENSAVER_SCHEMA});
         this._settings.connect(`changed::${LOCK_ENABLED_KEY}`, this._syncInhibitor.bind(this));
 
-        this._lockSettings = new Gio.Settings({ schema_id: LOCKDOWN_SCHEMA });
+        this._lockSettings = new Gio.Settings({schema_id: LOCKDOWN_SCHEMA});
         this._lockSettings.connect(`changed::${DISABLE_LOCK_KEY}`, this._syncInhibitor.bind(this));
 
         this._isModal = false;
@@ -159,7 +159,7 @@ var ScreenShield = class extends Signals.EventEmitter {
         let prevIsActive = this._isActive;
         this._isActive = active;
 
-        if (prevIsActive != this._isActive)
+        if (prevIsActive !== this._isActive)
             this.emit('active-changed');
 
         this._syncInhibitor();
@@ -202,7 +202,7 @@ var ScreenShield = class extends Signals.EventEmitter {
         if (this._isModal)
             return true;
 
-        let grab = Main.pushModal(Main.uiGroup, { actionMode: Shell.ActionMode.LOCK_SCREEN });
+        let grab = Main.pushModal(Main.uiGroup, {actionMode: Shell.ActionMode.LOCK_SCREEN});
 
         // We expect at least a keyboard grab here
         this._isModal = (grab.get_seat_state() & Clutter.GrabState.KEYBOARD) !== 0;
@@ -254,7 +254,7 @@ var ScreenShield = class extends Signals.EventEmitter {
     }
 
     _onStatusChanged(status) {
-        if (status != GnomeSession.PresenceStatus.IDLE)
+        if (status !== GnomeSession.PresenceStatus.IDLE)
             return;
 
         this._maybeCancelDialog();
@@ -272,12 +272,13 @@ var ScreenShield = class extends Signals.EventEmitter {
             //
             // XXX: another option is to kick the user into the gdm login
             // screen, where we're not affected by grabs
-            Main.notifyError(_("Unable to lock"),
-                             _("Lock was blocked by an application"));
+            Main.notifyError(
+                _('Unable to lock'),
+                _('Lock was blocked by an app'));
             return;
         }
 
-        if (this._activationTime == 0)
+        if (this._activationTime === 0)
             this._activationTime = GLib.get_monotonic_time();
 
         let shouldLock = this._settings.get_boolean(LOCK_ENABLED_KEY) && !this._isLocked;
@@ -304,7 +305,7 @@ var ScreenShield = class extends Signals.EventEmitter {
         Main.uiGroup.set_child_above_sibling(lightbox, null);
         lightbox.lightOn(time);
 
-        if (this._becameActiveId == 0)
+        if (this._becameActiveId === 0)
             this._becameActiveId = this.idleMonitor.add_user_active_watch(this._onUserBecameActive.bind(this));
     }
 
@@ -389,32 +390,28 @@ var ScreenShield = class extends Signals.EventEmitter {
     }
 
     _hideLockScreen(animate) {
-        if (this._lockScreenState == MessageTray.State.HIDDEN)
+        if (this._lockScreenState === MessageTray.State.HIDDEN)
             return;
 
         this._lockScreenState = MessageTray.State.HIDING;
 
         this._lockDialogGroup.remove_all_transitions();
 
-        if (animate) {
-            // Animate the lock screen out of screen
-            // if velocity is not specified (i.e. we come here from pressing ESC),
-            // use the same speed regardless of original position
-            // if velocity is specified, it's in pixels per milliseconds
-            let h = global.stage.height;
-            let delta = h + this._lockDialogGroup.translation_y;
-            let velocity = global.stage.height / CURTAIN_SLIDE_TIME;
-            let duration = delta / velocity;
+        // Animate the lock screen out of screen
+        // if velocity is not specified (i.e. we come here from pressing ESC),
+        // use the same speed regardless of original position
+        // if velocity is specified, it's in pixels per milliseconds
+        const height = global.stage.height;
+        const delta = height + this._lockDialogGroup.translation_y;
+        const velocity = height / CURTAIN_SLIDE_TIME;
+        const duration = animate ? delta / velocity : 0;
 
-            this._lockDialogGroup.ease({
-                translation_y: -h,
-                duration,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => this._hideLockScreenComplete(),
-            });
-        } else {
-            this._hideLockScreenComplete();
-        }
+        this._lockDialogGroup.ease({
+            translation_y: -height,
+            duration,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => this._hideLockScreenComplete(),
+        });
 
         this._showPointer();
     }
@@ -461,7 +458,7 @@ var ScreenShield = class extends Signals.EventEmitter {
         // This prevents the shield going down if the lock-delay timeout
         // fires while the user is dragging (which has the potential
         // to confuse our state)
-        if (this._lockScreenState != MessageTray.State.HIDDEN)
+        if (this._lockScreenState !== MessageTray.State.HIDDEN)
             return;
 
         this._lockScreenGroup.show();
@@ -477,12 +474,12 @@ var ScreenShield = class extends Signals.EventEmitter {
                 duration: Overview.ANIMATION_TIME,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 onComplete: () => {
-                    this._lockScreenShown({ fadeToBlack, animateFade: true });
+                    this._lockScreenShown({fadeToBlack, animateFade: true});
                 },
             });
         } else {
             this._lockDialogGroup.translation_y = 0;
-            this._lockScreenShown({ fadeToBlack, animateFade: false });
+            this._lockScreenShown({fadeToBlack, animateFade: false});
         }
 
         this._dialog.grab_key_focus();
@@ -543,7 +540,7 @@ var ScreenShield = class extends Signals.EventEmitter {
     _continueDeactivate(animate) {
         this._hideLockScreen(animate);
 
-        if (Main.sessionMode.currentMode == 'unlock-dialog')
+        if (Main.sessionMode.currentMode === 'unlock-dialog')
             Main.sessionMode.popMode('unlock-dialog');
 
         this.emit('wake-up-screen');
@@ -589,12 +586,12 @@ var ScreenShield = class extends Signals.EventEmitter {
 
         this.actor.hide();
 
-        if (this._becameActiveId != 0) {
+        if (this._becameActiveId !== 0) {
             this.idleMonitor.remove_watch(this._becameActiveId);
             this._becameActiveId = 0;
         }
 
-        if (this._lockTimeoutId != 0) {
+        if (this._lockTimeoutId !== 0) {
             GLib.source_remove(this._lockTimeoutId);
             this._lockTimeoutId = 0;
         }
@@ -606,7 +603,7 @@ var ScreenShield = class extends Signals.EventEmitter {
     }
 
     activate(animate) {
-        if (this._activationTime == 0)
+        if (this._activationTime === 0)
             this._activationTime = GLib.get_monotonic_time();
 
         if (!this._ensureUnlockDialog(true))
@@ -641,6 +638,26 @@ var ScreenShield = class extends Signals.EventEmitter {
         // activate without animation in that case.
     }
 
+    addCredentialManager(serviceName, credentialManager) {
+        if (this._credentialManagers[serviceName])
+            return;
+
+        this._credentialManagers[serviceName] = credentialManager;
+        credentialManager.connectObject('user-authenticated', () => {
+            if (this._isLocked)
+                this._activateDialog();
+        }, this);
+    }
+
+    removeCredentialManager(serviceName) {
+        let credentialManager = this._credentialManagers[serviceName];
+        if (!credentialManager)
+            return;
+
+        credentialManager.disconnectObject(this);
+        delete this._credentialManagers[serviceName];
+    }
+
     lock(animate) {
         if (this._lockSettings.get_boolean(DISABLE_LOCK_KEY)) {
             log('Screen lock is locked down, not locking'); // lock, lock - who's there?
@@ -649,8 +666,9 @@ var ScreenShield = class extends Signals.EventEmitter {
 
         // Warn the user if we can't become modal
         if (!this._becomeModal()) {
-            Main.notifyError(_("Unable to lock"),
-                             _("Lock was blocked by an application"));
+            Main.notifyError(
+                _('Unable to lock'),
+                _('Lock was blocked by an app'));
             return;
         }
 
@@ -678,9 +696,10 @@ var ScreenShield = class extends Signals.EventEmitter {
         let wasLocked = global.get_runtime_state('b', LOCKED_STATE_STR);
         if (wasLocked === null)
             return;
-        Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+        const laters = global.compositor.get_laters();
+        laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
             this.lock(false);
             return GLib.SOURCE_REMOVE;
         });
     }
-};
+}

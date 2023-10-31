@@ -1,9 +1,12 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported loadRemoteSearchProviders */
 
-const { GdkPixbuf, Gio, GLib, Shell, St } = imports.gi;
+import GdkPixbuf from 'gi://GdkPixbuf';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const FileUtils = imports.misc.fileUtils;
+import * as FileUtils from '../misc/fileUtils.js';
 
 const KEY_FILE_GROUP = 'Shell Search Provider';
 
@@ -57,8 +60,8 @@ const SearchProvider2Iface = `
 </interface>
 </node>`;
 
-var SearchProviderProxyInfo = Gio.DBusInterfaceInfo.new_for_xml(SearchProviderIface);
-var SearchProvider2ProxyInfo = Gio.DBusInterfaceInfo.new_for_xml(SearchProvider2Iface);
+const SearchProviderProxyInfo = Gio.DBusInterfaceInfo.new_for_xml(SearchProviderIface);
+const SearchProvider2ProxyInfo = Gio.DBusInterfaceInfo.new_for_xml(SearchProvider2Iface);
 
 /**
  * loadRemoteSearchProviders:
@@ -66,7 +69,7 @@ var SearchProvider2ProxyInfo = Gio.DBusInterfaceInfo.new_for_xml(SearchProvider2
  * @param {Gio.Settings} searchSettings - search settings
  * @returns {RemoteSearchProvider[]} - the list of remote providers
  */
-function loadRemoteSearchProviders(searchSettings) {
+export function loadRemoteSearchProviders(searchSettings) {
     let objectPaths = {};
     let loadedProviders = [];
 
@@ -139,12 +142,10 @@ function loadRemoteSearchProviders(searchSettings) {
     if (searchSettings.get_boolean('disable-external'))
         return [];
 
-    FileUtils.collectFromDatadirs('search-providers', false, loadRemoteSearchProvider);
+    for (const {dir} of FileUtils.collectFromDatadirs('search-providers', false))
+        loadRemoteSearchProvider(dir);
 
     let sortOrder = searchSettings.get_strv('sort-order');
-
-    // Special case gnome-control-center to be always active and always first
-    sortOrder.unshift('org.gnome.Settings.desktop');
 
     const disabled = searchSettings.get_strv('disabled');
     const enabled = searchSettings.get_strv('enabled');
@@ -169,7 +170,7 @@ function loadRemoteSearchProviders(searchSettings) {
         idxB = sortOrder.indexOf(appIdB);
 
         // if no provider is found in the order, use alphabetical order
-        if ((idxA == -1) && (idxB == -1)) {
+        if ((idxA === -1) && (idxB === -1)) {
             let nameA = providerA.appInfo.get_name();
             let nameB = providerB.appInfo.get_name();
 
@@ -177,11 +178,11 @@ function loadRemoteSearchProviders(searchSettings) {
         }
 
         // if providerA isn't found, it's sorted after providerB
-        if (idxA == -1)
+        if (idxA === -1)
             return 1;
 
         // if providerB isn't found, it's sorted after providerA
-        if (idxB == -1)
+        if (idxB === -1)
             return -1;
 
         // finally, if both providers are found, return their order in the list
@@ -191,7 +192,7 @@ function loadRemoteSearchProviders(searchSettings) {
     return loadedProviders;
 }
 
-var RemoteSearchProvider = class {
+class RemoteSearchProvider {
     constructor(appInfo, dbusName, dbusPath, autoStart, proxyInfo) {
         if (!proxyInfo)
             proxyInfo = SearchProviderProxyInfo;
@@ -231,12 +232,17 @@ var RemoteSearchProvider = class {
                 width, height, rowStride, hasAlpha,
                 bitsPerSample, nChannels_, data,
             ] = meta['icon-data'];
-            gicon = Shell.util_create_pixbuf_from_data(data, GdkPixbuf.Colorspace.RGB, hasAlpha,
-                                                       bitsPerSample, width, height, rowStride);
+            gicon = Shell.util_create_pixbuf_from_data(data,
+                GdkPixbuf.Colorspace.RGB,
+                hasAlpha,
+                bitsPerSample,
+                width,
+                height,
+                rowStride);
         }
 
         if (gicon)
-            icon = new St.Icon({ gicon, icon_size: size });
+            icon = new St.Icon({gicon, icon_size: size});
         return icon;
     }
 
@@ -311,9 +317,9 @@ var RemoteSearchProvider = class {
         log(`Search provider ${this.appInfo.get_id()} does not implement LaunchSearch`);
         this.appInfo.launch([], global.create_app_launch_context(0, -1));
     }
-};
+}
 
-var RemoteSearchProvider2 = class extends RemoteSearchProvider {
+class RemoteSearchProvider2 extends RemoteSearchProvider {
     constructor(appInfo, dbusName, dbusPath, autoStart) {
         super(appInfo, dbusName, dbusPath, autoStart, SearchProvider2ProxyInfo);
 
@@ -329,4 +335,4 @@ var RemoteSearchProvider2 = class extends RemoteSearchProvider {
         this.proxy.LaunchSearchAsync(
             terms, global.get_current_time()).catch(logError);
     }
-};
+}

@@ -1,19 +1,21 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported CandidatePopup */
 
-const { Clutter, GObject, IBus, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import IBus from 'gi://IBus';
+import St from 'gi://St';
 
-const BoxPointer = imports.ui.boxpointer;
-const Main = imports.ui.main;
+import * as BoxPointer from './boxpointer.js';
+import * as Main from './main.js';
 
-var MAX_CANDIDATES_PER_PAGE = 16;
+const MAX_CANDIDATES_PER_PAGE = 16;
 
-var DEFAULT_INDEX_LABELS = [
+const DEFAULT_INDEX_LABELS = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
     'a', 'b', 'c', 'd', 'e', 'f',
 ];
 
-var CandidateArea = GObject.registerClass({
+const CandidateArea = GObject.registerClass({
     Signals: {
         'candidate-clicked': {
             param_types: [
@@ -39,8 +41,8 @@ var CandidateArea = GObject.registerClass({
                 reactive: true,
                 track_hover: true,
             });
-            box._indexLabel = new St.Label({ style_class: 'candidate-index' });
-            box._candidateLabel = new St.Label({ style_class: 'candidate-label' });
+            box._indexLabel = new St.Label({style_class: 'candidate-index'});
+            box._candidateLabel = new St.Label({style_class: 'candidate-label'});
             box.add_child(box._indexLabel);
             box.add_child(box._candidateLabel);
             this._candidateBoxes.push(box);
@@ -53,7 +55,7 @@ var CandidateArea = GObject.registerClass({
             });
         }
 
-        this._buttonBox = new St.BoxLayout({ style_class: 'candidate-page-button-box' });
+        this._buttonBox = new St.BoxLayout({style_class: 'candidate-page-button-box'});
 
         this._previousButton = new St.Button({
             style_class: 'candidate-page-button candidate-page-button-previous button',
@@ -80,8 +82,8 @@ var CandidateArea = GObject.registerClass({
         this._cursorPosition = 0;
     }
 
-    vfunc_scroll_event(scrollEvent) {
-        switch (scrollEvent.direction) {
+    vfunc_scroll_event(event) {
+        switch (event.get_scroll_direction()) {
         case Clutter.ScrollDirection.UP:
             this.emit('cursor-up');
             break;
@@ -93,12 +95,12 @@ var CandidateArea = GObject.registerClass({
     }
 
     setOrientation(orientation) {
-        if (this._orientation == orientation)
+        if (this._orientation === orientation)
             return;
 
         this._orientation = orientation;
 
-        if (this._orientation == IBus.Orientation.HORIZONTAL) {
+        if (this._orientation === IBus.Orientation.HORIZONTAL) {
             this.vertical = false;
             this.remove_style_class_name('vertical');
             this.add_style_class_name('horizontal');
@@ -143,14 +145,14 @@ var CandidateArea = GObject.registerClass({
     }
 });
 
-var CandidatePopup = GObject.registerClass(
+export const CandidatePopup = GObject.registerClass(
 class IbusCandidatePopup extends BoxPointer.BoxPointer {
     _init() {
         super._init(St.Side.TOP);
         this.visible = false;
         this.style_class = 'candidate-popup-boxpointer';
 
-        this._dummyCursor = new Clutter.Actor({ opacity: 0 });
+        this._dummyCursor = new Clutter.Actor({opacity: 0});
         Main.layoutManager.uiGroup.add_actor(this._dummyCursor);
 
         Main.layoutManager.addTopChrome(this);
@@ -225,10 +227,8 @@ class IbusCandidatePopup extends BoxPointer.BoxPointer {
             this._preeditText.text = text.get_text();
 
             let attrs = text.get_attributes();
-            if (attrs) {
-                this._setTextAttributes(this._preeditText.clutter_text,
-                                        attrs);
-            }
+            if (attrs)
+                this._setTextAttributes(this._preeditText.clutter_text, attrs);
         });
         panelService.connect('show-preedit-text', () => {
             this._preeditText.show();
@@ -260,7 +260,7 @@ class IbusCandidatePopup extends BoxPointer.BoxPointer {
             let cursorPos = lookupTable.get_cursor_pos();
             let pageSize = lookupTable.get_page_size();
             let nPages = Math.ceil(nCandidates / pageSize);
-            let page = cursorPos == 0 ? 0 : Math.floor(cursorPos / pageSize);
+            let page = cursorPos === 0 ? 0 : Math.floor(cursorPos / pageSize);
             let startIndex = page * pageSize;
             let endIndex = Math.min((page + 1) * pageSize, nCandidates);
 
@@ -283,9 +283,9 @@ class IbusCandidatePopup extends BoxPointer.BoxPointer {
             }
 
             this._candidateArea.setCandidates(indexes,
-                                              candidates,
-                                              cursorPos % pageSize,
-                                              lookupTable.is_cursor_visible());
+                candidates,
+                cursorPos % pageSize,
+                lookupTable.is_cursor_visible());
             this._candidateArea.setOrientation(lookupTable.get_orientation());
             this._candidateArea.updateButtons(lookupTable.is_round(), page, nPages);
         });
@@ -326,7 +326,7 @@ class IbusCandidatePopup extends BoxPointer.BoxPointer {
             // so don't raise to the top.
             // The on-screen keyboard is expected to be above any entries,
             // so just above the keyboard gets us to the right layer.
-            const { keyboardBox } = Main.layoutManager;
+            const {keyboardBox} = Main.layoutManager;
             this.get_parent().set_child_above_sibling(this, keyboardBox);
         } else {
             this.close(BoxPointer.PopupAnimation.NONE);
@@ -336,7 +336,7 @@ class IbusCandidatePopup extends BoxPointer.BoxPointer {
     _setTextAttributes(clutterText, ibusAttrList) {
         let attr;
         for (let i = 0; (attr = ibusAttrList.get(i)); ++i) {
-            if (attr.get_attr_type() == IBus.AttrType.BACKGROUND)
+            if (attr.get_attr_type() === IBus.AttrType.BACKGROUND)
                 clutterText.set_selection(attr.get_start_index(), attr.get_end_index());
         }
     }

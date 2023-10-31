@@ -1,17 +1,23 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported WorkspacesView, WorkspacesDisplay */
 
-const { Clutter, Gio, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Mtk from 'gi://Mtk';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Layout = imports.ui.layout;
-const Main = imports.ui.main;
-const OverviewControls = imports.ui.overviewControls;
-const SwipeTracker = imports.ui.swipeTracker;
-const Util = imports.misc.util;
-const Workspace = imports.ui.workspace;
-const { ThumbnailsBox, MAX_THUMBNAIL_SCALE } = imports.ui.workspaceThumbnail;
+import * as Layout from './layout.js';
 
-var WORKSPACE_SWITCH_TIME = 250;
+import * as Main from './main.js';
+import * as OverviewControls from './overviewControls.js';
+import * as SwipeTracker from './swipeTracker.js';
+import * as Util from '../misc/util.js';
+import * as Workspace from './workspace.js';
+import {ThumbnailsBox} from './workspaceThumbnail.js';
+
+const WORKSPACE_SWITCH_TIME = 250;
 
 const MUTTER_SCHEMA = 'org.gnome.mutter';
 
@@ -22,7 +28,7 @@ const WORKSPACE_INACTIVE_SCALE = 0.94;
 
 const SECONDARY_WORKSPACE_SCALE = 0.80;
 
-var WorkspacesViewBase = GObject.registerClass({
+const WorkspacesViewBase = GObject.registerClass({
     GTypeFlags: GObject.TypeFlags.ABSTRACT,
 }, class WorkspacesViewBase extends St.Widget {
     _init(monitorIndex, overviewAdjustment) {
@@ -77,12 +83,13 @@ var WorkspacesViewBase = GObject.registerClass({
     }
 });
 
-var FitMode = {
+/** @enum {number} */
+export const FitMode = {
     SINGLE: 0,
     ALL: 1,
 };
 
-var WorkspacesView = GObject.registerClass(
+export const WorkspacesView = GObject.registerClass(
 class WorkspacesView extends WorkspacesViewBase {
     _init(monitorIndex, controls, scrollAdjustment, fitModeAdjustment, overviewAdjustment) {
         let workspaceManager = global.workspace_manager;
@@ -118,11 +125,10 @@ class WorkspacesView extends WorkspacesViewBase {
 
         global.window_manager.connectObject('switch-workspace',
             this._activeWorkspaceChanged.bind(this), this);
-        this._updateVisibility();
     }
 
     _getFirstFitAllWorkspaceBox(box, spacing, vertical) {
-        const { nWorkspaces } = global.workspaceManager;
+        const {nWorkspaces} = global.workspaceManager;
         const [width, height] = box.get_size();
         const [workspace] = this._workspaces;
 
@@ -187,7 +193,7 @@ class WorkspacesView extends WorkspacesViewBase {
             x1 -= currentWorkspace * (workspaceWidth + spacing);
         }
 
-        const fitSingleBox = new Clutter.ActorBox({ x1, y1 });
+        const fitSingleBox = new Clutter.ActorBox({x1, y1});
 
         if (vertical) {
             const [, workspaceHeight] = workspace.get_preferred_height(width);
@@ -215,14 +221,14 @@ class WorkspacesView extends WorkspacesViewBase {
         }
 
         const spacing = (availableSpace - workspaceSize * 0.4) * (1 - fitMode);
-        const { scaleFactor } = St.ThemeContext.get_for_stage(global.stage);
+        const {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
 
         return Math.clamp(spacing, WORKSPACE_MIN_SPACING * scaleFactor,
             WORKSPACE_MAX_SPACING * scaleFactor);
     }
 
     _getWorkspaceModeForOverviewState(state) {
-        const { ControlsState } = OverviewControls;
+        const {ControlsState} = OverviewControls;
 
         switch (state) {
         case ControlsState.HIDDEN:
@@ -240,7 +246,7 @@ class WorkspacesView extends WorkspacesViewBase {
         const adj = this._scrollAdjustment;
         const fitMode = this._fitModeAdjustment.value;
 
-        const { initialState, finalState, progress } =
+        const {initialState, finalState, progress} =
             this._overviewAdjustment.getStateTransitionParams();
 
         const workspaceMode = (1 - fitMode) * Util.lerp(
@@ -262,7 +268,7 @@ class WorkspacesView extends WorkspacesViewBase {
     }
 
     _getFitModeForState(state) {
-        const { ControlsState } = OverviewControls;
+        const {ControlsState} = OverviewControls;
 
         switch (state) {
         case ControlsState.HIDDEN:
@@ -282,7 +288,7 @@ class WorkspacesView extends WorkspacesViewBase {
         let fitSingleBox = offsetBox;
         let fitAllBox = offsetBox;
 
-        const { transitioning, initialState, finalState } =
+        const {transitioning, initialState, finalState} =
             this._overviewAdjustment.getStateTransitionParams();
 
         const isPrimary = Main.layoutManager.primaryIndex === this._monitorIndex;
@@ -326,7 +332,7 @@ class WorkspacesView extends WorkspacesViewBase {
     vfunc_allocate(box) {
         this.set_allocation(box);
 
-        if (this.get_n_children() === 0)
+        if (this._workspaces.length === 0)
             return;
 
         const vertical = global.workspaceManager.layout_rows === -1;
@@ -400,7 +406,7 @@ class WorkspacesView extends WorkspacesViewBase {
     }
 
     _scrollToActive() {
-        const { workspaceManager } = global;
+        const {workspaceManager} = global;
         const active = workspaceManager.get_active_workspace_index();
 
         this._animating = true;
@@ -452,7 +458,7 @@ class WorkspacesView extends WorkspacesViewBase {
             } else  {
                 workspace = this._workspaces[j];
 
-                if (workspace.metaWorkspace != metaWorkspace) { /* removed */
+                if (workspace.metaWorkspace !== metaWorkspace) { /* removed */
                     workspace.destroy();
                     this._workspaces.splice(j, 1);
                 } /* else kept */
@@ -465,6 +471,7 @@ class WorkspacesView extends WorkspacesViewBase {
         }
 
         this._updateWorkspacesState();
+        this._updateVisibility();
     }
 
     _activeWorkspaceChanged(_wm, _from, _to, _direction) {
@@ -524,7 +531,7 @@ class WorkspacesView extends WorkspacesViewBase {
     }
 });
 
-var ExtraWorkspaceView = GObject.registerClass(
+export const ExtraWorkspaceView = GObject.registerClass(
 class ExtraWorkspaceView extends WorkspacesViewBase {
     _init(monitorIndex, overviewAdjustment) {
         super._init(monitorIndex, overviewAdjustment);
@@ -574,7 +581,7 @@ class ExtraWorkspaceView extends WorkspacesViewBase {
     }
 });
 
-const SecondaryMonitorDisplay = GObject.registerClass(
+export const SecondaryMonitorDisplay = GObject.registerClass(
 class SecondaryMonitorDisplay extends St.Widget {
     _init(monitorIndex, controls, scrollAdjustment, fitModeAdjustment, overviewAdjustment) {
         this._monitorIndex = monitorIndex;
@@ -606,14 +613,14 @@ class SecondaryMonitorDisplay extends St.Widget {
             this.queue_relayout();
         }, this);
 
-        this._settings = new Gio.Settings({ schema_id: MUTTER_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: MUTTER_SCHEMA});
         this._settings.connect('changed::workspaces-only-on-primary',
             () => this._workspacesOnPrimaryChanged());
         this._workspacesOnPrimaryChanged();
     }
 
     _getThumbnailParamsForState(state) {
-        const { ControlsState } = OverviewControls;
+        const {ControlsState} = OverviewControls;
 
         let opacity, scale;
         switch (state) {
@@ -632,7 +639,7 @@ class SecondaryMonitorDisplay extends St.Widget {
             break;
         }
 
-        return { opacity, scale };
+        return {opacity, scale};
     }
 
     _getThumbnailsHeight(box) {
@@ -640,15 +647,15 @@ class SecondaryMonitorDisplay extends St.Widget {
             return 0;
 
         const [width, height] = box.get_size();
-        const { expandFraction } = this._thumbnails;
+        const {expandFraction} = this._thumbnails;
         const [thumbnailsHeight] = this._thumbnails.get_preferred_height(width);
         return Math.min(
             thumbnailsHeight * expandFraction,
-            height * MAX_THUMBNAIL_SCALE);
+            height * this._thumbnails.maxThumbnailScale);
     }
 
     _getWorkspacesBoxForState(state, box, padding, thumbnailsHeight, spacing) {
-        const { ControlsState } = OverviewControls;
+        const {ControlsState} = OverviewControls;
         const workspaceBox = box.copy();
         const [width, height] = workspaceBox.get_size();
 
@@ -678,7 +685,7 @@ class SecondaryMonitorDisplay extends St.Widget {
         const themeNode = this.get_theme_node();
         const contentBox = themeNode.get_content_box(box);
         const [width, height] = contentBox.get_size();
-        const { expandFraction } = this._thumbnails;
+        const {expandFraction} = this._thumbnails;
         const spacing = themeNode.get_length('spacing') * expandFraction;
         const padding =
             Math.round((1 - SECONDARY_WORKSPACE_SCALE) * height / 2);
@@ -762,7 +769,7 @@ class SecondaryMonitorDisplay extends St.Widget {
         if (!this._thumbnails.visible)
             return;
 
-        const { initialState, finalState, progress } =
+        const {initialState, finalState, progress} =
             this._overviewAdjustment.getStateTransitionParams();
 
         const initialParams = this._getThumbnailParamsForState(initialState);
@@ -801,7 +808,7 @@ class SecondaryMonitorDisplay extends St.Widget {
     }
 });
 
-var WorkspacesDisplay = GObject.registerClass(
+export const WorkspacesDisplay = GObject.registerClass(
 class WorkspacesDisplay extends St.Widget {
     _init(controls, scrollAdjustment, overviewAdjustment) {
         super._init({
@@ -828,7 +835,7 @@ class WorkspacesDisplay extends St.Widget {
             Main.layoutManager.overviewGroup,
             Clutter.Orientation.HORIZONTAL,
             Shell.ActionMode.OVERVIEW,
-            { allowDrag: false });
+            {allowDrag: false});
         this._swipeTracker.allowLongSwipes = true;
         this._swipeTracker.connect('begin', this._switchWorkspaceBegin.bind(this));
         this._swipeTracker.connect('update', this._switchWorkspaceUpdate.bind(this));
@@ -848,21 +855,12 @@ class WorkspacesDisplay extends St.Widget {
         this._primaryIndex = Main.layoutManager.primaryIndex;
         this._workspacesViews = [];
 
-        this._settings = new Gio.Settings({ schema_id: MUTTER_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: MUTTER_SCHEMA});
 
         this._inWindowDrag = false;
         this._leavingOverview = false;
 
         this._gestureActive = false; // touch(pad) gestures
-
-        this.connect('destroy', this._onDestroy.bind(this));
-    }
-
-    _onDestroy() {
-        if (this._parentSetLater) {
-            Meta.later_remove(this._parentSetLater);
-            this._parentSetLater = 0;
-        }
     }
 
     _windowDragBegin() {
@@ -900,7 +898,7 @@ class WorkspacesDisplay extends St.Widget {
     }
 
     _updateTrackerOrientation() {
-        const { layoutRows } = global.workspace_manager;
+        const {layoutRows} = global.workspace_manager;
         this._swipeTracker.orientation = layoutRows !== -1
             ? Clutter.Orientation.HORIZONTAL
             : Clutter.Orientation.VERTICAL;
@@ -939,7 +937,7 @@ class WorkspacesDisplay extends St.Widget {
 
         let progress = adjustment.value / adjustment.page_size;
         let points = Array.from(
-            { length: workspaceManager.n_workspaces }, (v, i) => i);
+            {length: workspaceManager.n_workspaces}, (v, i) => i);
 
         tracker.confirmSwipe(distance, points, progress, Math.round(progress));
 
@@ -1055,7 +1053,7 @@ class WorkspacesDisplay extends St.Widget {
 
     _getMonitorIndexForEvent(event) {
         let [x, y] = event.get_coords();
-        let rect = new Meta.Rectangle({ x, y, width: 1, height: 1 });
+        const rect = new Mtk.Rectangle({x, y, width: 1, height: 1});
         return global.display.get_monitor_index_for_rect(rect);
     }
 
@@ -1085,21 +1083,21 @@ class WorkspacesDisplay extends St.Widget {
             return Clutter.EVENT_PROPAGATE;
 
         if (this._workspacesOnlyOnPrimary &&
-            this._getMonitorIndexForEvent(event) != this._primaryIndex)
+            this._getMonitorIndexForEvent(event) !== this._primaryIndex)
             return Clutter.EVENT_PROPAGATE;
 
         return Main.wm.handleWorkspaceScroll(event);
     }
 
     _onKeyPressEvent(actor, event) {
-        const { ControlsState } = OverviewControls;
+        const {ControlsState} = OverviewControls;
         if (this._overviewAdjustment.value !== ControlsState.WINDOW_PICKER)
             return Clutter.EVENT_PROPAGATE;
 
         if (!this.reactive)
             return Clutter.EVENT_PROPAGATE;
 
-        const { workspaceManager } = global;
+        const {workspaceManager} = global;
         const vertical = workspaceManager.layout_rows === -1;
         const rtl = this.get_text_direction() === Clutter.TextDirection.RTL;
 

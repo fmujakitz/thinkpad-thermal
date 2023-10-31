@@ -1,16 +1,20 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported CloseDialog */
 
-const { Clutter, GLib, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Dialog = imports.ui.dialog;
-const Main = imports.ui.main;
+import * as Dialog from './dialog.js';
+import * as Main from './main.js';
 
-var FROZEN_WINDOW_BRIGHTNESS = -0.3;
-var DIALOG_TRANSITION_TIME = 150;
-var ALIVE_TIMEOUT = 5000;
+const FROZEN_WINDOW_BRIGHTNESS = -0.3;
+const DIALOG_TRANSITION_TIME = 150;
+const ALIVE_TIMEOUT = 5000;
 
-var CloseDialog = GObject.registerClass({
+export const CloseDialog = GObject.registerClass({
     Implements: [Meta.CloseDialog],
     Properties: {
         'window': GObject.ParamSpec.override('window', Meta.CloseDialog),
@@ -37,10 +41,10 @@ var CloseDialog = GObject.registerClass({
         let windowApp = tracker.get_window_app(this._window);
 
         /* Translators: %s is an application name */
-        let title = _("“%s” is not responding.").format(windowApp.get_name());
+        let title = _('“%s” is not responding.').format(windowApp.get_name());
         let description = _('You may choose to wait a short while for it to ' +
-                            'continue or force the application to quit entirely.');
-        return new Dialog.MessageDialogContent({ title, description });
+                            'continue or force the app to quit entirely.');
+        return new Dialog.MessageDialogContent({title, description});
     }
 
     _updateScale() {
@@ -51,7 +55,7 @@ var CloseDialog = GObject.registerClass({
         if (this._window.get_client_type() !== Meta.WindowClientType.WAYLAND)
             return;
 
-        let { scaleFactor } = St.ThemeContext.get_for_stage(global.stage);
+        let {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
         this._dialog.set_scale(1 / scaleFactor, 1 / scaleFactor);
     }
 
@@ -92,13 +96,13 @@ var CloseDialog = GObject.registerClass({
         let surfaceActor = windowActor.get_first_child();
         let effect = new Clutter.BrightnessContrastEffect();
         effect.set_brightness(FROZEN_WINDOW_BRIGHTNESS);
-        surfaceActor.add_effect_with_name("gnome-shell-frozen-window", effect);
+        surfaceActor.add_effect_with_name('gnome-shell-frozen-window', effect);
     }
 
     _removeWindowEffect() {
         let windowActor = this._window.get_compositor_private();
         let surfaceActor = windowActor.get_first_child();
-        surfaceActor.remove_effect_by_name("gnome-shell-frozen-window");
+        surfaceActor.remove_effect_by_name('gnome-shell-frozen-window');
     }
 
     _onWait() {
@@ -118,7 +122,7 @@ var CloseDialog = GObject.registerClass({
 
         let shouldTrack;
         if (focusWindow != null)
-            shouldTrack = focusWindow == this._window;
+            shouldTrack = focusWindow === this._window;
         else
             shouldTrack = keyFocus && this._dialog.contains(keyFocus);
 
@@ -127,7 +131,7 @@ var CloseDialog = GObject.registerClass({
 
         if (shouldTrack) {
             Main.layoutManager.trackChrome(this._dialog,
-                                           { affectsInputRegion: true });
+                {affectsInputRegion: true});
         } else {
             Main.layoutManager.untrackChrome(this._dialog);
         }

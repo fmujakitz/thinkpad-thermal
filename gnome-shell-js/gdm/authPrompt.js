@@ -1,31 +1,35 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported AuthPrompt */
 
-const { Clutter, GLib, GObject, Pango, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Animation = imports.ui.animation;
-const AuthList = imports.gdm.authList;
-const Batch = imports.gdm.batch;
-const GdmUtil = imports.gdm.util;
-const OVirt = imports.gdm.oVirt;
-const Vmware = imports.gdm.vmware;
-const Params = imports.misc.params;
-const ShellEntry = imports.ui.shellEntry;
-const UserWidget = imports.ui.userWidget;
-const Util = imports.misc.util;
+import * as Animation from '../ui/animation.js';
+import * as AuthList from './authList.js';
+import * as Batch from './batch.js';
+import * as GdmUtil from './util.js';
+import * as Params from '../misc/params.js';
+import * as ShellEntry from '../ui/shellEntry.js';
+import * as UserWidget from '../ui/userWidget.js';
+import {wiggle} from '../misc/animationUtils.js';
 
-var DEFAULT_BUTTON_WELL_ICON_SIZE = 16;
-var DEFAULT_BUTTON_WELL_ANIMATION_DELAY = 1000;
-var DEFAULT_BUTTON_WELL_ANIMATION_TIME = 300;
+const DEFAULT_BUTTON_WELL_ICON_SIZE = 16;
+const DEFAULT_BUTTON_WELL_ANIMATION_DELAY = 1000;
+const DEFAULT_BUTTON_WELL_ANIMATION_TIME = 300;
 
-var MESSAGE_FADE_OUT_ANIMATION_TIME = 500;
+const MESSAGE_FADE_OUT_ANIMATION_TIME = 500;
 
-var AuthPromptMode = {
+/** @enum {number} */
+export const AuthPromptMode = {
     UNLOCK_ONLY: 0,
     UNLOCK_OR_LOG_IN: 1,
 };
 
-var AuthPromptStatus = {
+/** @enum {number} */
+export const AuthPromptStatus = {
     NOT_VERIFYING: 0,
     VERIFYING: 1,
     VERIFICATION_FAILED: 2,
@@ -34,19 +38,20 @@ var AuthPromptStatus = {
     VERIFICATION_IN_PROGRESS: 5,
 };
 
-var BeginRequestType = {
+/** @enum {number} */
+export const BeginRequestType = {
     PROVIDE_USERNAME: 0,
     DONT_PROVIDE_USERNAME: 1,
     REUSE_USERNAME: 2,
 };
 
-var AuthPrompt = GObject.registerClass({
+export const AuthPrompt = GObject.registerClass({
     Signals: {
         'cancelled': {},
         'failed': {},
         'next': {},
         'prompted': {},
-        'reset': { param_types: [GObject.TYPE_UINT] },
+        'reset': {param_types: [GObject.TYPE_UINT]},
     },
 }, class AuthPrompt extends St.BoxLayout {
     _init(gdmClient, mode) {
@@ -66,12 +71,12 @@ var AuthPrompt = GObject.registerClass({
         this._cancelledRetries = 0;
 
         let reauthenticationOnly;
-        if (this._mode == AuthPromptMode.UNLOCK_ONLY)
+        if (this._mode === AuthPromptMode.UNLOCK_ONLY)
             reauthenticationOnly = true;
-        else if (this._mode == AuthPromptMode.UNLOCK_OR_LOG_IN)
+        else if (this._mode === AuthPromptMode.UNLOCK_OR_LOG_IN)
             reauthenticationOnly = false;
 
-        this._userVerifier = new GdmUtil.ShellUserVerifier(this._gdmClient, { reauthenticationOnly });
+        this._userVerifier = new GdmUtil.ShellUserVerifier(this._gdmClient, {reauthenticationOnly});
 
         this._userVerifier.connect('ask-question', this._onAskQuestion.bind(this));
         this._userVerifier.connect('show-message', this._onShowMessage.bind(this));
@@ -122,14 +127,16 @@ var AuthPrompt = GObject.registerClass({
     }
 
     _onDestroy() {
+        this._inactiveEntry.destroy();
+        this._inactiveEntry = null;
         this._userVerifier.destroy();
         this._userVerifier = null;
     }
 
-    vfunc_key_press_event(keyPressEvent) {
-        if (keyPressEvent.keyval == Clutter.KEY_Escape)
+    vfunc_key_press_event(event) {
+        if (event.get_key_symbol() === Clutter.KEY_Escape)
             this.cancel();
-        return super.vfunc_key_press_event(keyPressEvent);
+        return super.vfunc_key_press_event(event);
     }
 
     _initInputRow() {
@@ -140,7 +147,7 @@ var AuthPrompt = GObject.registerClass({
         this.add_child(this._mainBox);
 
         this.cancelButton = new St.Button({
-            style_class: 'modal-dialog-button button cancel-button',
+            style_class: 'login-dialog-button cancel-button',
             accessible_name: _('Cancel'),
             button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
             reactive: this._hasCancelButton,
@@ -183,14 +190,15 @@ var AuthPrompt = GObject.registerClass({
         this._entry = null;
 
         this._textEntry = new St.Entry(entryParams);
-        ShellEntry.addContextMenu(this._textEntry, { actionMode: Shell.ActionMode.NONE });
+        ShellEntry.addContextMenu(this._textEntry, {actionMode: Shell.ActionMode.NONE});
 
         this._passwordEntry = new St.PasswordEntry(entryParams);
-        ShellEntry.addContextMenu(this._passwordEntry, { actionMode: Shell.ActionMode.NONE });
+        ShellEntry.addContextMenu(this._passwordEntry, {actionMode: Shell.ActionMode.NONE});
 
         this._entry = this._passwordEntry;
         this._mainBox.add_child(this._entry);
         this._entry.grab_key_focus();
+        this._inactiveEntry = this._textEntry;
 
         this._timedLoginIndicator = new St.Bin({
             style_class: 'login-dialog-timed-login-indicator',
@@ -280,9 +288,11 @@ var AuthPrompt = GObject.registerClass({
         if (secret && this._entry !== this._passwordEntry) {
             this._mainBox.replace_child(this._entry, this._passwordEntry);
             this._entry = this._passwordEntry;
+            this._inactiveEntry = this._textEntry;
         } else if (!secret && this._entry !== this._textEntry) {
             this._mainBox.replace_child(this._entry, this._textEntry);
             this._entry = this._textEntry;
+            this._inactiveEntry = this._passwordEntry;
         }
         this._capsLockWarningLabel.visible = secret;
     }
@@ -306,7 +316,7 @@ var AuthPrompt = GObject.registerClass({
         if (question === 'Password:' || question === 'Password: ')
             this.setQuestion(_('Password'));
         else
-            this.setQuestion(question.replace(/: *$/, '').trim());
+            this.setQuestion(question.replace(/[:：] *$/, '').trim());
 
         this.updateSensitivity(true);
         this.emit('prompted');
@@ -327,7 +337,7 @@ var AuthPrompt = GObject.registerClass({
     }
 
     _onCredentialManagerAuthenticated() {
-        if (this.verificationStatus != AuthPromptStatus.VERIFICATION_SUCCEEDED)
+        if (this.verificationStatus !== AuthPromptStatus.VERIFICATION_SUCCEEDED)
             this.reset();
     }
 
@@ -342,11 +352,11 @@ var AuthPrompt = GObject.registerClass({
         //                     2) Don't reset if we've already succeeded at verification and
         //                        the user is getting logged in.
         if (this._userVerifier.serviceIsDefault(GdmUtil.SMARTCARD_SERVICE_NAME) &&
-            this.verificationStatus == AuthPromptStatus.VERIFYING &&
+            this.verificationStatus === AuthPromptStatus.VERIFYING &&
             this.smartcardDetected)
             return;
 
-        if (this.verificationStatus != AuthPromptStatus.VERIFICATION_SUCCEEDED)
+        if (this.verificationStatus !== AuthPromptStatus.VERIFICATION_SUCCEEDED)
             this.reset();
     }
 
@@ -383,7 +393,7 @@ var AuthPrompt = GObject.registerClass({
             this.verificationStatus = AuthPromptStatus.VERIFICATION_FAILED;
 
         if (wasQueryingService)
-            Util.wiggle(this._entry);
+            wiggle(this._entry);
     }
 
     _onVerificationComplete() {
@@ -409,18 +419,18 @@ var AuthPrompt = GObject.registerClass({
             oldActor.remove_all_transitions();
 
         let wasSpinner;
-        if (oldActor == this._spinner)
+        if (oldActor === this._spinner)
             wasSpinner = true;
         else
             wasSpinner = false;
 
         let isSpinner;
-        if (actor == this._spinner)
+        if (actor === this._spinner)
             isSpinner = true;
         else
             isSpinner = false;
 
-        if (this._defaultButtonWellActor != actor && oldActor) {
+        if (this._defaultButtonWellActor !== actor && oldActor) {
             if (!animate) {
                 oldActor.opacity = 0;
 
@@ -528,7 +538,7 @@ var AuthPrompt = GObject.registerClass({
     }
 
     _fadeOutMessage() {
-        if (this._message.opacity == 0)
+        if (this._message.opacity === 0)
             return;
         this._message.remove_all_transitions();
         this._message.ease({
@@ -539,12 +549,12 @@ var AuthPrompt = GObject.registerClass({
     }
 
     setMessage(message, type, wiggleParameters = {duration: 0}) {
-        if (type == GdmUtil.MessageType.ERROR)
+        if (type === GdmUtil.MessageType.ERROR)
             this._message.add_style_class_name('login-dialog-message-warning');
         else
             this._message.remove_style_class_name('login-dialog-message-warning');
 
-        if (type == GdmUtil.MessageType.HINT)
+        if (type === GdmUtil.MessageType.HINT)
             this._message.add_style_class_name('login-dialog-message-hint');
         else
             this._message.remove_style_class_name('login-dialog-message-hint');
@@ -558,7 +568,7 @@ var AuthPrompt = GObject.registerClass({
             this._message.opacity = 0;
         }
 
-        Util.wiggle(this._message, wiggleParameters);
+        wiggle(this._message, wiggleParameters);
     }
 
     updateSensitivity(sensitive) {
@@ -617,22 +627,20 @@ var AuthPrompt = GObject.registerClass({
         this._updateEntry(true);
         this.stopSpinning();
 
-        if (oldStatus == AuthPromptStatus.VERIFICATION_FAILED)
+        if (oldStatus === AuthPromptStatus.VERIFICATION_FAILED)
             this.emit('failed');
         else if (oldStatus === AuthPromptStatus.VERIFICATION_CANCELLED)
             this.emit('cancelled');
 
         let beginRequestType;
 
-        if (this._mode == AuthPromptMode.UNLOCK_ONLY) {
+        if (this._mode === AuthPromptMode.UNLOCK_ONLY) {
             // The user is constant at the unlock screen, so it will immediately
             // respond to the request with the username
             if (oldStatus === AuthPromptStatus.VERIFICATION_CANCELLED)
                 return;
             beginRequestType = BeginRequestType.PROVIDE_USERNAME;
-        } else if (this._userVerifier.serviceIsForeground(OVirt.SERVICE_NAME) ||
-                   this._userVerifier.serviceIsForeground(Vmware.SERVICE_NAME) ||
-                   this._userVerifier.serviceIsForeground(GdmUtil.SMARTCARD_SERVICE_NAME)) {
+        } else if (this._userVerifier.foregroundServiceDeterminesUsername()) {
             // We don't need to know the username if the user preempted the login screen
             // with a smartcard or with preauthenticated oVirt credentials
             beginRequestType = BeginRequestType.DONT_PROVIDE_USERNAME;
@@ -686,7 +694,7 @@ var AuthPrompt = GObject.registerClass({
     }
 
     cancel() {
-        if (this.verificationStatus == AuthPromptStatus.VERIFICATION_SUCCEEDED)
+        if (this.verificationStatus === AuthPromptStatus.VERIFICATION_SUCCEEDED)
             return;
 
         if (this.verificationStatus === AuthPromptStatus.VERIFICATION_IN_PROGRESS) {

@@ -1,15 +1,18 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Animation, AnimatedIcon, Spinner */
 
-const { Clutter, GLib, GObject, Gio, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
+import St from 'gi://St';
 
-const Params = imports.misc.params;
+import * as Params from '../misc/params.js';
 
-var ANIMATED_ICON_UPDATE_TIMEOUT = 16;
-var SPINNER_ANIMATION_TIME = 300;
-var SPINNER_ANIMATION_DELAY = 1000;
+const ANIMATED_ICON_UPDATE_TIMEOUT = 16;
+const SPINNER_ANIMATION_TIME = 300;
+const SPINNER_ANIMATION_DELAY = 1000;
 
-var Animation = GObject.registerClass(
+export const Animation = GObject.registerClass(
 class Animation extends St.Bin {
     _init(file, width, height, speed) {
         const themeContext = St.ThemeContext.get_for_stage(global.stage);
@@ -39,8 +42,8 @@ class Animation extends St.Bin {
     }
 
     play() {
-        if (this._isLoaded && this._timeoutId == 0) {
-            if (this._frame == 0)
+        if (this._isLoaded && this._timeoutId === 0) {
+            if (this._frame === 0)
                 this._showFrame(0);
 
             this._timeoutId = GLib.timeout_add(GLib.PRIORITY_LOW, this._speed, this._update.bind(this));
@@ -72,12 +75,13 @@ class Animation extends St.Bin {
         let textureCache = St.TextureCache.get_default();
         let scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
         this._animations = textureCache.load_sliced_image(file, width, height,
-                                                          scaleFactor, resourceScale,
-                                                          this._animationsLoaded.bind(this));
+            scaleFactor, resourceScale,
+            () => this._loadFinished());
         this._animations.set({
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
+
         this.set_child(this._animations);
 
         if (wasPlaying)
@@ -101,22 +105,10 @@ class Animation extends St.Bin {
         return GLib.SOURCE_CONTINUE;
     }
 
-    _syncAnimationSize() {
-        if (!this._isLoaded)
-            return;
-
-        let [width, height] = this.get_size();
-
-        for (let i = 0; i < this._animations.get_n_children(); ++i)
-            this._animations.get_child_at_index(i).set_size(width, height);
-    }
-
-    _animationsLoaded() {
+    _loadFinished() {
         this._isLoaded = this._animations.get_n_children() > 0;
 
-        this._syncAnimationSize();
-
-        if (this._isPlaying)
+        if (this._isLoaded && this._isPlaying)
             this.play();
     }
 
@@ -125,14 +117,14 @@ class Animation extends St.Bin {
     }
 });
 
-var AnimatedIcon = GObject.registerClass(
+export const AnimatedIcon = GObject.registerClass(
 class AnimatedIcon extends Animation {
     _init(file, size) {
         super._init(file, size, size, ANIMATED_ICON_UPDATE_TIMEOUT);
     }
 });
 
-var Spinner = GObject.registerClass(
+export const Spinner = GObject.registerClass(
 class Spinner extends AnimatedIcon {
     _init(size, params) {
         params = Params.parse(params, {

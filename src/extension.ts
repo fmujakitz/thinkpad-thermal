@@ -10,22 +10,17 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import IbmAcpiUtil from './IbmAcpi';
 import SensorsUtil from './Sensors';
 
-// const ExtensionUtils = imports.misc.extensionUtils
-// const Main = imports.ui.main
-// const Me = ExtensionUtils.getCurrentExtension()
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-
-// const GETTEXT_DOMAIN = 'my-indicator-extension'
-// const _ = ExtensionUtils.gettext
+//
+//
+//
 
 const _ = (text: string) => text
-// const $$ = (...args: string[]): string => ['[tpt]', '=>', ...args].join(' ')
 
-const iconFrom = (filename: string) => Gio.icon_new_for_string(
-  [/*Me.path, */'icons', filename].join('/').replace(/\/+/igm, '/')
+const iconFrom = (path = '') => (filename: string) => Gio.icon_new_for_string(
+  [path, 'icons', filename].join('/').replace(/\/+/igm, '/')
 )
-
-// const $_ = (...args) => args.join('-')
 
 const UNIT = {
   celsius: "\u00b0C",
@@ -34,17 +29,17 @@ const UNIT = {
 }
 
 type IconType = {
-  gicon: Gio.Icon,
+  gicon: Gio.Icon | null,
   size: number
 }
 const ICON: {
   [key: string]: IconType
 } = {
-  fan: { gicon: iconFrom('fan-symbolic.svg'), size: 12 },
-  cpu: { gicon: iconFrom('cpu-symbolic.svg'), size: 12 },
-  gpu: { gicon: iconFrom('gpu-symbolic.svg'), size: 14 },
-  hdd: { gicon: iconFrom('hdd-symbolic.svg'), size: 14 },
-  sensor: { gicon: iconFrom('sensor-symbolic.svg'), size: 14 }
+  fan: { gicon: iconFrom()('fan-symbolic.svg'), size: 12 },
+  cpu: { gicon: iconFrom()('cpu-symbolic.svg'), size: 12 },
+  gpu: { gicon: iconFrom()('gpu-symbolic.svg'), size: 14 },
+  hdd: { gicon: iconFrom()('hdd-symbolic.svg'), size: 14 },
+  sensor: { gicon: iconFrom()('sensor-symbolic.svg'), size: 14 }
 }
 
 // type ThermalTitle = {
@@ -454,25 +449,34 @@ type Binding = {
   }
 // )
 
-class ThinkPadThermal {
+export default class ThinkPadThermal extends Extension {
   _uuid: any
   _indicator: any
 
-  constructor(uuid) {
-    this._uuid = uuid
+  constructor(meta) {
+    super(meta)
+    this._uuid = meta.uuid
   }
 
-  enable() {
+  override enable() {
+    ICON.fan.gicon = iconFrom(this.path)('fan-symbolic.svg');
+    ICON.cpu.gicon = iconFrom(this.path)('cpu-symbolic.svg');
+    ICON.gpu.gicon = iconFrom(this.path)('gpu-symbolic.svg');
+    ICON.hdd.gicon = iconFrom(this.path)('hdd-symbolic.svg');
+    ICON.sensor.gicon = iconFrom(this.path)('sensor-symbolic.svg');
+
     this._indicator = new Indicator(0.5, _('ThinkPad Thermal'))
     Main.panel.addToStatusArea(this._uuid, this._indicator)
   }
 
-  disable() {
+  override disable() {
+    ICON.fan.gicon = null;
+    ICON.cpu.gicon = null;
+    ICON.gpu.gicon = null;
+    ICON.hdd.gicon = null;
+    ICON.sensor.gicon = null;
+
     this._indicator.destroy()
     this._indicator = null
   }
-}
-
-export default function (meta): ThinkPadThermal {
-  return new ThinkPadThermal(meta.uuid)
 }

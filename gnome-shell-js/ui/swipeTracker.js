@@ -1,10 +1,12 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported SwipeTracker */
 
-const { Clutter, Gio, GObject, Meta } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import Mtk from 'gi://Mtk';
 
-const Main = imports.ui.main;
-const Params = imports.misc.params;
+import * as Main from './main.js';
+import * as Params from '../misc/params.js';
 
 // FIXME: ideally these values matches physical touchpad size. We can get the
 // correct values for gnome-shell specifically, since mutter uses libinput
@@ -34,6 +36,7 @@ const EPSILON = 0.005;
 
 const GESTURE_FINGER_COUNT = 3;
 
+/** @enum {number} */
 const State = {
     NONE: 0,
     SCROLLING: 1,
@@ -65,7 +68,7 @@ const EventHistory = class {
     append(time, delta) {
         this.trim(time);
 
-        this._data.push({ time, delta });
+        this._data.push({time, delta});
     }
 
     calculateVelocity() {
@@ -97,9 +100,9 @@ const TouchpadSwipeGesture = GObject.registerClass({
             Clutter.Orientation, Clutter.Orientation.HORIZONTAL),
     },
     Signals: {
-        'begin':  { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE] },
-        'update': { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE] },
-        'end':    { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE] },
+        'begin':  {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE]},
+        'update': {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE]},
+        'end':    {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE]},
     },
 }, class TouchpadSwipeGesture extends GObject.Object {
     _init(allowedModes) {
@@ -219,10 +222,10 @@ const TouchSwipeGesture = GObject.registerClass({
             Clutter.Orientation, Clutter.Orientation.HORIZONTAL),
     },
     Signals: {
-        'begin':  { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE] },
-        'update': { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE] },
-        'end':    { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE] },
-        'cancel': { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE] },
+        'begin':  {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE]},
+        'update': {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE]},
+        'end':    {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE]},
+        'cancel': {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE]},
     },
 }, class TouchSwipeGesture extends Clutter.GestureAction {
     _init(allowedModes, nTouchPoints, thresholdTriggerEdge) {
@@ -232,11 +235,6 @@ const TouchSwipeGesture = GObject.registerClass({
 
         this._allowedModes = allowedModes;
         this._distance = global.screen_height;
-
-        global.display.connect('grab-op-begin', () => {
-            this.cancel();
-        });
-
         this._lastPosition = 0;
     }
 
@@ -319,9 +317,9 @@ const ScrollGesture = GObject.registerClass({
             Clutter.ModifierType, 0),
     },
     Signals: {
-        'begin':  { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE] },
-        'update': { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE] },
-        'end':    { param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE] },
+        'begin':  {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE]},
+        'update': {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_DOUBLE]},
+        'end':    {param_types: [GObject.TYPE_UINT, GObject.TYPE_DOUBLE]},
     },
 }, class ScrollGesture extends GObject.Object {
     _init(actor, allowedModes) {
@@ -431,7 +429,7 @@ const ScrollGesture = GObject.registerClass({
 //   instantly.
 
 /** A class for handling swipe gestures */
-var SwipeTracker = GObject.registerClass({
+export const SwipeTracker = GObject.registerClass({
     Properties: {
         'enabled': GObject.ParamSpec.boolean(
             'enabled', 'enabled', 'enabled',
@@ -455,14 +453,14 @@ var SwipeTracker = GObject.registerClass({
             Clutter.ModifierType, 0),
     },
     Signals: {
-        'begin':  { param_types: [GObject.TYPE_UINT] },
-        'update': { param_types: [GObject.TYPE_DOUBLE] },
-        'end':    { param_types: [GObject.TYPE_UINT64, GObject.TYPE_DOUBLE] },
+        'begin':  {param_types: [GObject.TYPE_UINT]},
+        'update': {param_types: [GObject.TYPE_DOUBLE]},
+        'end':    {param_types: [GObject.TYPE_UINT64, GObject.TYPE_DOUBLE]},
     },
 }, class SwipeTracker extends GObject.Object {
     _init(actor, orientation, allowedModes, params) {
         super._init();
-        params = Params.parse(params, { allowDrag: true, allowScroll: true });
+        params = Params.parse(params, {allowDrag: true, allowScroll: true});
 
         this.orientation = orientation;
         this._allowedModes = allowedModes;
@@ -525,11 +523,11 @@ var SwipeTracker = GObject.registerClass({
 
     /**
      * canHandleScrollEvent:
-     * @param {Clutter.Event} scrollEvent: an event to check
-     * @returns {bool} whether the event can be handled by the tracker
-     *
      * This function can be used to combine swipe gesture and mouse
      * scrolling.
+     *
+     * @param {Clutter.Event} scrollEvent an event to check
+     * @returns {boolean} whether the event can be handled by the tracker
      */
     canHandleScrollEvent(scrollEvent) {
         if (!this.enabled || this._scrollGesture === null)
@@ -597,7 +595,7 @@ var SwipeTracker = GObject.registerClass({
 
         this._history.append(time, 0);
 
-        let rect = new Meta.Rectangle({ x, y, width: 1, height: 1 });
+        const rect = new Mtk.Rectangle({x, y, width: 1, height: 1});
         let monitor = global.display.get_monitor_index_for_rect(rect);
 
         this.emit('begin', monitor);
@@ -749,19 +747,17 @@ var SwipeTracker = GObject.registerClass({
     }
 
     /**
-     * confirmSwipe:
-     * @param {number} distance: swipe distance in pixels
-     * @param {number[]} snapPoints:
-     *     An array of snap points, sorted in ascending order
-     * @param {number} currentProgress: initial progress value
-     * @param {number} cancelProgress: the value to be used on cancelling
-     *
      * Confirms a swipe. User has to call this in 'begin' signal handler,
      * otherwise the swipe wouldn't start. If there's an animation running,
      * it should be stopped first.
      *
-     * @cancel_progress must always be a snap point, or a value matching
+     * `cancelProgress` must always be a snap point, or a value matching
      * some other non-transient state.
+     *
+     * @param {number} distance - swipe distance in pixels
+     * @param {number[]} snapPoints - An array of snap points, sorted in ascending order
+     * @param {number} currentProgress - initial progress value
+     * @param {number} cancelProgress - the value to be used on cancelling
      */
     confirmSwipe(distance, snapPoints, currentProgress, cancelProgress) {
         this.distance = distance;

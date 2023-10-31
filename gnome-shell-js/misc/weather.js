@@ -1,12 +1,15 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported WeatherClient */
 
-const { Geoclue, Gio, GLib, GWeather, Shell } = imports.gi;
-const Signals = imports.misc.signals;
+import Geoclue from 'gi://Geoclue';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GWeather from 'gi://GWeather';
+import Shell from 'gi://Shell';
+import * as Signals from './signals.js';
 
-const PermissionStore = imports.misc.permissionStore;
+import * as PermissionStore from './permissionStore.js';
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
+import {loadInterfaceXML} from './fileUtils.js';
 
 Gio._promisify(Geoclue.Simple, 'new');
 
@@ -19,9 +22,9 @@ const WEATHER_INTEGRATION_IFACE = 'org.gnome.Shell.WeatherIntegration';
 const WEATHER_APP_ID = 'org.gnome.Weather.desktop';
 
 // Minimum time between updates to show loading indication
-var UPDATE_THRESHOLD = 10 * GLib.TIME_SPAN_MINUTE;
+const UPDATE_THRESHOLD = 10 * GLib.TIME_SPAN_MINUTE;
 
-var WeatherClient = class extends Signals.EventEmitter {
+export class WeatherClient extends Signals.EventEmitter {
     constructor() {
         super();
 
@@ -64,11 +67,11 @@ var WeatherClient = class extends Signals.EventEmitter {
             this._onPermStoreChanged(this._permStore, '', params);
         });
         this._permStore.connectSignal('Changed',
-                                      this._onPermStoreChanged.bind(this));
+            this._onPermStoreChanged.bind(this));
 
-        this._locationSettings = new Gio.Settings({ schema_id: 'org.gnome.system.location' });
+        this._locationSettings = new Gio.Settings({schema_id: 'org.gnome.system.location'});
         this._locationSettings.connect('changed::enabled',
-                                       this._updateAutoLocation.bind(this));
+            this._updateAutoLocation.bind(this));
 
         this._world = GWeather.Location.get_world();
 
@@ -207,7 +210,7 @@ var WeatherClient = class extends Signals.EventEmitter {
     }
 
     _locationsEqual(loc1, loc2) {
-        if (loc1 == loc2)
+        if (loc1 === loc2)
             return true;
 
         if (loc1 == null || loc2 == null)
@@ -232,12 +235,12 @@ var WeatherClient = class extends Signals.EventEmitter {
 
     _updateLocationMonitoring() {
         if (this._useAutoLocation) {
-            if (this._gclueLocationChangedId != 0 || this._gclueService == null)
+            if (this._gclueLocationChangedId !== 0 || this._gclueService == null)
                 return;
 
             this._gclueLocationChangedId =
                 this._gclueService.connect('notify::location',
-                                           this._onGClueLocationChanged.bind(this));
+                    this._onGClueLocationChanged.bind(this));
             this._onGClueLocationChanged();
         } else {
             if (this._gclueLocationChangedId)
@@ -267,16 +270,17 @@ var WeatherClient = class extends Signals.EventEmitter {
 
     _onGClueLocationChanged() {
         let geoLocation = this._gclueService.location;
-        let location = GWeather.Location.new_detached(geoLocation.description,
-                                                      null,
-                                                      geoLocation.latitude,
-                                                      geoLocation.longitude);
+        // Provide empty name so GWeather sets location name
+        const location = GWeather.Location.new_detached('',
+            null,
+            geoLocation.latitude,
+            geoLocation.longitude);
         this._setLocation(location);
     }
 
     _onAutomaticLocationChanged() {
         let useAutoLocation = this._settings.get_boolean('automatic-location');
-        if (this._autoLocationRequested == useAutoLocation)
+        if (this._autoLocationRequested === useAutoLocation)
             return;
 
         this._autoLocationRequested = useAutoLocation;
@@ -313,13 +317,13 @@ var WeatherClient = class extends Signals.EventEmitter {
     _onPermStoreChanged(proxy, sender, params) {
         let [table, id, deleted_, data_, perms] = params;
 
-        if (table != 'gnome' || id != 'geolocation')
+        if (table !== 'gnome' || id !== 'geolocation')
             return;
 
         let permission = perms['org.gnome.Weather'] || ['NONE'];
         let [accuracy] = permission;
-        this._weatherAuthorized = accuracy != 'NONE';
+        this._weatherAuthorized = accuracy !== 'NONE';
 
         this._updateAutoLocation();
     }
-};
+}

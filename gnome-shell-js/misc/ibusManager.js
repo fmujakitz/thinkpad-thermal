@@ -1,10 +1,15 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported getIBusManager */
 
-const { Gio, GLib, IBus, Meta, Shell } = imports.gi;
-const Signals = imports.misc.signals;
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import IBus from 'gi://IBus';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 
-const IBusCandidatePopup = imports.ui.ibusCandidatePopup;
+import * as Signals from './signals.js';
+import * as BoxPointer from '../ui/boxpointer.js';
+
+import * as IBusCandidatePopup from '../ui/ibusCandidatePopup.js';
 
 Gio._promisify(IBus.Bus.prototype,
     'list_engines_async', 'list_engines_async_finish');
@@ -31,8 +36,8 @@ const KEY_INPUTMETHOD = 'inputmethod';
 
 function _checkIBusVersion(requiredMajor, requiredMinor, requiredMicro) {
     if ((IBus.MAJOR_VERSION > requiredMajor) ||
-        (IBus.MAJOR_VERSION == requiredMajor && IBus.MINOR_VERSION > requiredMinor) ||
-        (IBus.MAJOR_VERSION == requiredMajor && IBus.MINOR_VERSION == requiredMinor &&
+        (IBus.MAJOR_VERSION === requiredMajor && IBus.MINOR_VERSION > requiredMinor) ||
+        (IBus.MAJOR_VERSION === requiredMajor && IBus.MINOR_VERSION === requiredMinor &&
          IBus.MICRO_VERSION >= requiredMicro))
         return;
 
@@ -41,13 +46,16 @@ function _checkIBusVersion(requiredMajor, requiredMinor, requiredMicro) {
         `but required is ${requiredMajor}.${requiredMinor}.${requiredMicro}`);
 }
 
-function getIBusManager() {
+/**
+ * @returns {IBusManager}
+ */
+export function getIBusManager() {
     if (_ibusManager == null)
         _ibusManager = new IBusManager();
     return _ibusManager;
 }
 
-var IBusManager = class extends Signals.EventEmitter {
+class IBusManager extends Signals.EventEmitter {
     constructor() {
         super();
 
@@ -107,17 +115,9 @@ var IBusManager = class extends Signals.EventEmitter {
 
     _spawn(extraArgs = []) {
         try {
-            let cmdLine = ['ibus-daemon', '--panel', 'disable', ...extraArgs];
-            let env = [];
-
-            this._tryAppendEnv(env, 'DBUS_SESSION_BUS_ADDRESS');
-            this._tryAppendEnv(env, 'WAYLAND_DISPLAY');
-            this._tryAppendEnv(env, 'HOME');
-            this._tryAppendEnv(env, 'LANG');
-            this._tryAppendEnv(env, 'LC_CTYPE');
-            this._tryAppendEnv(env, 'COMPOSE_FILE');
-            this._tryAppendEnv(env, 'DISPLAY');
-
+            const cmdLine = ['ibus-daemon', '--panel', 'disable', ...extraArgs];
+            const launchContext = global.create_app_launch_context(0, -1);
+            const env = launchContext.get_environment();
             // Use DO_NOT_REAP_CHILD to avoid adouble-fork internally
             // since ibus-daemon refuses to start with init as its parent.
             const [success_, pid] = GLib.spawn_async(
@@ -213,7 +213,7 @@ var IBusManager = class extends Signals.EventEmitter {
         this._candidatePopup.setPanelService(this._panelService);
         this._panelService.connect('update-property', this._updateProperty.bind(this));
         this._panelService.connect('set-cursor-location', (ps, x, y, w, h) => {
-            let cursorLocation = { x, y, width: w, height: h };
+            let cursorLocation = {x, y, width: w, height: h};
             this.emit('set-cursor-location', cursorLocation);
         });
         this._panelService.connect('focus-in', (panel, path) => {
@@ -253,8 +253,9 @@ var IBusManager = class extends Signals.EventEmitter {
             return;
 
         this._currentEngineName = engineName;
+        this._candidatePopup.close(BoxPointer.PopupAnimation.NONE);
 
-        if (this._registerPropertiesId != 0)
+        if (this._registerPropertiesId !== 0)
             return;
 
         this._registerPropertiesId =
@@ -288,7 +289,7 @@ var IBusManager = class extends Signals.EventEmitter {
         return this._engines.get(id);
     }
 
-    async setEngine(id, callback) {
+    async _setEngine(id, callback) {
         // Send id even if id == this._currentEngineName
         // because 'properties-registered' signal can be emitted
         // while this._ibusSources == null on a lock screen.
@@ -306,8 +307,23 @@ var IBusManager = class extends Signals.EventEmitter {
             if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 logError(e);
         }
+
         if (callback)
             callback();
+    }
+
+    async setEngine(id, callback) {
+        if (this._preOskState)
+            this._preOskState.engine = id;
+
+        const isXkb = id.startsWith('xkb:');
+        if (this._oskCompletion && isXkb)
+            return;
+
+        if (this._oskCompletion)
+            this.setCompletionEnabled(false, callback);
+        else
+            await this._setEngine(id, callback);
     }
 
     preloadEngines(ids) {
@@ -317,7 +333,7 @@ var IBusManager = class extends Signals.EventEmitter {
         if (!ids.includes(TYPING_BOOSTER_ENGINE))
             ids.push(TYPING_BOOSTER_ENGINE);
 
-        if (this._preloadEnginesId != 0) {
+        if (this._preloadEnginesId !== 0) {
             GLib.source_remove(this._preloadEnginesId);
             this._preloadEnginesId = 0;
         }
@@ -337,9 +353,9 @@ var IBusManager = class extends Signals.EventEmitter {
                 });
     }
 
-    setCompletionEnabled(enabled) {
+    setCompletionEnabled(enabled, callback) {
         /* Needs typing-booster available */
-        if (!this._engines.has(TYPING_BOOSTER_ENGINE))
+        if (enabled && !this._engines.has(TYPING_BOOSTER_ENGINE))
             return false;
         /* Can do only on xkb engines */
         if (enabled && !this._currentEngineName.startsWith('xkb:'))
@@ -373,12 +389,12 @@ var IBusManager = class extends Signals.EventEmitter {
 
             settings.reset(KEY_INLINECOMPLETION);
             settings.set_string(KEY_INPUTMETHOD, 'NoIME');
-            this.setEngine(TYPING_BOOSTER_ENGINE);
+            this._setEngine(TYPING_BOOSTER_ENGINE, callback);
         } else if (this._preOskState) {
             const {engine, emoji, langs, completion, inputMethod} =
                   this._preOskState;
             this._preOskState = null;
-            this.setEngine(engine);
+            this._setEngine(engine, callback);
             settings.set_value(KEY_EMOJIPREDICTIONS, emoji);
             settings.set_value(KEY_DICTIONARY, langs);
             settings.set_value(KEY_INLINECOMPLETION, completion);
@@ -386,4 +402,4 @@ var IBusManager = class extends Signals.EventEmitter {
         }
         return true;
     }
-};
+}

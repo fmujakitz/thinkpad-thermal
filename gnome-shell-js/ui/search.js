@@ -1,22 +1,27 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported SearchResultsView */
 
-const { Clutter, Gio, GLib, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const AppDisplay = imports.ui.appDisplay;
-const IconGrid = imports.ui.iconGrid;
-const Main = imports.ui.main;
-const ParentalControlsManager = imports.misc.parentalControlsManager;
-const RemoteSearch = imports.ui.remoteSearch;
-const Util = imports.misc.util;
+import * as AppDisplay from './appDisplay.js';
+import * as IconGrid from './iconGrid.js';
+import * as Main from './main.js';
+import * as ParentalControlsManager from '../misc/parentalControlsManager.js';
+import * as RemoteSearch from './remoteSearch.js';
+import {ensureActorVisibleInScrollView} from '../misc/animationUtils.js';
 
-const { Highlighter } = imports.misc.util;
+import {Highlighter} from '../misc/util.js';
 
 const SEARCH_PROVIDERS_SCHEMA = 'org.gnome.desktop.search-providers';
 
-var MAX_LIST_SEARCH_RESULTS_ROWS = 5;
+const MAX_LIST_SEARCH_RESULTS_ROWS = 5;
 
-var MaxWidthBox = GObject.registerClass(
+const MaxWidthBox = GObject.registerClass(
 class MaxWidthBox extends St.BoxLayout {
     vfunc_allocate(box) {
         let themeNode = this.get_theme_node();
@@ -34,7 +39,7 @@ class MaxWidthBox extends St.BoxLayout {
     }
 });
 
-var SearchResult = GObject.registerClass(
+export const SearchResult = GObject.registerClass(
 class SearchResult extends St.Button {
     _init(provider, metaInfo, resultsView) {
         this.provider = provider;
@@ -63,7 +68,7 @@ class SearchResult extends St.Button {
     }
 });
 
-var ListSearchResult = GObject.registerClass(
+export const ListSearchResult = GObject.registerClass(
 class ListSearchResult extends SearchResult {
     _init(provider, metaInfo, resultsView) {
         super._init(provider, metaInfo, resultsView);
@@ -123,15 +128,16 @@ class ListSearchResult extends SearchResult {
     }
 });
 
-var GridSearchResult = GObject.registerClass(
+export const GridSearchResult = GObject.registerClass(
 class GridSearchResult extends SearchResult {
     _init(provider, metaInfo, resultsView) {
         super._init(provider, metaInfo, resultsView);
 
         this.style_class = 'grid-search-result';
 
-        this.icon = new IconGrid.BaseIcon(this.metaInfo['name'],
-                                          { createIcon: this.metaInfo['createIcon'] });
+        this.icon = new IconGrid.BaseIcon(this.metaInfo['name'], {
+            createIcon: this.metaInfo['createIcon'],
+        });
         let content = new St.Bin({
             child: this.icon,
             x_align: Clutter.ActorAlign.START,
@@ -143,7 +149,7 @@ class GridSearchResult extends SearchResult {
     }
 });
 
-var SearchResultsBase = GObject.registerClass({
+const SearchResultsBase = GObject.registerClass({
     GTypeFlags: GObject.TypeFlags.ABSTRACT,
     Properties: {
         'focus-child': GObject.ParamSpec.object(
@@ -153,7 +159,7 @@ var SearchResultsBase = GObject.registerClass({
     },
 }, class SearchResultsBase extends St.BoxLayout {
     _init(provider, resultsView) {
-        super._init({ style_class: 'search-section', vertical: true });
+        super._init({style_class: 'search-section', vertical: true});
 
         this.provider = provider;
         this._resultsView = resultsView;
@@ -164,7 +170,7 @@ var SearchResultsBase = GObject.registerClass({
         this._resultDisplayBin = new St.Bin();
         this.add_child(this._resultDisplayBin);
 
-        let separator = new St.Widget({ style_class: 'search-section-separator' });
+        let separator = new St.Widget({style_class: 'search-section-separator'});
         this.add(separator);
 
         this._resultDisplays = {};
@@ -199,7 +205,7 @@ var SearchResultsBase = GObject.registerClass({
     }
 
     _keyFocusIn(actor) {
-        if (this._focusChild == actor)
+        if (this._focusChild === actor)
             return;
         this._focusChild = actor;
         this.notify('focus-child');
@@ -243,7 +249,7 @@ var SearchResultsBase = GObject.registerClass({
 
     async updateSearch(providerResults, terms, callback) {
         this._terms = terms;
-        if (providerResults.length == 0) {
+        if (providerResults.length === 0) {
             this._clearResultDisplay();
             this.hide();
             callback();
@@ -275,12 +281,12 @@ var SearchResultsBase = GObject.registerClass({
     }
 });
 
-var ListSearchResults = GObject.registerClass(
+export const ListSearchResults = GObject.registerClass(
 class ListSearchResults extends SearchResultsBase {
     _init(provider, resultsView) {
         super._init(provider, resultsView);
 
-        this._container = new St.BoxLayout({ style_class: 'search-section-content' });
+        this._container = new St.BoxLayout({style_class: 'search-section-content'});
         this.providerInfo = new ProviderInfo(provider);
         this.providerInfo.connect('key-focus-in', this._keyFocusIn.bind(this));
         this.providerInfo.connect('clicked', () => {
@@ -330,7 +336,7 @@ class ListSearchResults extends SearchResultsBase {
     }
 });
 
-var GridSearchResultsLayout = GObject.registerClass({
+const GridSearchResultsLayout = GObject.registerClass({
     Properties: {
         'spacing': GObject.ParamSpec.int('spacing', 'Spacing', 'Spacing',
             GObject.ParamFlags.READWRITE, 0, GLib.MAXINT32, 0),
@@ -449,12 +455,12 @@ var GridSearchResultsLayout = GObject.registerClass({
     }
 });
 
-var GridSearchResults = GObject.registerClass(
+export const GridSearchResults = GObject.registerClass(
 class GridSearchResults extends SearchResultsBase {
     _init(provider, resultsView) {
         super._init(provider, resultsView);
 
-        this._grid = new St.Widget({ style_class: 'grid-search-results' });
+        this._grid = new St.Widget({style_class: 'grid-search-results'});
         this._grid.layout_manager = new GridSearchResultsLayout();
 
         this._grid.connect('style-changed', () => {
@@ -470,7 +476,8 @@ class GridSearchResults extends SearchResultsBase {
 
     _onDestroy() {
         if (this._updateSearchLater) {
-            Meta.later_remove(this._updateSearchLater);
+            const laters = global.compositor.get_laters();
+            laters.remove(this._updateSearchLater);
             delete this._updateSearchLater;
         }
 
@@ -481,7 +488,8 @@ class GridSearchResults extends SearchResultsBase {
         if (this._notifyAllocationId)
             this.disconnect(this._notifyAllocationId);
         if (this._updateSearchLater) {
-            Meta.later_remove(this._updateSearchLater);
+            const laters = global.compositor.get_laters();
+            laters.remove(this._updateSearchLater);
             delete this._updateSearchLater;
         }
 
@@ -490,7 +498,8 @@ class GridSearchResults extends SearchResultsBase {
         this._notifyAllocationId = this.connect('notify::allocation', () => {
             if (this._updateSearchLater)
                 return;
-            this._updateSearchLater = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+            const laters = global.compositor.get_laters();
+            this._updateSearchLater = laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
                 delete this._updateSearchLater;
                 super.updateSearch(...args);
                 return GLib.SOURCE_REMOVE;
@@ -502,7 +511,7 @@ class GridSearchResults extends SearchResultsBase {
 
     _getMaxDisplayedResults() {
         let width = this.allocation.get_width();
-        if (width == 0)
+        if (width === 0)
             return -1;
 
         return this._grid.layout_manager.columnsForWidth(width);
@@ -530,11 +539,16 @@ class GridSearchResults extends SearchResultsBase {
     }
 });
 
-var SearchResultsView = GObject.registerClass({
-    Signals: { 'terms-changed': {} },
+export const SearchResultsView = GObject.registerClass({
+    Signals: {'terms-changed': {}},
 }, class SearchResultsView extends St.BoxLayout {
     _init() {
-        super._init({ name: 'searchResults', vertical: true });
+        super._init({
+            name: 'searchResults',
+            vertical: true,
+            x_expand: true,
+            y_expand: true,
+        });
 
         this._parentalControlsManager = ParentalControlsManager.getDefault();
         this._parentalControlsManager.connect('app-filter-changed', this._reloadRemoteProviders.bind(this));
@@ -554,7 +568,7 @@ var SearchResultsView = GObject.registerClass({
         this._scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
         this._scrollView.add_actor(this._content);
 
-        let action = new Clutter.PanAction({ interpolate: true });
+        let action = new Clutter.PanAction({interpolate: true});
         action.connect('pan', this._onPan.bind(this));
         this._scrollView.add_action(action);
 
@@ -565,7 +579,7 @@ var SearchResultsView = GObject.registerClass({
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this._statusBin = new St.Bin({ y_expand: true });
+        this._statusBin = new St.Bin({y_expand: true});
         this.add_child(this._statusBin);
         this._statusBin.add_actor(this._statusText);
 
@@ -580,7 +594,7 @@ var SearchResultsView = GObject.registerClass({
 
         this._highlighter = new Highlighter();
 
-        this._searchSettings = new Gio.Settings({ schema_id: SEARCH_PROVIDERS_SCHEMA });
+        this._searchSettings = new Gio.Settings({schema_id: SEARCH_PROVIDERS_SCHEMA});
         this._searchSettings.connect('changed::disabled', this._reloadRemoteProviders.bind(this));
         this._searchSettings.connect('changed::enabled', this._reloadRemoteProviders.bind(this));
         this._searchSettings.connect('changed::disable-external', this._reloadRemoteProviders.bind(this));
@@ -695,7 +709,7 @@ var SearchResultsView = GObject.registerClass({
         // search while the previous search is still active.
         let searchString = terms.join(' ');
         let previousSearchString = this._terms.join(' ');
-        if (searchString == previousSearchString)
+        if (searchString === previousSearchString)
             return;
 
         this._startingSearch = true;
@@ -703,20 +717,20 @@ var SearchResultsView = GObject.registerClass({
         this._cancellable.cancel();
         this._cancellable.reset();
 
-        if (terms.length == 0) {
+        if (terms.length === 0) {
             this._reset();
             return;
         }
 
         let isSubSearch = false;
         if (this._terms.length > 0)
-            isSubSearch = searchString.indexOf(previousSearchString) == 0;
+            isSubSearch = searchString.indexOf(previousSearchString) === 0;
 
         this._terms = terms;
         this._isSubSearch = isSubSearch;
         this._updateSearchProgress();
 
-        if (this._searchTimeoutId == 0)
+        if (this._searchTimeoutId === 0)
             this._searchTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, this._onSearchTimeout.bind(this));
 
         this._highlighter = new Highlighter(this._terms);
@@ -732,7 +746,7 @@ var SearchResultsView = GObject.registerClass({
     }
 
     _focusChildChanged(provider) {
-        Util.ensureActorVisibleInScrollView(this._scrollView, provider.focusChild);
+        ensureActorVisibleInScrollView(this._scrollView, provider.focusChild);
     }
 
     _ensureProviderDisplay(provider) {
@@ -775,7 +789,7 @@ var SearchResultsView = GObject.registerClass({
             }
         }
 
-        if (newDefaultResult != this._defaultResult) {
+        if (newDefaultResult !== this._defaultResult) {
             this._setSelected(this._defaultResult, false);
             this._setSelected(newDefaultResult, this._highlightDefault);
 
@@ -801,9 +815,9 @@ var SearchResultsView = GObject.registerClass({
 
         if (!haveResults) {
             if (this.searchInProgress)
-                this._statusText.set_text(_("Searching…"));
+                this._statusText.set_text(_('Searching…'));
             else
-                this._statusText.set_text(_("No results."));
+                this._statusText.set_text(_('No results.'));
         }
     }
 
@@ -843,12 +857,12 @@ var SearchResultsView = GObject.registerClass({
     }
 
     navigateFocus(direction) {
-        let rtl = this.get_text_direction() == Clutter.TextDirection.RTL;
-        if (direction == St.DirectionType.TAB_BACKWARD ||
-            direction == (rtl
+        let rtl = this.get_text_direction() === Clutter.TextDirection.RTL;
+        if (direction === St.DirectionType.TAB_BACKWARD ||
+            direction === (rtl
                 ? St.DirectionType.RIGHT
                 : St.DirectionType.LEFT) ||
-            direction == St.DirectionType.UP) {
+            direction === St.DirectionType.UP) {
             this.navigate_focus(null, direction, false);
             return;
         }
@@ -863,7 +877,7 @@ var SearchResultsView = GObject.registerClass({
 
         if (selected) {
             result.add_style_pseudo_class('selected');
-            Util.ensureActorVisibleInScrollView(this._scrollView, result);
+            ensureActorVisibleInScrollView(this._scrollView, result);
         } else {
             result.remove_style_pseudo_class('selected');
         }
@@ -877,7 +891,7 @@ var SearchResultsView = GObject.registerClass({
     }
 });
 
-var ProviderInfo = GObject.registerClass(
+const ProviderInfo = GObject.registerClass(
 class ProviderInfo extends St.Button {
     _init(provider) {
         this.provider = provider;
@@ -912,7 +926,7 @@ class ProviderInfo extends St.Button {
             x_align: Clutter.ActorAlign.START,
         });
 
-        this._moreLabel = new St.Label({ x_align: Clutter.ActorAlign.START });
+        this._moreLabel = new St.Label({x_align: Clutter.ActorAlign.START});
 
         detailsBox.add_actor(nameLabel);
         detailsBox.add_actor(this._moreLabel);
@@ -929,12 +943,12 @@ class ProviderInfo extends St.Button {
     animateLaunch() {
         let appSys = Shell.AppSystem.get_default();
         let app = appSys.lookup_app(this.provider.appInfo.get_id());
-        if (app.state == Shell.AppState.STOPPED)
+        if (app.state === Shell.AppState.STOPPED)
             IconGrid.zoomOutActor(this._content);
     }
 
     setMoreCount(count) {
-        this._moreLabel.text = ngettext("%d more", "%d more", count).format(count);
+        this._moreLabel.text = ngettext('%d more', '%d more', count).format(count);
         this._moreLabel.visible = count > 0;
     }
 });

@@ -1,23 +1,27 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported GrabHelper */
 
-const { Clutter, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
 
-const Main = imports.ui.main;
-const Params = imports.misc.params;
+import * as Main from './main.js';
+import * as Params from '../misc/params.js';
 
-// GrabHelper:
-// @owner: the actor that owns the GrabHelper
-// @params: optional parameters to pass to Main.pushModal()
-//
-// Creates a new GrabHelper object, for dealing with keyboard and pointer grabs
-// associated with a set of actors.
-//
-// Note that the grab can be automatically dropped at any time by the user, and
-// your code just needs to deal with it; you shouldn't adjust behavior directly
-// after you call ungrab(), but instead pass an 'onUngrab' callback when you
-// call grab().
-var GrabHelper = class GrabHelper {
+/**
+ * GrabHelper:
+ *
+ * Creates a new GrabHelper object, for dealing with keyboard and pointer grabs
+ * associated with a set of actors.
+ *
+ * Note that the grab can be automatically dropped at any time by the user, and
+ * your code just needs to deal with it; you shouldn't adjust behavior directly
+ * after you call ungrab(), but instead pass an 'onUngrab' callback when you
+ * call grab().
+ */
+export class GrabHelper {
+    /**
+     * @param {Clutter.Actor} owner the actor that owns the GrabHelper
+     * @param {*} params optional parameters to pass to Main.pushModal()
+     */
     constructor(owner, params) {
         if (!(owner instanceof Clutter.Actor))
             throw new Error('GrabHelper owner must be a Clutter.Actor');
@@ -35,7 +39,7 @@ var GrabHelper = class GrabHelper {
     _isWithinGrabbedActor(actor) {
         let currentActor = this.currentGrab.actor;
         while (actor) {
-            if (actor == currentActor)
+            if (actor === currentActor)
                 return true;
             actor = actor.get_parent();
         }
@@ -151,7 +155,7 @@ var GrabHelper = class GrabHelper {
     }
 
     _takeModalGrab() {
-        let firstGrab = this._modalCount == 0;
+        let firstGrab = this._modalCount === 0;
         if (firstGrab) {
             let grab = Main.pushModal(this._owner, this._modalParams);
             if (grab.get_seat_state() !== Clutter.GrabState.ALL) {
@@ -240,20 +244,20 @@ var GrabHelper = class GrabHelper {
     onCapturedEvent(event) {
         let type = event.type();
 
-        if (type == Clutter.EventType.KEY_PRESS &&
-            event.get_key_symbol() == Clutter.KEY_Escape) {
-            this.ungrab({ isUser: true });
+        if (type === Clutter.EventType.KEY_PRESS &&
+            event.get_key_symbol() === Clutter.KEY_Escape) {
+            this.ungrab({isUser: true});
             return Clutter.EVENT_STOP;
         }
 
-        let motion = type == Clutter.EventType.MOTION;
-        let press = type == Clutter.EventType.BUTTON_PRESS;
-        let release = type == Clutter.EventType.BUTTON_RELEASE;
+        let motion = type === Clutter.EventType.MOTION;
+        let press = type === Clutter.EventType.BUTTON_PRESS;
+        let release = type === Clutter.EventType.BUTTON_RELEASE;
         let button = press || release;
 
-        let touchUpdate = type == Clutter.EventType.TOUCH_UPDATE;
-        let touchBegin = type == Clutter.EventType.TOUCH_BEGIN;
-        let touchEnd = type == Clutter.EventType.TOUCH_END;
+        let touchUpdate = type === Clutter.EventType.TOUCH_UPDATE;
+        let touchBegin = type === Clutter.EventType.TOUCH_BEGIN;
+        let touchEnd = type === Clutter.EventType.TOUCH_END;
         let touch = touchUpdate || touchBegin || touchEnd;
 
         if (touch && !global.display.is_pointer_emulating_sequence(event.get_event_sequence()))
@@ -282,10 +286,10 @@ var GrabHelper = class GrabHelper {
                 this._ignoreUntilRelease = true;
 
             let i = this._actorInGrabStack(targetActor) + 1;
-            this.ungrab({ actor: this._grabStack[i].actor, isUser: true });
+            this.ungrab({actor: this._grabStack[i].actor, isUser: true});
             return Clutter.EVENT_STOP;
         }
 
         return Clutter.EVENT_STOP;
     }
-};
+}

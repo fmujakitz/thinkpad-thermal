@@ -1,11 +1,13 @@
-/* exported InhibitShortcutsDialog */
-const { Clutter, Gio, GLib, GObject, Gtk, Meta, Pango, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Dialog = imports.ui.dialog;
-const ModalDialog = imports.ui.modalDialog;
-const PermissionStore = imports.misc.permissionStore;
-
-const WAYLAND_KEYBINDINGS_SCHEMA = 'org.gnome.mutter.wayland.keybindings';
+import * as Dialog from './dialog.js';
+import * as ModalDialog from './modalDialog.js';
+import * as PermissionStore from '../misc/permissionStore.js';
 
 const APP_ALLOWLIST = ['org.gnome.Settings.desktop'];
 const APP_PERMISSIONS_TABLE = 'gnome';
@@ -13,9 +15,9 @@ const APP_PERMISSIONS_ID = 'shortcuts-inhibitor';
 const GRANTED = 'GRANTED';
 const DENIED = 'DENIED';
 
-var DialogResponse = Meta.InhibitShortcutsDialogResponse;
+const DialogResponse = Meta.InhibitShortcutsDialogResponse;
 
-var InhibitShortcutsDialog = GObject.registerClass({
+export const InhibitShortcutsDialog = GObject.registerClass({
     Implements: [Meta.InhibitShortcutsDialog],
     Properties: {
         'window': GObject.ParamSpec.override('window', Meta.InhibitShortcutsDialog),
@@ -42,13 +44,6 @@ var InhibitShortcutsDialog = GObject.registerClass({
         return windowTracker.get_window_app(this._window);
     }
 
-    _getRestoreAccel() {
-        let settings = new Gio.Settings({ schema_id: WAYLAND_KEYBINDINGS_SCHEMA });
-        let accel = settings.get_strv('restore-shortcuts')[0] || '';
-        return Gtk.accelerator_get_label.apply(null,
-                                               Gtk.accelerator_parse(accel));
-    }
-
     _shouldUsePermStore() {
         return this._app && !this._app.is_window_backed();
     }
@@ -57,16 +52,12 @@ var InhibitShortcutsDialog = GObject.registerClass({
         if (!this._shouldUsePermStore() || this._permStore == null)
             return;
 
-        let permissions = {};
-        permissions[this._app.get_id()] = [grant];
-        let data = GLib.Variant.new('av', {});
-
         try {
-            await this._permStore.SetAsync(APP_PERMISSIONS_TABLE,
+            await this._permStore.SetPermissionAsync(APP_PERMISSIONS_TABLE,
                 true,
                 APP_PERMISSIONS_ID,
-                permissions,
-                data);
+                this._app.get_id(),
+                [grant]);
         } catch (error) {
             log(error.message);
         }
@@ -79,11 +70,11 @@ var InhibitShortcutsDialog = GObject.registerClass({
             title: _('Allow inhibiting shortcuts'),
             description: name
                 /* Translators: %s is an application name like "Settings" */
-                ? _('The application %s wants to inhibit shortcuts').format(name)
-                : _('An application wants to inhibit shortcuts'),
+                ? _('The app %s wants to inhibit shortcuts').format(name)
+                : _('An app wants to inhibit shortcuts'),
         });
 
-        let restoreAccel = this._getRestoreAccel();
+        const restoreAccel = Meta.prefs_get_keybinding_label('restore-shortcuts');
         if (restoreAccel) {
             let restoreLabel = new St.Label({
                 /* Translators: %s is a keyboard shortcut like "Super+x" */
@@ -147,7 +138,7 @@ var InhibitShortcutsDialog = GObject.registerClass({
 
                 if (permissions[appId] === undefined) // Not found
                     this._dialog.open();
-                else if (permissions[appId] === GRANTED)
+                else if (permissions[appId][0] === GRANTED)
                     this._emitResponse(DialogResponse.ALLOW);
                 else
                     this._emitResponse(DialogResponse.DENY);

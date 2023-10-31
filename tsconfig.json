@@ -51,6 +51,7 @@
       // Our own types.  First as they are seen in GNOME shell extensions,
       // and then how they're seen by prefs.js.
       "resource:///org/gnome/shell/*": ["./@types/gnome-shell/*"],
+      "resource:///org/gnome/shell/extensions/extension.js": ["./@types/gnome-shell/extensions/extension.d.ts"],
       "resource:///org/gnome/Shell/Extensions/js/*": ["./@types/gnome-shell/*"]
     }
   },
