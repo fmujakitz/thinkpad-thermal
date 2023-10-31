@@ -7,7 +7,9 @@
   "author": "Faris Mujakic <faris.mujakic@gmail.com>",
   "type": "module",
   "scripts": {
+    "build": "yarn compile && cd ./dist && zip -qr 'thinkpadthermal@moonlight.drive.vk.gmail.com.zip' . && cd ..",
     "compile": "tsc --build tsconfig.json && cp -a resources/. dist",
+    "dev": "yarn compile && cp -a dist/. ~/.local/share/gnome-shell/extensions/thinkpadthermal@moonlight.drive.vk.gmail.com",
     "types:generate": "ts-for-gir generate"
   },
   "devDependencies": {

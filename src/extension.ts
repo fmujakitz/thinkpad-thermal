@@ -317,7 +317,7 @@ const Indicator = GObject.registerClass(
     _bindings: Binding[] = []
     _elements: string[] = ['cpu', 'gpu', 'speed']
     _updateInterval: GLib.Source | any
-    _temp: string
+    _temp: string = UNIT.celsius
 
     constructor(
       ext: Extension,
@@ -325,8 +325,6 @@ const Indicator = GObject.registerClass(
       name: string
     ) {
       super(align, name)
-
-      this._temp = UNIT.fahrenheit
 
       this._tpAcpi = new IbmAcpiUtil()
       this._sensors = new SensorsUtil()
@@ -380,7 +378,7 @@ const Indicator = GObject.registerClass(
     }
 
     // utility fn to convert celsius to fahrenheit
-    _toFahrenheit = (t: string): string => ((parseFloat(t) * (9 / 5)) + 32).toFixed(1)
+    _toFahrenheit = (t: string): string => ((parseFloat(t) * (9 / 5)) + 32).toPrecision(1)
     _convert = (t: string | Object): string | Object => {
       if (this._temp === UNIT.fahrenheit) {
         if (typeof t === 'string') return this._toFahrenheit(t)
