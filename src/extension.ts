@@ -1,4 +1,4 @@
-import './stylesheet.css';
+// import './stylesheet.css';
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -7,10 +7,10 @@ import St from 'gi://St';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import IbmAcpiUtil from './IbmAcpi';
-import SensorsUtil from './Sensors';
+import IbmAcpiUtil from './IbmAcpi.js';
+import SensorsUtil from './Sensors.js';
 
-import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 //
 //
@@ -18,34 +18,16 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const _ = (text: string) => text
 
-const iconFrom = (path = '') => (filename: string) => Gio.icon_new_for_string(
-  [path, 'icons', filename].join('/').replace(/\/+/igm, '/')
-)
-
 const UNIT = {
   celsius: "\u00b0C",
   fahrenheit: "\u00b0F",
   rpm: "RPM"
 }
 
-type IconType = {
-  gicon: Gio.Icon | null,
-  size: number
-}
-const ICON: {
-  [key: string]: IconType
-} = {
-  fan: { gicon: iconFrom()('fan-symbolic.svg'), size: 12 },
-  cpu: { gicon: iconFrom()('cpu-symbolic.svg'), size: 12 },
-  gpu: { gicon: iconFrom()('gpu-symbolic.svg'), size: 14 },
-  hdd: { gicon: iconFrom()('hdd-symbolic.svg'), size: 14 },
-  sensor: { gicon: iconFrom()('sensor-symbolic.svg'), size: 14 }
-}
-
-// type ThermalTitle = {
-//   constructor: (title: string) => ThermalTitle
-// } & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
-// const ThermalTitle = GObject.registerClass(
+type ThermalTitle = {
+  constructor: (title: string) => ThermalTitle
+} & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
+const ThermalTitle = GObject.registerClass(
   class ThermalTitle extends PopupMenu.PopupBaseMenuItem {
     _title: St.Label
 
@@ -65,7 +47,7 @@ const ICON: {
       this.add_child(this._title)
     }
   }
-// )
+)
 
 
 type ThermalItemProps = {
@@ -83,7 +65,12 @@ const ThermalItem = GObject.registerClass(
     _value: St.Label
     _unit: St.Label
 
-    constructor(style_class: string, updater: UpdaterFn, label: string, props?: ThermalItemProps) {
+    constructor(
+      style_class: string,
+      updater: UpdaterFn,
+      label: string,
+      props?: ThermalItemProps
+    ) {
       super({ style_class, reactive: false })
 
       this._updater = updater
@@ -91,6 +78,7 @@ const ThermalItem = GObject.registerClass(
       if (props?.icon || props?.hideOrnament) {
         this.setOrnament(PopupMenu.Ornament.HIDDEN)
       }
+
       if (props?.icon) {
         this.add_child(new St.Icon({
           style_class: 'popup-menu-ornament',
@@ -131,7 +119,9 @@ const ThermalItem = GObject.registerClass(
     update(unit?: string, label?: string) {
       const value = this._updater()
       this._value.set_text(value)
+
       if (unit) this._unit.set_text(unit)
+
       if (label) this._label.set_text(label)
     }
   }
@@ -150,14 +140,19 @@ const ThermalGroup = GObject.registerClass(
   class ThermalGroup extends PopupMenu.PopupSubMenuMenuItem {
     _children: ThermalGroupChild[] = []
 
-    constructor(style_class: string, updater: ChildrenUpdaterFn, label: string, props?: ThermalGroupProps) {
+    constructor(
+      style_class: string,
+      updater: ChildrenUpdaterFn,
+      label: string,
+      props?: ThermalGroupProps
+    ) {
       super(label, true)
       this.add_style_class_name(style_class)
       this.setOrnament(PopupMenu.Ornament.HIDDEN)
 
       if (props?.icon) {
-        console.log('should set icon?!?')
-        // this.icon.gicon = props?.icon.gicon
+        // @ts-expect-error
+        this.icon.gicon = props?.icon.gicon
       }
 
       const data = updater()
@@ -236,7 +231,12 @@ const IndicatorItem = GObject.registerClass(
     _unit: St.Label
     _off: St.Label | false
 
-    constructor(style_class: string, updater: UpdaterFn, icon: IconType, unit: string) {
+    constructor(
+      style_class: string,
+      updater: UpdaterFn,
+      icon: IconType,
+      unit: string
+    ) {
       super({ style_class })
 
       this._updater = updater
@@ -292,14 +292,22 @@ const IndicatorItem = GObject.registerClass(
     }
   }
 )
-
+type IconType = {
+  gicon: Gio.Icon | null,
+  size: number
+}
 type BindingType = "tpt-button" | "tpt-popup-title" | "tpt-popup-item" | "tpt-popup-submenu" | "separator" | "tpt-popup-dropdown"
 type Binding = {
   type: BindingType
   element: any
 }
-// const Indicator = GObject.registerClass(
+
+const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
+    // icons
+    _i: {
+      [key: string]: IconType
+    } = {}
     // utils
     _tpAcpi: IbmAcpiUtil
     _sensors: SensorsUtil
@@ -309,12 +317,33 @@ type Binding = {
     _bindings: Binding[] = []
     _elements: string[] = ['cpu', 'gpu', 'speed']
     _updateInterval: GLib.Source | any
+    _temp: string
 
-    constructor(a, b) {
-      super(a, b)
+    constructor(
+      ext: Extension,
+      align: number,
+      name: string
+    ) {
+      super(align, name)
+
+      this._temp = UNIT.fahrenheit
 
       this._tpAcpi = new IbmAcpiUtil()
       this._sensors = new SensorsUtil()
+
+      const icons = ['cpu', 'gpu', 'hdd', 'fan', 'sensor']
+
+      icons.forEach(k => {
+        const name = k + '-symbolic.svg'
+        const path = [
+          ext.dir.get_child('icons').get_path(),
+          name
+        ].join('/')
+        this._i[k] = {
+          gicon: Gio.icon_new_for_string(path),
+          size: 14
+        }
+      })
 
       this._start()
 
@@ -351,7 +380,17 @@ type Binding = {
     }
 
     // utility fn to convert celsius to fahrenheit
-    _toFahrenheit = (temp: number): number => (temp * (9 / 5)) + 32
+    _toFahrenheit = (t: string): string => ((parseFloat(t) * (9 / 5)) + 32).toFixed(1)
+    _convert = (t: string | Object): string | Object => {
+      if (this._temp === UNIT.fahrenheit) {
+        if (typeof t === 'string') return this._toFahrenheit(t)
+        const o = { ...t }
+        Object.keys(o).forEach(k => {
+          o[k] = this._toFahrenheit(o[k])
+        })
+      }
+      return t
+    }
 
     // perform update
     _update = async () => {
@@ -378,7 +417,6 @@ type Binding = {
       const element = new Element(type, ...args)
       this._bindings.push({ type, element })
 
-
       if (['tpt-button'].includes(type))
         this._buttonLayout.add_child(element)
 
@@ -397,28 +435,25 @@ type Binding = {
       return this._elements.includes(key)
     }
 
-
     appendButton() {
       // attach cpu, gpu, speed indicator
-      if (this.element('cpu')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.cpu, ICON.cpu, UNIT.celsius)
-      if (this.element('gpu')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.gpu, ICON.gpu, UNIT.celsius)
-      if (this.element('speed')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.speed, ICON.fan, UNIT.rpm)
+      if (this.element('cpu')) this._attach(IndicatorItem, "tpt-button", () => this._convert(this._tpAcpi.cpu), this._i.cpu, this._temp)
+      if (this.element('gpu')) this._attach(IndicatorItem, "tpt-button", () => this._convert(this._tpAcpi.gpu), this._i.gpu, this._temp)
+      if (this.element('speed')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.speed, this._i.fan, UNIT.rpm)
     }
 
     appendPopupMenu() {
       // Sensors
-
       if (this._sensors.available) {
-
         // attach submenu for every cpu
         if (this._sensors.cpu) Object.keys(this._sensors.cpu)
-          .forEach(k => this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.cpu[k], k, { icon: ICON.cpu, unit: UNIT.celsius }))
+          .forEach(k => this._attach(ThermalGroup, "tpt-popup-submenu", () => this._convert(this._sensors.cpu[k]), k, { icon: this._i.cpu, unit: this._temp }))
         // attach submenu for disks
-        if (this._sensors.hdd) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.hdd, "Disks", { icon: ICON.hdd, unit: UNIT.celsius })
+        if (this._sensors.hdd) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._convert(this._sensors.hdd), "Disks", { icon: this._i.hdd, unit: this._temp })
         // attach submenu for other thermal sensors
-        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.other, "Thermal", { icon: ICON.sensor, unit: UNIT.celsius })
+        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._convert(this._sensors.other), "Thermal", { icon: this._i.sensor, unit: this._temp })
         // attach submenu for fans
-        if (this._sensors.fan) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.fan, "Cooling", { icon: ICON.fan, unit: UNIT.rpm })
+        if (this._sensors.fan) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.fan, "Cooling", { icon: this._i.fan, unit: UNIT.rpm })
 
       }
 
@@ -427,10 +462,10 @@ type Binding = {
         // add ACPI items to popup
         this._attach(ThermalTitle, "tpt-popup-title", "ACPI")
         if (this.element('cpu')) {
-          this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.cpu, "CPU", { unit: UNIT.celsius, icon: ICON.cpu })
+          this._attach(ThermalItem, "tpt-popup-item", () => this._convert(this._tpAcpi.cpu), "CPU", { unit: this._temp, icon: this._i.cpu })
         }
         if (this.element('gpu')) {
-          this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.gpu, "GPU", { unit: UNIT.celsius, icon: ICON.gpu })
+          this._attach(ThermalItem, "tpt-popup-item", () => this._convert(this._tpAcpi.gpu), "GPU", { unit: this._temp, icon: this._i.gpu })
         }
 
         // add Fan control items to popup
@@ -447,35 +482,21 @@ type Binding = {
       }
     }
   }
-// )
+)
 
 export default class ThinkPadThermal extends Extension {
-  _uuid: any
   _indicator: any
 
   constructor(meta) {
     super(meta)
-    this._uuid = meta.uuid
   }
 
   override enable() {
-    ICON.fan.gicon = iconFrom(this.path)('fan-symbolic.svg');
-    ICON.cpu.gicon = iconFrom(this.path)('cpu-symbolic.svg');
-    ICON.gpu.gicon = iconFrom(this.path)('gpu-symbolic.svg');
-    ICON.hdd.gicon = iconFrom(this.path)('hdd-symbolic.svg');
-    ICON.sensor.gicon = iconFrom(this.path)('sensor-symbolic.svg');
-
-    this._indicator = new Indicator(0.5, _('ThinkPad Thermal'))
-    Main.panel.addToStatusArea(this._uuid, this._indicator)
+    this._indicator = new Indicator(this, 0.5, _('ThinkPad Thermal'))
+    Main.panel.addToStatusArea(this.uuid, this._indicator)
   }
 
   override disable() {
-    ICON.fan.gicon = null;
-    ICON.cpu.gicon = null;
-    ICON.gpu.gicon = null;
-    ICON.hdd.gicon = null;
-    ICON.sensor.gicon = null;
-
     this._indicator.destroy()
     this._indicator = null
   }

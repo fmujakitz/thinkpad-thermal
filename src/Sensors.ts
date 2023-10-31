@@ -1,6 +1,6 @@
-import ConsoleUtil from "./Console"
-import LsblkUtil from "./Lsblk"
-import LscpuUtil from "./Lscpu"
+import ConsoleUtil from "./Console.js"
+import LsblkUtil from "./Lsblk.js"
+import LscpuUtil from "./Lscpu.js"
 
 type SensorsData = {
   cpu: object,

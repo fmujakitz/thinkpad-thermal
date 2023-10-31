@@ -1,4 +1,4 @@
-import ConsoleUtil from './Console'
+import ConsoleUtil from './Console.js'
 
 export default class LscpuUtil extends ConsoleUtil {
   private _name: string

@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import ConsoleUtil from "./Console"
+import ConsoleUtil from "./Console.js"
 
 type IbmAcpiData = {
   cpu: number
