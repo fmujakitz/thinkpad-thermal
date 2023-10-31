@@ -1,32 +1,31 @@
-import * as Clutter from "@gi-types/clutter10"
-import * as Gio from "@gi-types/gio2"
-import * as GLib from "@gi-types/glib2"
-import * as GObject from "@gi-types/gobject2"
-import * as St from "@gi-types/st1"
-import "./stylesheet.css"
+import './stylesheet.css';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import IbmAcpiUtil from './IbmAcpi';
+import SensorsUtil from './Sensors';
 
-
-import * as PanelMenu from "@gnomejs/panelMenu"
-import * as PopupMenu from "@gnomejs/popupMenu"
-import IbmAcpiUtil from "./IbmAcpi"
-import SensorsUtil from "./Sensors"
-
-const ExtensionUtils = imports.misc.extensionUtils
-const Main = imports.ui.main
-const Me = ExtensionUtils.getCurrentExtension()
+// const ExtensionUtils = imports.misc.extensionUtils
+// const Main = imports.ui.main
+// const Me = ExtensionUtils.getCurrentExtension()
 
 
 // const GETTEXT_DOMAIN = 'my-indicator-extension'
 // const _ = ExtensionUtils.gettext
 
 const _ = (text: string) => text
-const $$ = (...args: string[]): string => ['[tpt]', '=>', ...args].join(' ')
+// const $$ = (...args: string[]): string => ['[tpt]', '=>', ...args].join(' ')
 
 const iconFrom = (filename: string) => Gio.icon_new_for_string(
-  [Me.path, 'icons', filename].join('/').replace(/\/+/igm, '/')
+  [/*Me.path, */'icons', filename].join('/').replace(/\/+/igm, '/')
 )
 
-const $_ = (...args) => args.join('-')
+// const $_ = (...args) => args.join('-')
 
 const UNIT = {
   celsius: "\u00b0C",
@@ -35,7 +34,7 @@ const UNIT = {
 }
 
 type IconType = {
-  gicon: Gio.IconPrototype,
+  gicon: Gio.Icon,
   size: number
 }
 const ICON: {
@@ -48,10 +47,10 @@ const ICON: {
   sensor: { gicon: iconFrom('sensor-symbolic.svg'), size: 14 }
 }
 
-type ThermalTitle = {
-  constructor: (title: string) => ThermalTitle
-} & Clutter.Actor<Clutter.LayoutManager, Clutter.ContentPrototype>
-const ThermalTitle = GObject.registerClass(
+// type ThermalTitle = {
+//   constructor: (title: string) => ThermalTitle
+// } & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
+// const ThermalTitle = GObject.registerClass(
   class ThermalTitle extends PopupMenu.PopupBaseMenuItem {
     _title: St.Label
 
@@ -71,7 +70,7 @@ const ThermalTitle = GObject.registerClass(
       this.add_child(this._title)
     }
   }
-)
+// )
 
 
 type ThermalItemProps = {
@@ -81,7 +80,7 @@ type ThermalItemProps = {
 }
 type ThermalItem = {
   update: (value: string, unit?: string, label?: string) => void
-} & Clutter.Actor<Clutter.LayoutManager, Clutter.ContentPrototype>
+} & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
 const ThermalItem = GObject.registerClass(
   class ThermalItem extends PopupMenu.PopupBaseMenuItem {
     _updater: UpdaterFn
@@ -161,7 +160,10 @@ const ThermalGroup = GObject.registerClass(
       this.add_style_class_name(style_class)
       this.setOrnament(PopupMenu.Ornament.HIDDEN)
 
-      if (props?.icon) this.icon.gicon = props?.icon.gicon
+      if (props?.icon) {
+        console.log('should set icon?!?')
+        // this.icon.gicon = props?.icon.gicon
+      }
 
       const data = updater()
 
@@ -230,7 +232,7 @@ const ThermalDropDown = GObject.registerClass(
 type UpdaterFn = () => string
 type IndicatorItem = {
   update: (value: string, unit?: string) => void
-} & Clutter.Actor<Clutter.LayoutManager, Clutter.ContentPrototype>
+} & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
 const IndicatorItem = GObject.registerClass(
   class IndicatorItem extends St.BoxLayout {
     _updater: UpdaterFn
@@ -301,7 +303,7 @@ type Binding = {
   type: BindingType
   element: any
 }
-const Indicator = GObject.registerClass(
+// const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     // utils
     _tpAcpi: IbmAcpiUtil
@@ -313,8 +315,8 @@ const Indicator = GObject.registerClass(
     _elements: string[] = ['cpu', 'gpu', 'speed']
     _updateInterval: GLib.Source | any
 
-    constructor(...args) {
-      super(...args)
+    constructor(a, b) {
+      super(a, b)
 
       this._tpAcpi = new IbmAcpiUtil()
       this._sensors = new SensorsUtil()
@@ -374,7 +376,7 @@ const Indicator = GObject.registerClass(
     // create and attach element to bindings
     _attach(Element, type: BindingType, ...args) {
       if (type === 'separator') {
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem)
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(''))
         return
       }
 
@@ -450,7 +452,7 @@ const Indicator = GObject.registerClass(
       }
     }
   }
-)
+// )
 
 class ThinkPadThermal {
   _uuid: any

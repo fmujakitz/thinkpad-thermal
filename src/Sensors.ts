@@ -68,12 +68,12 @@ export default class SensorsUtil extends ConsoleUtil {
       }
 
       if (drives.test(key)) {
-        acc.hdd[this._lsblk.name(key)] = value
+        acc.hdd[this._lsblk.name(key) as string] = value
         return acc
       }
 
       if (batteries.test(key)) {
-        const k = key.split('-')[0]
+        const k = key.split('-')[0] as string
         acc.bat[k] = value
         return acc
       }

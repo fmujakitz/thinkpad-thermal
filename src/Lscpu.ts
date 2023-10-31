@@ -13,7 +13,7 @@ export default class LscpuUtil extends ConsoleUtil {
       .find(row => row.includes("Model name:"))
       ?.replace("Model name:", '')
       .split('@')[0]
-      .replace(/CPU/, ' ')
+      ?.replace(/CPU/, ' ')
       .replace(/ +/igm, ' ')
       .trim()
 
