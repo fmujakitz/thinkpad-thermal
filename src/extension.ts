@@ -7,10 +7,11 @@ import St from 'gi://St';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+
 import IbmAcpiUtil from './IbmAcpi.js';
 import SensorsUtil from './Sensors.js';
 
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 //
 //
