@@ -379,7 +379,7 @@ const Indicator = GObject.registerClass(
     }
 
     // utility fn to convert celsius to fahrenheit
-    _toFahrenheit = (t: string): string => ((parseFloat(t) * (9 / 5)) + 32).toPrecision(1)
+    _toFahrenheit = (t: string): string => ((parseFloat(t) * (9 / 5)) + 32).toFixed(1)
     _convert = (t: string | Object): string | Object => {
       if (this._temp === UNIT.fahrenheit) {
         if (typeof t === 'string') return this._toFahrenheit(t)
