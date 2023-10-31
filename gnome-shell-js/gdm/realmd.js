@@ -1,28 +1,27 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Manager */
 
-const Gio = imports.gi.Gio;
-const Signals = imports.misc.signals;
+import Gio from 'gi://Gio';
+import * as Signals from '../misc/signals.js';
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
+import {loadInterfaceXML} from '../misc/fileUtils.js';
 
-const ProviderIface = loadInterfaceXML("org.freedesktop.realmd.Provider");
+const ProviderIface = loadInterfaceXML('org.freedesktop.realmd.Provider');
 const Provider = Gio.DBusProxy.makeProxyWrapper(ProviderIface);
 
-const ServiceIface = loadInterfaceXML("org.freedesktop.realmd.Service");
+const ServiceIface = loadInterfaceXML('org.freedesktop.realmd.Service');
 const Service = Gio.DBusProxy.makeProxyWrapper(ServiceIface);
 
-const RealmIface = loadInterfaceXML("org.freedesktop.realmd.Realm");
+const RealmIface = loadInterfaceXML('org.freedesktop.realmd.Realm');
 const Realm = Gio.DBusProxy.makeProxyWrapper(RealmIface);
 
-var Manager = class extends Signals.EventEmitter {
+export class Manager extends Signals.EventEmitter {
     constructor() {
         super();
 
         this._aggregateProvider = Provider(Gio.DBus.system,
-                                           'org.freedesktop.realmd',
-                                           '/org/freedesktop/realmd',
-                                           this._reloadRealms.bind(this));
+            'org.freedesktop.realmd',
+            '/org/freedesktop/realmd',
+            this._reloadRealms.bind(this));
         this._realms = {};
         this._loginFormat = null;
 
@@ -42,9 +41,9 @@ var Manager = class extends Signals.EventEmitter {
 
         for (let i = 0; i < realmPaths.length; i++) {
             Realm(Gio.DBus.system,
-                  'org.freedesktop.realmd',
-                  realmPaths[i],
-                  this._onRealmLoaded.bind(this));
+                'org.freedesktop.realmd',
+                realmPaths[i],
+                this._onRealmLoaded.bind(this));
         }
     }
 
@@ -85,7 +84,7 @@ var Manager = class extends Signals.EventEmitter {
             }
         }
 
-        if (this._loginFormat != newLoginFormat) {
+        if (this._loginFormat !== newLoginFormat) {
             this._loginFormat = newLoginFormat;
             this.emit('login-format-changed', newLoginFormat);
         }
@@ -109,4 +108,4 @@ var Manager = class extends Signals.EventEmitter {
         this._realms = { };
         this._updateLoginFormat();
     }
-};
+}

@@ -15,14 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-/* exported AuthList */
 
-const { Clutter, GObject, Meta, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
 
 const SCROLL_ANIMATION_TIME = 500;
 
 const AuthListItem = GObject.registerClass({
-    Signals: { 'activate': {} },
+    Signals: {'activate': {}},
 }, class AuthListItem extends St.Button {
     _init(key, text) {
         this.key = key;
@@ -65,10 +67,10 @@ const AuthListItem = GObject.registerClass({
     }
 });
 
-var AuthList = GObject.registerClass({
+export const AuthList = GObject.registerClass({
     Signals: {
-        'activate': { param_types: [GObject.TYPE_STRING] },
-        'item-added': { param_types: [AuthListItem.$gtype] },
+        'activate': {param_types: [GObject.TYPE_STRING]},
+        'item-added': {param_types: [AuthListItem.$gtype]},
     },
 }, class AuthList extends St.BoxLayout {
     _init() {
@@ -79,7 +81,7 @@ var AuthList = GObject.registerClass({
             y_align: Clutter.ActorAlign.CENTER,
         });
 
-        this.label = new St.Label({ style_class: 'login-dialog-auth-list-title' });
+        this.label = new St.Label({style_class: 'login-dialog-auth-list-title'});
         this.add_child(this.label);
 
         this._scrollView = new St.ScrollView({
@@ -112,7 +114,8 @@ var AuthList = GObject.registerClass({
 
         let focusSet = this.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
         if (!focusSet) {
-            Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+            const laters = global.compositor.get_laters();
+            laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
                 this._moveFocusToItems();
                 return false;
             });

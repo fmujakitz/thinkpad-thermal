@@ -1,18 +1,17 @@
-/* exported TransientSignalHolder, connectObject, disconnectObject */
-const { GObject } = imports.gi;
+import GObject from 'gi://GObject';
 
 const destroyableTypes = [];
 
 /**
  * @private
- * @param {Object} obj - an object
+ * @param {object} obj - an object
  * @returns {bool} - true if obj has a 'destroy' GObject signal
  */
 function _hasDestroySignal(obj) {
     return destroyableTypes.some(type => obj instanceof type);
 }
 
-var TransientSignalHolder = GObject.registerClass(
+export const TransientSignalHolder = GObject.registerClass(
 class TransientSignalHolder extends GObject.Object {
     static [GObject.signals] = {
         'destroy': {},
@@ -43,10 +42,16 @@ class SignalManager {
 
     constructor() {
         this._signalTrackers = new Map();
+
+        global.connect_after('shutdown', () => {
+            [...this._signalTrackers.values()].forEach(
+                tracker => tracker.destroy());
+            this._signalTrackers.clear();
+        });
     }
 
     /**
-     * @param {Object} obj - object to get signal tracker for
+     * @param {object} obj - object to get signal tracker for
      * @returns {SignalTracker} - the signal tracker for object
      */
     getSignalTracker(obj) {
@@ -59,7 +64,7 @@ class SignalManager {
     }
 
     /**
-     * @param {Object} obj - object to get signal tracker for
+     * @param {object} obj - object to get signal tracker for
      * @returns {?SignalTracker} - the signal tracker for object if it exists
      */
     maybeGetSignalTracker(obj) {
@@ -67,7 +72,7 @@ class SignalManager {
     }
 
     /*
-     * @param {Object} obj - object to remove signal tracker for
+     * @param {object} obj - object to remove signal tracker for
      * @returns {void}
      */
     removeSignalTracker(obj) {
@@ -77,7 +82,7 @@ class SignalManager {
 
 class SignalTracker {
     /**
-     * @param {Object=} owner - object that owns the tracker
+     * @param {object=} owner - object that owns the tracker
      */
     constructor(owner) {
         if (_hasDestroySignal(owner))
@@ -95,13 +100,13 @@ class SignalTracker {
 
     /**
      * @private
-     * @param {Object} obj - a tracked object
+     * @param {object} obj - a tracked object
      * @returns {SignalData} - signal data for object
      */
     _getSignalData(obj) {
         let data = this._map.get(obj);
         if (data === undefined) {
-            data = { ownerSignals: [], destroyId: 0 };
+            data = {ownerSignals: [], destroyId: 0};
             this._map.set(obj, data);
         }
         return data;
@@ -143,7 +148,7 @@ class SignalTracker {
     }
 
     /**
-     * @param {Object} obj - tracked object
+     * @param {object} obj - tracked object
      * @param {...number} handlerIds - tracked handler IDs
      * @returns {void}
      */
@@ -155,11 +160,11 @@ class SignalTracker {
     }
 
     /**
-     * @param {Object} obj - tracked object instance
+     * @param {object} obj - tracked object instance
      * @returns {void}
      */
     untrack(obj) {
-        const { ownerSignals, destroyId } = this._getSignalData(obj);
+        const {ownerSignals, destroyId} = this._getSignalData(obj);
         this._map.delete(obj);
 
         const ownerProto = this._getObjectProto(this._owner);
@@ -201,7 +206,7 @@ class SignalTracker {
  * with an optional flags value, followed by an object to track
  * @returns {void}
  */
-function connectObject(thisObj, ...args) {
+export function connectObject(thisObj, ...args) {
     const getParams = argArray => {
         const [signalName, handler, arg, ...rest] = argArray;
         if (typeof arg !== 'number')
@@ -244,11 +249,11 @@ function connectObject(thisObj, ...args) {
  * Disconnect all signals that were connected for
  * the specified tracked object
  *
- * @param {Object} thisObj - the emitter object
- * @param {Object} obj - the tracked object
+ * @param {object} thisObj - the emitter object
+ * @param {object} obj - the tracked object
  * @returns {void}
  */
-function disconnectObject(thisObj, obj) {
+export function disconnectObject(thisObj, obj) {
     SignalManager.getDefault().maybeGetSignalTracker(thisObj)?.untrack(obj);
 }
 
@@ -258,7 +263,7 @@ function disconnectObject(thisObj, obj) {
  *
  * @param {GObject.Type} gtype - a GObject type
  */
-function registerDestroyableType(gtype) {
+export function registerDestroyableType(gtype) {
     if (!GObject.type_is_a(gtype, GObject.Object))
         throw new Error(`${gtype} is not a GObject subclass`);
 

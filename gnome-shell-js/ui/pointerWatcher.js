@@ -1,24 +1,27 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported getPointerWatcher */
 
-const { GLib } = imports.gi;
+import GLib from 'gi://GLib';
 
 // We stop polling if the user is idle for more than this amount of time
-var IDLE_TIME = 1000;
+const IDLE_TIME = 1000;
 
 // This file implements a reasonably efficient system for tracking the position
 // of the mouse pointer. We simply query the pointer from the X server in a loop,
 // but we turn off the polling when the user is idle.
 
 let _pointerWatcher = null;
-function getPointerWatcher() {
+
+/**
+ * @returns {PointerWatcher}
+ */
+export function getPointerWatcher() {
     if (_pointerWatcher == null)
         _pointerWatcher = new PointerWatcher();
 
     return _pointerWatcher;
 }
 
-var PointerWatch = class {
+class PointerWatch {
     constructor(watcher, interval, callback) {
         this.watcher = watcher;
         this.interval = interval;
@@ -31,9 +34,9 @@ var PointerWatch = class {
     remove() {
         this.watcher._removeWatch(this);
     }
-};
+}
 
-var PointerWatcher = class {
+class PointerWatcher {
     constructor() {
         this._idleMonitor = global.backend.get_core_idle_monitor();
         this._idleMonitor.add_idle_watch(IDLE_TIME, this._onIdleMonitorBecameIdle.bind(this));
@@ -64,7 +67,7 @@ var PointerWatcher = class {
 
     _removeWatch(watch) {
         for (let i = 0; i < this._watches.length; i++) {
-            if (this._watches[i] == watch) {
+            if (this._watches[i] === watch) {
                 this._watches.splice(i, 1);
                 this._updateTimeout();
                 return;
@@ -90,7 +93,7 @@ var PointerWatcher = class {
             this._timeoutId = 0;
         }
 
-        if (this._idle || this._watches.length == 0)
+        if (this._idle || this._watches.length === 0)
             return;
 
         let minInterval = this._watches[0].interval;
@@ -109,7 +112,7 @@ var PointerWatcher = class {
 
     _updatePointer() {
         let [x, y] = global.get_pointer();
-        if (this.pointerX == x && this.pointerY == y)
+        if (this.pointerX === x && this.pointerY === y)
             return;
 
         this.pointerX = x;
@@ -118,8 +121,8 @@ var PointerWatcher = class {
         for (let i = 0; i < this._watches.length;) {
             let watch = this._watches[i];
             watch.callback(x, y);
-            if (watch == this._watches[i]) // guard against self-removal
+            if (watch === this._watches[i]) // guard against self-removal
                 i++;
         }
     }
-};
+}

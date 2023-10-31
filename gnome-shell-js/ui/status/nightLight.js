@@ -1,11 +1,12 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Indicator */
 
-const {Gio, GLib, GObject} = imports.gi;
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 
-const {QuickToggle, SystemIndicator} = imports.ui.quickSettings;
+import {QuickToggle, SystemIndicator} from '../quickSettings.js';
 
-const {loadInterfaceXML} = imports.misc.fileUtils;
+import {loadInterfaceXML} from '../../misc/fileUtils.js';
 
 const BUS_NAME = 'org.gnome.SettingsDaemon.Color';
 const OBJECT_PATH = '/org/gnome/SettingsDaemon/Color';
@@ -17,7 +18,7 @@ const NightLightToggle = GObject.registerClass(
 class NightLightToggle extends QuickToggle {
     _init() {
         super._init({
-            label: _('Night Light'),
+            title: _('Night Light'),
             iconName: 'night-light-symbolic',
             toggleMode: true,
         });
@@ -36,7 +37,7 @@ class NightLightToggle extends QuickToggle {
     }
 });
 
-var Indicator = GObject.registerClass(
+export const Indicator = GObject.registerClass(
 class Indicator extends SystemIndicator {
     _init() {
         super._init();

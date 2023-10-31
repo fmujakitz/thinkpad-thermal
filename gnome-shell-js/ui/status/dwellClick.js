@@ -1,7 +1,10 @@
-/* exported DwellClickIndicator */
-const { Clutter, Gio, GLib, GObject, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
 
-const PanelMenu = imports.ui.panelMenu;
+import * as PanelMenu from '../panelMenu.js';
 
 const MOUSE_A11Y_SCHEMA       = 'org.gnome.desktop.a11y.mouse';
 const KEY_DWELL_CLICK_ENABLED = 'dwell-click-enabled';
@@ -9,31 +12,31 @@ const KEY_DWELL_MODE          = 'dwell-mode';
 const DWELL_MODE_WINDOW       = 'window';
 const DWELL_CLICK_MODES = {
     primary: {
-        name: _("Single Click"),
+        name: _('Single Click'),
         icon: 'pointer-primary-click-symbolic',
         type: Clutter.PointerA11yDwellClickType.PRIMARY,
     },
     double: {
-        name: _("Double Click"),
+        name: _('Double Click'),
         icon: 'pointer-double-click-symbolic',
         type: Clutter.PointerA11yDwellClickType.DOUBLE,
     },
     drag: {
-        name: _("Drag"),
+        name: _('Drag'),
         icon: 'pointer-drag-symbolic',
         type: Clutter.PointerA11yDwellClickType.DRAG,
     },
     secondary: {
-        name: _("Secondary Click"),
+        name: _('Secondary Click'),
         icon: 'pointer-secondary-click-symbolic',
         type: Clutter.PointerA11yDwellClickType.SECONDARY,
     },
 };
 
-var DwellClickIndicator = GObject.registerClass(
+export const DwellClickIndicator = GObject.registerClass(
 class DwellClickIndicator extends PanelMenu.Button {
     _init() {
-        super._init(0.5, _("Dwell Click"));
+        super._init(0.5, _('Dwell Click'));
 
         this._icon = new St.Icon({
             style_class: 'system-status-icon',
@@ -41,7 +44,7 @@ class DwellClickIndicator extends PanelMenu.Button {
         });
         this.add_child(this._icon);
 
-        this._a11ySettings = new Gio.Settings({ schema_id: MOUSE_A11Y_SCHEMA });
+        this._a11ySettings = new Gio.Settings({schema_id: MOUSE_A11Y_SCHEMA});
         this._a11ySettings.connect(`changed::${KEY_DWELL_CLICK_ENABLED}`, this._syncMenuVisibility.bind(this));
         this._a11ySettings.connect(`changed::${KEY_DWELL_MODE}`, this._syncMenuVisibility.bind(this));
 
@@ -60,7 +63,7 @@ class DwellClickIndicator extends PanelMenu.Button {
     _syncMenuVisibility() {
         this.visible =
           this._a11ySettings.get_boolean(KEY_DWELL_CLICK_ENABLED) &&
-           this._a11ySettings.get_string(KEY_DWELL_MODE) == DWELL_MODE_WINDOW;
+           this._a11ySettings.get_string(KEY_DWELL_MODE) === DWELL_MODE_WINDOW;
 
         return GLib.SOURCE_REMOVE;
     }
@@ -71,7 +74,7 @@ class DwellClickIndicator extends PanelMenu.Button {
 
     _updateClickType(manager, clickType) {
         for (let mode in DWELL_CLICK_MODES) {
-            if (DWELL_CLICK_MODES[mode].type == clickType)
+            if (DWELL_CLICK_MODES[mode].type === clickType)
                 this._icon.icon_name = DWELL_CLICK_MODES[mode].icon;
         }
     }

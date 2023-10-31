@@ -1,20 +1,29 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported WorkspaceAnimationController, WorkspaceGroup */
 
-const { Clutter, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Background = imports.ui.background;
-const Layout = imports.ui.layout;
-const Main = imports.ui.main;
-const SwipeTracker = imports.ui.swipeTracker;
+import * as Background from './background.js';
+import * as Layout from './layout.js';
+import * as SwipeTracker from './swipeTracker.js';
+import * as Util from '../misc/util.js';
+
+import * as Main from './main.js';
 
 const WINDOW_ANIMATION_TIME = 250;
-const WORKSPACE_SPACING = 100;
+export const WORKSPACE_SPACING = 100;
 
-var WorkspaceGroup = GObject.registerClass(
+export const WorkspaceGroup = GObject.registerClass(
 class WorkspaceGroup extends Clutter.Actor {
     _init(workspace, monitor, movingWindow) {
-        super._init();
+        super._init({
+            width: monitor.width,
+            height: monitor.height,
+            clip_to_allocation: true,
+        });
 
         this._workspace = workspace;
         this._monitor = monitor;
@@ -31,11 +40,8 @@ class WorkspaceGroup extends Clutter.Actor {
                 monitorIndex: this._monitor.index,
                 controlPosition: false,
             });
+            this._createDesktopWindows();
         }
-
-        this.width = monitor.width;
-        this.height = monitor.height;
-        this.clip_to_allocation = true;
 
         this._createWindows();
 
@@ -49,12 +55,10 @@ class WorkspaceGroup extends Clutter.Actor {
     }
 
     _shouldShowWindow(window) {
-        if (!window.showing_on_its_workspace())
+        if (!window.showing_on_its_workspace() || this._isDesktopWindow(window))
             return false;
 
-        const geometry = global.display.get_monitor_geometry(this._monitor.index);
-        const [intersects] = window.get_frame_rect().intersect(geometry);
-        if (!intersects)
+        if (!this._windowIsOnThisMonitor(window))
             return false;
 
         const isSticky =
@@ -84,28 +88,46 @@ class WorkspaceGroup extends Clutter.Actor {
         }
     }
 
+    _isDesktopWindow(metaWindow) {
+        return metaWindow.get_window_type() === Meta.WindowType.DESKTOP;
+    }
+
+    _windowIsOnThisMonitor(metawindow) {
+        const geometry = global.display.get_monitor_geometry(this._monitor.index);
+        const [intersects] = metawindow.get_frame_rect().intersect(geometry);
+        return intersects;
+    }
+
+    _createDesktopWindows() {
+        const desktopActors = global.get_window_actors().filter(w => {
+            return this._isDesktopWindow(w.meta_window) && this._windowIsOnThisMonitor(w.meta_window);
+        });
+        desktopActors.map(a => this._createClone(a)).forEach(clone => this._background.add_child(clone));
+    }
+
     _createWindows() {
         const windowActors = global.get_window_actors().filter(w =>
             this._shouldShowWindow(w.meta_window));
 
-        for (const windowActor of windowActors) {
-            const clone = new Clutter.Clone({
-                source: windowActor,
-                x: windowActor.x - this._monitor.x,
-                y: windowActor.y - this._monitor.y,
-            });
+        windowActors.map(a => this._createClone(a)).forEach(clone => this.add_child(clone));
+    }
 
-            this.add_child(clone);
+    _createClone(windowActor) {
+        const clone = new Clutter.Clone({
+            source: windowActor,
+            x: windowActor.x - this._monitor.x,
+            y: windowActor.y - this._monitor.y,
+        });
 
-            const record = { windowActor, clone };
+        const record = {windowActor, clone};
 
-            windowActor.connectObject('destroy', () => {
-                clone.destroy();
-                this._windowRecords.splice(this._windowRecords.indexOf(record), 1);
-            }, this);
+        windowActor.connectObject('destroy', () => {
+            clone.destroy();
+            this._windowRecords.splice(this._windowRecords.indexOf(record), 1);
+        }, this);
 
-            this._windowRecords.push(record);
-        }
+        this._windowRecords.push(record);
+        return clone;
     }
 
     _removeWindows() {
@@ -123,7 +145,7 @@ class WorkspaceGroup extends Clutter.Actor {
     }
 });
 
-const MonitorGroup = GObject.registerClass({
+export const MonitorGroup = GObject.registerClass({
     Properties: {
         'progress': GObject.ParamSpec.double(
             'progress', 'progress', 'progress',
@@ -139,7 +161,7 @@ const MonitorGroup = GObject.registerClass({
 
         this._monitor = monitor;
 
-        const constraint = new Layout.MonitorConstraint({ index: monitor.index });
+        const constraint = new Layout.MonitorConstraint({index: monitor.index});
         this.add_constraint(constraint);
 
         this._container = new Clutter.Actor();
@@ -183,6 +205,25 @@ const MonitorGroup = GObject.registerClass({
         }
 
         this.progress = this.getWorkspaceProgress(activeWorkspace);
+
+        if (monitor.index === Main.layoutManager.primaryIndex) {
+            this._workspacesAdjustment = Main.createWorkspacesAdjustment(this);
+            this.bind_property_full('progress',
+                this._workspacesAdjustment, 'value',
+                GObject.BindingFlags.SYNC_CREATE,
+                (bind, source) => {
+                    const indices = [
+                        workspaceIndices[Math.floor(source)],
+                        workspaceIndices[Math.ceil(source)],
+                    ];
+                    return [true, Util.lerp(...indices, source % 1.0)];
+                },
+                null);
+
+            this.connect('destroy', () => {
+                delete this._workspacesAdjustment;
+            });
+        }
     }
 
     get baseDistance() {
@@ -210,6 +251,8 @@ const MonitorGroup = GObject.registerClass({
             this._container.x = Math.round(p * this.baseDistance);
         else
             this._container.x = -Math.round(p * this.baseDistance);
+
+        this.notify('progress');
     }
 
     get index() {
@@ -266,7 +309,7 @@ const MonitorGroup = GObject.registerClass({
     }
 });
 
-var WorkspaceAnimationController = class {
+export class WorkspaceAnimationController {
     constructor() {
         this._movingWindow = null;
         this._switchData = null;
@@ -285,7 +328,7 @@ var WorkspaceAnimationController = class {
         const swipeTracker = new SwipeTracker.SwipeTracker(global.stage,
             Clutter.Orientation.HORIZONTAL,
             Shell.ActionMode.NORMAL,
-            { allowDrag: false });
+            {allowDrag: false});
         swipeTracker.connect('begin', this._switchWorkspaceBegin.bind(this));
         swipeTracker.connect('update', this._switchWorkspaceUpdate.bind(this));
         swipeTracker.connect('end', this._switchWorkspaceEnd.bind(this));
@@ -493,4 +536,4 @@ var WorkspaceAnimationController = class {
     get movingWindow() {
         return this._movingWindow;
     }
-};
+}

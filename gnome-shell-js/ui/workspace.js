@@ -1,27 +1,33 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Workspace */
 
-const {Clutter, GLib, GObject, Graphene, Meta, Shell, St} = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Graphene from 'gi://Graphene';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Background = imports.ui.background;
-const DND = imports.ui.dnd;
-const Main = imports.ui.main;
-const OverviewControls = imports.ui.overviewControls;
-const Params = imports.misc.params;
-const Util = imports.misc.util;
-const { WindowPreview } = imports.ui.windowPreview;
+import * as Background from './background.js';
+import * as DND from './dnd.js';
+import * as Main from './main.js';
+import * as OverviewControls from './overviewControls.js';
+import * as Params from '../misc/params.js';
 
-var WINDOW_PREVIEW_MAXIMUM_SCALE = 0.95;
+import * as Util from '../misc/util.js';
+import {WindowPreview} from './windowPreview.js';
 
-var WINDOW_REPOSITIONING_DELAY = 750;
+const WINDOW_PREVIEW_MAXIMUM_SCALE = 0.95;
+
+const WINDOW_REPOSITIONING_DELAY = 750;
 
 // When calculating a layout, we calculate the scale of windows and the percent
 // of the available area the new layout uses. If the values for the new layout,
 // when weighted with the values as below, are worse than the previous layout's,
 // we stop looking for a new layout and use the previous layout.
 // Otherwise, we keep looking for a new layout.
-var LAYOUT_SCALE_WEIGHT = 1;
-var LAYOUT_SPACE_WEIGHT = 0.1;
+const LAYOUT_SCALE_WEIGHT = 1;
+const LAYOUT_SPACE_WEIGHT = 0.1;
 
 const BACKGROUND_CORNER_RADIUS_PIXELS = 30;
 
@@ -95,7 +101,7 @@ const BACKGROUND_CORNER_RADIUS_PIXELS = 30;
 // each window's "cell" area to be the same, but we shrink the thumbnail
 // and center it horizontally, and align it to the bottom vertically.
 
-var LayoutStrategy = class {
+export class LayoutStrategy {
     constructor(params) {
         params = Params.parse(params, {
             monitor: null,
@@ -136,9 +142,9 @@ var LayoutStrategy = class {
     computeWindowSlots(_layout, _area) {
         throw new GObject.NotImplementedError(`computeWindowSlots in ${this.constructor.name}`);
     }
-};
+}
 
-var UnalignedLayoutStrategy = class extends LayoutStrategy {
+class UnalignedLayoutStrategy extends LayoutStrategy {
     _newRow() {
         // Row properties:
         //
@@ -178,7 +184,7 @@ var UnalignedLayoutStrategy = class extends LayoutStrategy {
     }
 
     _computeRowSizes(layout) {
-        let { rows, scale } = layout;
+        let {rows, scale} = layout;
         for (let i = 0; i < rows.length; i++) {
             let row = rows[i];
             row.width = row.fullWidth * scale + (row.windows.length - 1) * this._columnSpacing;
@@ -298,7 +304,7 @@ var UnalignedLayoutStrategy = class extends LayoutStrategy {
     computeWindowSlots(layout, area) {
         this._computeRowSizes(layout);
 
-        let { rows, scale } = layout;
+        let {rows, scale} = layout;
 
         let slots = [];
 
@@ -380,7 +386,7 @@ var UnalignedLayoutStrategy = class extends LayoutStrategy {
         }
         return slots;
     }
-};
+}
 
 function animateAllocation(actor, box) {
     actor.save_easing_state();
@@ -394,7 +400,7 @@ function animateAllocation(actor, box) {
     return actor.get_transition('allocation');
 }
 
-var WorkspaceLayout = GObject.registerClass({
+export const WorkspaceLayout = GObject.registerClass({
     Properties: {
         'spacing': GObject.ParamSpec.double(
             'spacing', 'Spacing', 'Spacing',
@@ -447,7 +453,7 @@ var WorkspaceLayout = GObject.registerClass({
     }
 
     _syncOpacities() {
-        this._windows.forEach(({ metaWindow }, actor) => {
+        this._windows.forEach(({metaWindow}, actor) => {
             this._syncOpacity(actor, metaWindow);
         });
     }
@@ -493,7 +499,7 @@ var WorkspaceLayout = GObject.registerClass({
         if (containerBox) {
             const monitor = Main.layoutManager.monitors[this._monitorIndex];
 
-            const bottomPoint = new Graphene.Point3D({ y: containerBox.y2 });
+            const bottomPoint = new Graphene.Point3D({y: containerBox.y2});
             const transformedBottomPoint =
                 this._container.apply_transform_to_point(bottomPoint);
             const bottomFreeSpace =
@@ -640,8 +646,8 @@ var WorkspaceLayout = GObject.registerClass({
             this.notify('layout-frozen');
         }
 
-        const { ControlsState } = OverviewControls;
-        const { currentState } =
+        const {ControlsState} = OverviewControls;
+        const {currentState} =
             this._overviewAdjustment.getStateTransitionParams();
         const inSessionTransition = currentState <= ControlsState.WINDOW_PICKER;
 
@@ -773,8 +779,6 @@ var WorkspaceLayout = GObject.registerClass({
     }
 
     /**
-     * syncOverlays:
-     *
      * Synchronizes the overlay state of all window previews.
      */
     syncOverlays() {
@@ -782,14 +786,13 @@ var WorkspaceLayout = GObject.registerClass({
     }
 
     /**
-     * addWindow:
-     * @param {WindowPreview} window: the window to add
-     * @param {Meta.Window} metaWindow: the MetaWindow of the window
-     *
-     * Adds @window to the workspace, it will be shown immediately if
+     * Adds `window` to the workspace, it will be shown immediately if
      * the layout isn't frozen using the layout-frozen property.
      *
-     * If @window is already part of the workspace, nothing will happen.
+     * If `window` is already part of the workspace, nothing will happen.
+     *
+     * @param {WindowPreview} window - the window to add
+     * @param {Meta.Window} metaWindow - the MetaWindow of the window
      */
     addWindow(window, metaWindow) {
         if (this._windows.has(window))
@@ -823,12 +826,11 @@ var WorkspaceLayout = GObject.registerClass({
     }
 
     /**
-     * removeWindow:
-     * @param {WindowPreview} window: the window to remove
-     *
-     * Removes @window from the workspace if @window is a part of the
+     * Removes `window` from the workspace if `window` is a part of the
      * workspace. If the layout-frozen property is set to true, the
      * window will still be visible until the property is set to false.
+     *
+     * @param {WindowPreview} window - the window to remove
      */
     removeWindow(window) {
         const windowInfo = this._windows.get(window);
@@ -938,7 +940,7 @@ var WorkspaceLayout = GObject.registerClass({
     }
 });
 
-var WorkspaceBackground = GObject.registerClass(
+export const WorkspaceBackground = GObject.registerClass(
 class WorkspaceBackground extends Shell.WorkspaceBackground {
     _init(monitorIndex, stateAdjustment) {
         super._init({
@@ -981,6 +983,11 @@ class WorkspaceBackground extends Shell.WorkspaceBackground {
             useContentSize: false,
         });
 
+        this._bgManager.connect('changed', () => {
+            this._updateRoundedClipBounds();
+            this._updateBorderRadius();
+        });
+
         global.display.connectObject('workareas-changed', () => {
             this._workarea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
             this._updateRoundedClipBounds();
@@ -994,7 +1001,7 @@ class WorkspaceBackground extends Shell.WorkspaceBackground {
     }
 
     _updateBorderRadius() {
-        const { scaleFactor } = St.ThemeContext.get_for_stage(global.stage);
+        const {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
         const cornerRadius = scaleFactor * BACKGROUND_CORNER_RADIUS_PIXELS;
 
         const backgroundContent = this._bgManager.backgroundActor.content;
@@ -1022,15 +1029,17 @@ class WorkspaceBackground extends Shell.WorkspaceBackground {
     }
 });
 
-/**
- * @metaWorkspace: a #Meta.Workspace, or null
- */
-var Workspace = GObject.registerClass(
+export const Workspace = GObject.registerClass(
 class Workspace extends St.Widget {
+    /**
+     * @param {Meta.Workspace} metaWorkspace
+     * @param {number} monitorIndex
+     * @param {OverviewAdjustment} overviewAdjustment
+     */
     _init(metaWorkspace, monitorIndex, overviewAdjustment) {
         super._init({
             style_class: 'window-picker',
-            pivot_point: new Graphene.Point({ x: 0.5, y: 0.5 }),
+            pivot_point: new Graphene.Point({x: 0.5, y: 0.5}),
             layout_manager: new Clutter.BinLayout(),
         });
 
@@ -1058,7 +1067,7 @@ class Workspace extends St.Widget {
         this.monitorIndex = monitorIndex;
         this._monitor = Main.layoutManager.monitors[this.monitorIndex];
 
-        if (monitorIndex != Main.layoutManager.primaryIndex)
+        if (monitorIndex !== Main.layoutManager.primaryIndex)
             this.add_style_class_name('external-monitor');
 
         const clickAction = new Clutter.ClickAction();
@@ -1119,7 +1128,7 @@ class Workspace extends St.Widget {
     }
 
     _lookupIndex(metaWindow) {
-        return this._windows.findIndex(w => w.metaWindow == metaWindow);
+        return this._windows.findIndex(w => w.metaWindow === metaWindow);
     }
 
     containsMetaWindow(metaWindow) {
@@ -1127,7 +1136,7 @@ class Workspace extends St.Widget {
     }
 
     isEmpty() {
-        return this._windows.length == 0;
+        return this._windows.length === 0;
     }
 
     syncStacking(stackIndices) {
@@ -1188,7 +1197,7 @@ class Workspace extends St.Widget {
             // the compositor finds out about them...
             let id = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                 if (metaWin.get_compositor_private() &&
-                    metaWin.get_workspace() == this.metaWorkspace)
+                    metaWin.get_workspace() === this.metaWorkspace)
                     this._doAddWindow(metaWin);
                 return GLib.SOURCE_REMOVE;
             });
@@ -1198,7 +1207,7 @@ class Workspace extends St.Widget {
 
         // We might have the window in our list already if it was on all workspaces and
         // now was moved to this workspace
-        if (this._lookupIndex(metaWin) != -1)
+        if (this._lookupIndex(metaWin) !== -1)
             return;
 
         if (!this._isMyWindow(metaWin))
@@ -1218,7 +1227,7 @@ class Workspace extends St.Widget {
 
             // Let the top-most ancestor handle all transients
             let parent = metaWin.find_root_ancestor();
-            let clone = this._windows.find(c => c.metaWindow == parent);
+            let clone = this._windows.find(c => c.metaWindow === parent);
 
             // If no clone was found, the parent hasn't been created yet
             // and will take care of the dialog when added
@@ -1265,7 +1274,7 @@ class Workspace extends St.Widget {
     }
 
     _windowLeftMonitor(metaDisplay, monitorIndex, metaWin) {
-        if (monitorIndex == this.monitorIndex)
+        if (monitorIndex === this.monitorIndex)
             this._doRemoveWindow(metaWin);
     }
 
@@ -1339,7 +1348,7 @@ class Workspace extends St.Widget {
         let clone = new WindowPreview(metaWindow, this, this._overviewAdjustment);
 
         clone.connect('selected',
-                      this._onCloneSelected.bind(this));
+            this._onCloneSelected.bind(this));
         clone.connect('drag-begin', () => {
             Main.overview.beginWindowDrag(metaWindow);
         });
@@ -1365,7 +1374,7 @@ class Workspace extends St.Widget {
 
         this._container.layout_manager.addWindow(clone, metaWindow);
 
-        if (this._windows.length == 0)
+        if (this._windows.length === 0)
             clone.setStackAbove(null);
         else
             clone.setStackAbove(this._windows[this._windows.length - 1]);
@@ -1379,7 +1388,7 @@ class Workspace extends St.Widget {
         // find the position of the window in our list
         let index = this._lookupIndex(metaWin);
 
-        if (index == -1)
+        if (index === -1)
             return null;
 
         this._container.layout_manager.removeWindow(this._windows[index]);

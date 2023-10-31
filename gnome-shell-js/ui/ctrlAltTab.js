@@ -1,21 +1,24 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported CtrlAltTabManager */
 
-const { Clutter, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Main = imports.ui.main;
-const SwitcherPopup = imports.ui.switcherPopup;
-const Params = imports.misc.params;
+import * as Main from './main.js';
+import * as SwitcherPopup from './switcherPopup.js';
+import * as Params from '../misc/params.js';
 
-var POPUP_APPICON_SIZE = 96;
+const POPUP_APPICON_SIZE = 96;
 
-var SortGroup = {
+export const SortGroup = {
     TOP:    0,
     MIDDLE: 1,
     BOTTOM: 2,
 };
 
-var CtrlAltTabManager = class CtrlAltTabManager {
+export class CtrlAltTabManager {
     constructor() {
         this._items = [];
         this.addGroup(global.window_group,
@@ -47,7 +50,7 @@ var CtrlAltTabManager = class CtrlAltTabManager {
         if (root instanceof St.Widget)
             global.focus_manager.remove_group(root);
         for (let i = 0; i < this._items.length; i++) {
-            if (this._items[i].root == root) {
+            if (this._items[i].root === root) {
                 this._items.splice(i, 1);
                 return;
             }
@@ -66,7 +69,7 @@ var CtrlAltTabManager = class CtrlAltTabManager {
     // they will have the same left-to-right ordering in the
     // Ctrl-Alt-Tab dialog as they do onscreen.
     _sortItems(a, b) {
-        if (a.sortGroup != b.sortGroup)
+        if (a.sortGroup !== b.sortGroup)
             return a.sortGroup - b.sortGroup;
 
         let [ax] = a.proxy.get_transformed_position();
@@ -85,13 +88,13 @@ var CtrlAltTabManager = class CtrlAltTabManager {
             let workspaceManager = global.workspace_manager;
             let activeWorkspace = workspaceManager.get_active_workspace();
             let windows = display.get_tab_list(Meta.TabList.DOCKS,
-                                               activeWorkspace);
+                activeWorkspace);
             let windowTracker = Shell.WindowTracker.get_default();
             let textureCache = St.TextureCache.get_default();
             for (let i = 0; i < windows.length; i++) {
                 let icon = null;
                 let iconName = null;
-                if (windows[i].get_window_type() == Meta.WindowType.DESKTOP) {
+                if (windows[i].get_window_type() === Meta.WindowType.DESKTOP) {
                     iconName = 'video-display-symbolic';
                 } else {
                     let app = windowTracker.get_window_app(windows[i]);
@@ -127,19 +130,18 @@ var CtrlAltTabManager = class CtrlAltTabManager {
             this._popup = new CtrlAltTabPopup(items);
             this._popup.show(backward, binding, mask);
 
-            this._popup.connect('destroy',
-                                () => {
-                                    this._popup = null;
-                                });
+            this._popup.connect('destroy', () => {
+                this._popup = null;
+            });
         }
     }
 
     _focusWindows(timestamp) {
         global.display.focus_default_window(timestamp);
     }
-};
+}
 
-var CtrlAltTabPopup = GObject.registerClass(
+const CtrlAltTabPopup = GObject.registerClass(
 class CtrlAltTabPopup extends SwitcherPopup.SwitcherPopup {
     _init(items) {
         super._init(items);
@@ -148,13 +150,13 @@ class CtrlAltTabPopup extends SwitcherPopup.SwitcherPopup {
     }
 
     _keyPressHandler(keysym, action) {
-        if (action == Meta.KeyBindingAction.SWITCH_PANELS)
+        if (action === Meta.KeyBindingAction.SWITCH_PANELS)
             this._select(this._next());
-        else if (action == Meta.KeyBindingAction.SWITCH_PANELS_BACKWARD)
+        else if (action === Meta.KeyBindingAction.SWITCH_PANELS_BACKWARD)
             this._select(this._previous());
-        else if (keysym == Clutter.KEY_Left)
+        else if (keysym === Clutter.KEY_Left)
             this._select(this._previous());
-        else if (keysym == Clutter.KEY_Right)
+        else if (keysym === Clutter.KEY_Right)
             this._select(this._next());
         else
             return Clutter.EVENT_PROPAGATE;
@@ -168,7 +170,7 @@ class CtrlAltTabPopup extends SwitcherPopup.SwitcherPopup {
     }
 });
 
-var CtrlAltTabSwitcher = GObject.registerClass(
+const CtrlAltTabSwitcher = GObject.registerClass(
 class CtrlAltTabSwitcher extends SwitcherPopup.SwitcherList {
     _init(items) {
         super._init(true);

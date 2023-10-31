@@ -1,16 +1,24 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported InputMethod */
-const { Clutter, GLib, Gio, GObject, IBus } = imports.gi;
 
-const Keyboard = imports.ui.status.keyboard;
-const Main = imports.ui.main;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import IBus from 'gi://IBus';
+
+import * as Keyboard from '../ui/status/keyboard.js';
+import * as Main from '../ui/main.js';
 
 Gio._promisify(IBus.Bus.prototype,
     'create_input_context_async', 'create_input_context_async_finish');
+Gio._promisify(IBus.InputContext.prototype,
+    'process_key_event_async', 'process_key_event_async_finish');
 
-var HIDE_PANEL_TIME = 50;
+const HIDE_PANEL_TIME = 50;
 
-var InputMethod = GObject.registerClass({
+const HAVE_REQUIRE_SURROUNDING_TEXT = GObject.signal_lookup('require-surrounding-text', IBus.InputContext);
+
+export const InputMethod = GObject.registerClass({
     Signals: {
         'surrounding-text-set': {},
         'terminal-mode-changed': {},
@@ -34,7 +42,7 @@ var InputMethod = GObject.registerClass({
 
         this._inputSourceManager = Keyboard.getInputSourceManager();
         this._sourceChangedId = this._inputSourceManager.connect('current-source-changed',
-                                                                 this._onSourceChanged.bind(this));
+            this._onSourceChanged.bind(this));
         this._currentSource = this._inputSourceManager.currentSource;
 
         if (this._ibus.is_connected())
@@ -81,6 +89,9 @@ var InputMethod = GObject.registerClass({
         this._context.connect('forward-key-event', this._onForwardKeyEvent.bind(this));
         this._context.connect('destroy', this._clear.bind(this));
 
+        if (HAVE_REQUIRE_SURROUNDING_TEXT)
+            this._context.connect('require-surrounding-text', this._onRequireSurroundingText.bind(this));
+
         Main.keyboard.connectObject('visibility-changed', () => this._updateCapabilities());
 
         this._updateCapabilities();
@@ -110,6 +121,10 @@ var InputMethod = GObject.registerClass({
 
     _onCommitText(_context, text) {
         this.commit(text.get_text());
+    }
+
+    _onRequireSurroundingText(_context) {
+        this.request_surrounding();
     }
 
     _onDeleteSurroundingText(_context, offset, nchars) {
@@ -157,7 +172,7 @@ var InputMethod = GObject.registerClass({
     }
 
     _onForwardKeyEvent(_context, keyval, keycode, state) {
-        let press = (state & IBus.ModifierType.RELEASE_MASK) == 0;
+        let press = (state & IBus.ModifierType.RELEASE_MASK) === 0;
         state &= ~IBus.ModifierType.RELEASE_MASK;
 
         let curEvent = Clutter.get_current_event();
@@ -173,6 +188,7 @@ var InputMethod = GObject.registerClass({
     vfunc_focus_in(focus) {
         this._currentFocus = focus;
         if (this._context) {
+            this.update();
             this._context.focus_in();
             this._emitRequestSurrounding();
         }
@@ -185,8 +201,10 @@ var InputMethod = GObject.registerClass({
 
     vfunc_focus_out() {
         this._currentFocus = null;
-        if (this._context)
+        if (this._context) {
+            this._fullReset();
             this._context.focus_out();
+        }
 
         if (this._preeditStr && this._preeditVisible) {
             // Unset any preedit text
@@ -215,8 +233,13 @@ var InputMethod = GObject.registerClass({
 
     vfunc_set_cursor_location(rect) {
         if (this._context) {
-            this._context.set_cursor_location(rect.get_x(), rect.get_y(),
-                                              rect.get_width(), rect.get_height());
+            this._cursorRect = {
+                x: rect.get_x(), y: rect.get_y(),
+                width: rect.get_width(), height: rect.get_height(),
+            };
+            this._context.set_cursor_location(
+                this._cursorRect.x, this._cursorRect.y,
+                this._cursorRect.width, this._cursorRect.height);
             this._emitRequestSurrounding();
         }
     }
@@ -226,7 +249,7 @@ var InputMethod = GObject.registerClass({
         this._surroundingTextCursor = cursor;
         this.emit('surrounding-text-set');
 
-        if (!this._context || !text)
+        if (!this._context || (!text && text !== ''))
             return;
 
         let ibusText = IBus.Text.new_from_string(text);
@@ -255,24 +278,27 @@ var InputMethod = GObject.registerClass({
 
     vfunc_update_content_purpose(purpose) {
         let ibusPurpose = 0;
-        if (purpose == Clutter.InputContentPurpose.NORMAL)
+        if (purpose === Clutter.InputContentPurpose.NORMAL)
             ibusPurpose = IBus.InputPurpose.FREE_FORM;
-        else if (purpose == Clutter.InputContentPurpose.ALPHA)
+        else if (purpose === Clutter.InputContentPurpose.ALPHA)
             ibusPurpose = IBus.InputPurpose.ALPHA;
-        else if (purpose == Clutter.InputContentPurpose.DIGITS)
+        else if (purpose === Clutter.InputContentPurpose.DIGITS)
             ibusPurpose = IBus.InputPurpose.DIGITS;
-        else if (purpose == Clutter.InputContentPurpose.NUMBER)
+        else if (purpose === Clutter.InputContentPurpose.NUMBER)
             ibusPurpose = IBus.InputPurpose.NUMBER;
-        else if (purpose == Clutter.InputContentPurpose.PHONE)
+        else if (purpose === Clutter.InputContentPurpose.PHONE)
             ibusPurpose = IBus.InputPurpose.PHONE;
-        else if (purpose == Clutter.InputContentPurpose.URL)
+        else if (purpose === Clutter.InputContentPurpose.URL)
             ibusPurpose = IBus.InputPurpose.URL;
-        else if (purpose == Clutter.InputContentPurpose.EMAIL)
+        else if (purpose === Clutter.InputContentPurpose.EMAIL)
             ibusPurpose = IBus.InputPurpose.EMAIL;
-        else if (purpose == Clutter.InputContentPurpose.NAME)
+        else if (purpose === Clutter.InputContentPurpose.NAME)
             ibusPurpose = IBus.InputPurpose.NAME;
-        else if (purpose == Clutter.InputContentPurpose.PASSWORD)
+        else if (purpose === Clutter.InputContentPurpose.PASSWORD)
             ibusPurpose = IBus.InputPurpose.PASSWORD;
+        else if (purpose === Clutter.InputContentPurpose.TERMINAL &&
+                 IBus.InputPurpose.TERMINAL)
+            ibusPurpose = IBus.InputPurpose.TERMINAL;
 
         this._setTerminalMode(
             purpose === Clutter.InputContentPurpose.TERMINAL);
@@ -299,7 +325,7 @@ var InputMethod = GObject.registerClass({
         if (state & IBus.ModifierType.IGNORED_MASK)
             return false;
 
-        if (event.type() == Clutter.EventType.KEY_RELEASE)
+        if (event.type() === Clutter.EventType.KEY_RELEASE)
             state |= IBus.ModifierType.RELEASE_MASK;
 
         this._context.process_key_event_async(
@@ -307,7 +333,7 @@ var InputMethod = GObject.registerClass({
             event.get_key_code() - 8, // Convert XKB keycodes to evcodes
             state, -1, this._cancellable,
             (context, res) => {
-                if (context != this._context)
+                if (context !== this._context)
                     return;
 
                 try {
@@ -329,10 +355,36 @@ var InputMethod = GObject.registerClass({
         return this._preeditVisible && this._preeditStr !== '' && this._preeditStr !== null;
     }
 
-    handleVirtualKey(keyval) {
-        this._context.process_key_event_async(
-            keyval, 0, 0, -1, null, null);
-        this._context.process_key_event_async(
-            keyval, 0, IBus.ModifierType.RELEASE_MASK, -1, null, null);
+    async handleVirtualKey(keyval) {
+        try {
+            if (!await this._context.process_key_event_async(
+                keyval, 0, 0, -1, null))
+                return false;
+
+            await this._context.process_key_event_async(
+                keyval, 0, IBus.ModifierType.RELEASE_MASK, -1, null);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    _fullReset() {
+        this._context.set_content_type(0, 0);
+        this._context.set_cursor_location(0, 0, 0, 0);
+        this._context.reset();
+    }
+
+    update() {
+        if (!this._context)
+            return;
+        this._updateCapabilities();
+        this._context.set_content_type(this._purpose, this._hints);
+        if (this._cursorRect) {
+            this._context.set_cursor_location(
+                this._cursorRect.x, this._cursorRect.y,
+                this._cursorRect.width, this._cursorRect.height);
+        }
+        this._emitRequestSurrounding();
     }
 });

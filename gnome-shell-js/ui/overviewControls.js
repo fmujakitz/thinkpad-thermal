@@ -1,37 +1,43 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported ControlsManager */
 
-const { Clutter, Gio, GLib, GObject, Meta, Shell, St } = imports.gi;
+import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const AppDisplay = imports.ui.appDisplay;
-const Dash = imports.ui.dash;
-const Layout = imports.ui.layout;
-const Main = imports.ui.main;
-const Overview = imports.ui.overview;
-const SearchController = imports.ui.searchController;
-const Util = imports.misc.util;
-const WindowManager = imports.ui.windowManager;
-const WorkspaceThumbnail = imports.ui.workspaceThumbnail;
-const WorkspacesView = imports.ui.workspacesView;
+import * as AppDisplay from './appDisplay.js';
+import * as Dash from './dash.js';
+import * as Layout from './layout.js';
+import * as Main from './main.js';
+import * as Overview from './overview.js';
+import * as SearchController from './searchController.js';
+import * as Util from '../misc/util.js';
+import * as WindowManager from './windowManager.js';
+import * as WorkspaceThumbnail from './workspaceThumbnail.js';
+import * as WorkspacesView from './workspacesView.js';
 
-const SMALL_WORKSPACE_RATIO = 0.15;
+export const SMALL_WORKSPACE_RATIO = 0.15;
 const DASH_MAX_HEIGHT_RATIO = 0.15;
 
 const A11Y_SCHEMA = 'org.gnome.desktop.a11y.keyboard';
 
-var SIDE_CONTROLS_ANIMATION_TIME = Overview.ANIMATION_TIME;
+export const SIDE_CONTROLS_ANIMATION_TIME = 250;
 
-var ControlsState = {
+/** @enum {number} */
+export const ControlsState = {
     HIDDEN: 0,
     WINDOW_PICKER: 1,
     APP_GRID: 2,
 };
 
-var ControlsManagerLayout = GObject.registerClass(
+const ControlsManagerLayout = GObject.registerClass(
 class ControlsManagerLayout extends Clutter.BoxLayout {
     _init(searchEntry, appDisplay, workspacesDisplay, workspacesThumbnails,
         searchController, dash, stateAdjustment) {
-        super._init({ orientation: Clutter.Orientation.VERTICAL });
+        super._init({orientation: Clutter.Orientation.VERTICAL});
 
         this._appDisplay = appDisplay;
         this._workspacesDisplay = workspacesDisplay;
@@ -50,11 +56,17 @@ class ControlsManagerLayout extends Clutter.BoxLayout {
         global.display.connectObject(
             'workareas-changed', () => this._updateWorkAreaBox(),
             this);
+        Main.layoutManager.connectObject(
+            'monitors-changed', () => this._updateWorkAreaBox(),
+            this);
         this._updateWorkAreaBox();
     }
 
     _updateWorkAreaBox() {
         const monitor = Main.layoutManager.primaryMonitor;
+        if (!monitor)
+            return;
+
         const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
         const startX = workArea.x - monitor.x;
         const startY = workArea.y - monitor.y;
@@ -148,7 +160,7 @@ class ControlsManagerLayout extends Clutter.BoxLayout {
     vfunc_allocate(container, box) {
         const childBox = new Clutter.ActorBox();
 
-        const { spacing } = this;
+        const {spacing} = this;
 
         const startY = this._workAreaBox.y1;
         box.y1 += startY;
@@ -178,12 +190,12 @@ class ControlsManagerLayout extends Clutter.BoxLayout {
         // Workspace Thumbnails
         let thumbnailsHeight = 0;
         if (this._workspacesThumbnails.visible) {
-            const { expandFraction } = this._workspacesThumbnails;
+            const {expandFraction} = this._workspacesThumbnails;
             [thumbnailsHeight] =
                 this._workspacesThumbnails.get_preferred_height(width);
             thumbnailsHeight = Math.min(
                 thumbnailsHeight * expandFraction,
-                height * WorkspaceThumbnail.MAX_THUMBNAIL_SCALE);
+                height * this._workspacesThumbnails.maxThumbnailScale);
             childBox.set_origin(0, startY + searchHeight + spacing);
             childBox.set_size(width, thumbnailsHeight);
             this._workspacesThumbnails.allocate(childBox);
@@ -252,7 +264,7 @@ class ControlsManagerLayout extends Clutter.BoxLayout {
     }
 });
 
-var OverviewAdjustment = GObject.registerClass({
+export const OverviewAdjustment = GObject.registerClass({
     Properties: {
         'gesture-in-progress': GObject.ParamSpec.boolean(
             'gesture-in-progress', 'Gesture in progress', 'Gesture in progress',
@@ -303,7 +315,7 @@ var OverviewAdjustment = GObject.registerClass({
     }
 });
 
-var ControlsManager = GObject.registerClass(
+export const ControlsManager = GObject.registerClass(
 class ControlsManager extends St.Widget {
     _init() {
         super._init({
@@ -333,24 +345,10 @@ class ControlsManager extends St.Widget {
 
         this.dash = new Dash.Dash();
 
-        let workspaceManager = global.workspace_manager;
-        let activeWorkspaceIndex = workspaceManager.get_active_workspace_index();
-
-        this._workspaceAdjustment = new St.Adjustment({
-            actor: this,
-            value: activeWorkspaceIndex,
-            lower: 0,
-            page_increment: 1,
-            page_size: 1,
-            step_increment: 0,
-            upper: workspaceManager.n_workspaces,
-        });
+        this._workspaceAdjustment = Main.createWorkspacesAdjustment(this);
 
         this._stateAdjustment = new OverviewAdjustment(this);
         this._stateAdjustment.connect('notify::value', this._update.bind(this));
-
-        workspaceManager.connectObject(
-            'notify::n-workspaces', () => this._updateAdjustment(), this);
 
         this._searchController = new SearchController.SearchController(
             this._searchEntry,
@@ -399,7 +397,7 @@ class ControlsManager extends St.Widget {
 
         Main.ctrlAltTabManager.addGroup(
             this.appDisplay,
-            _('Applications'),
+            _('Apps'),
             'view-app-grid-symbolic', {
                 proxy: this,
                 focusCallback: () => {
@@ -421,14 +419,14 @@ class ControlsManager extends St.Widget {
                 },
             });
 
-        this._a11ySettings = new Gio.Settings({ schema_id: A11Y_SCHEMA });
+        this._a11ySettings = new Gio.Settings({schema_id: A11Y_SCHEMA});
 
         this._lastOverlayKeyTime = 0;
         global.display.connect('overlay-key', () => {
             if (this._a11ySettings.get_boolean('stickykeys-enable'))
                 return;
 
-            const { initialState, finalState, transitioning } =
+            const {initialState, finalState, transitioning} =
                 this._stateAdjustment.getStateTransitionParams();
 
             const time = GLib.get_monotonic_time() / 1000;
@@ -454,7 +452,7 @@ class ControlsManager extends St.Widget {
                 !this.contains(global.stage.key_focus))
                 return Clutter.EVENT_PROPAGATE;
 
-            const { finalState } =
+            const {finalState} =
                 this._stateAdjustment.getStateTransitionParams();
             let keynavDisplay;
 
@@ -482,24 +480,26 @@ class ControlsManager extends St.Widget {
 
         Main.wm.addKeybinding(
             'toggle-application-view',
-            new Gio.Settings({ schema_id: WindowManager.SHELL_KEYBINDINGS_SCHEMA }),
+            new Gio.Settings({schema_id: WindowManager.SHELL_KEYBINDINGS_SCHEMA}),
             Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             this._toggleAppsPage.bind(this));
 
         Main.wm.addKeybinding('shift-overview-up',
-            new Gio.Settings({ schema_id: WindowManager.SHELL_KEYBINDINGS_SCHEMA }),
+            new Gio.Settings({schema_id: WindowManager.SHELL_KEYBINDINGS_SCHEMA}),
             Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             () => this._shiftState(Meta.MotionDirection.UP));
 
         Main.wm.addKeybinding('shift-overview-down',
-            new Gio.Settings({ schema_id: WindowManager.SHELL_KEYBINDINGS_SCHEMA }),
+            new Gio.Settings({schema_id: WindowManager.SHELL_KEYBINDINGS_SCHEMA}),
             Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             () => this._shiftState(Meta.MotionDirection.DOWN));
 
         this._update();
+
+        this.connect('destroy', this._onDestroy.bind(this));
     }
 
     _getFitModeForState(state) {
@@ -515,7 +515,7 @@ class ControlsManager extends St.Widget {
     }
 
     _getThumbnailsBoxParams() {
-        const { initialState, finalState, progress } =
+        const {initialState, finalState, progress} =
             this._stateAdjustment.getStateTransitionParams();
 
         const paramsForState = s => {
@@ -539,7 +539,7 @@ class ControlsManager extends St.Widget {
                 break;
             }
 
-            return { opacity, scale, translationY };
+            return {opacity, scale, translationY};
         };
 
         const initialParams = paramsForState(initialState);
@@ -553,8 +553,8 @@ class ControlsManager extends St.Widget {
     }
 
     _updateThumbnailsBox(animate = false) {
-        const { shouldShow } = this._thumbnailsBox;
-        const { searchActive } = this._searchController;
+        const {shouldShow} = this._thumbnailsBox;
+        const {searchActive} = this._searchController;
         const [opacity, scale, translationY] = this._getThumbnailsBoxParams();
 
         const thumbnailsBoxVisible = shouldShow && !searchActive && opacity !== 0;
@@ -583,7 +583,7 @@ class ControlsManager extends St.Widget {
         if (!stateTransitionParams)
             stateTransitionParams = this._stateAdjustment.getStateTransitionParams();
 
-        const { initialState, finalState } = stateTransitionParams;
+        const {initialState, finalState} = stateTransitionParams;
         const state = Math.max(initialState, finalState);
 
         this._appDisplay.visible =
@@ -599,7 +599,7 @@ class ControlsManager extends St.Widget {
             this._getFitModeForState(params.finalState),
             params.progress);
 
-        const { fitModeAdjustment } = this._workspacesDisplay;
+        const {fitModeAdjustment} = this._workspacesDisplay;
         fitModeAdjustment.value = fitMode;
 
         this._updateThumbnailsBox();
@@ -607,7 +607,7 @@ class ControlsManager extends St.Widget {
     }
 
     _onSearchChanged() {
-        const { searchActive } = this._searchController;
+        const {searchActive} = this._searchController;
 
         if (!searchActive) {
             this._updateAppDisplayVisibility();
@@ -667,7 +667,7 @@ class ControlsManager extends St.Widget {
     }
 
     _shiftState(direction) {
-        let { currentState, finalState } = this._stateAdjustment.getStateTransitionParams();
+        let {currentState, finalState} = this._stateAdjustment.getStateTransitionParams();
 
         if (direction === Meta.MotionDirection.DOWN)
             finalState = Math.max(finalState - 1, ControlsState.HIDDEN);
@@ -694,29 +694,31 @@ class ControlsManager extends St.Widget {
         }
     }
 
-    _updateAdjustment() {
-        let workspaceManager = global.workspace_manager;
-        let newNumWorkspaces = workspaceManager.n_workspaces;
-        let activeIndex = workspaceManager.get_active_workspace_index();
-
-        this._workspaceAdjustment.upper = newNumWorkspaces;
-
-        // A workspace might have been inserted or removed before the active
-        // one, causing the adjustment to go out of sync, so update the value
-        this._workspaceAdjustment.remove_transition('value');
-        this._workspaceAdjustment.value = activeIndex;
-    }
-
     vfunc_unmap() {
         super.vfunc_unmap();
-        this._workspacesDisplay.hide();
+        this._workspacesDisplay?.hide();
+    }
+
+    _onDestroy() {
+        delete this._searchEntryBin;
+        delete this._appDisplay;
+        delete this.dash;
+        delete this._searchController;
+        delete this._thumbnailsBox;
+        delete this._workspacesDisplay;
+    }
+
+    prepareToEnterOverview() {
+        this._searchController.prepareToEnterOverview();
+        this._workspacesDisplay.prepareToEnterOverview();
+    }
+
+    prepareToLeaveOverview() {
+        this._workspacesDisplay.prepareToLeaveOverview();
     }
 
     animateToOverview(state, callback) {
         this._ignoreShowAppsButtonToggle = true;
-
-        this._searchController.prepareToEnterOverview();
-        this._workspacesDisplay.prepareToEnterOverview();
 
         this._stateAdjustment.value = ControlsState.HIDDEN;
         this._stateAdjustment.ease(state, {
@@ -736,8 +738,6 @@ class ControlsManager extends St.Widget {
 
     animateFromOverview(callback) {
         this._ignoreShowAppsButtonToggle = true;
-
-        this._workspacesDisplay.prepareToLeaveOverview();
 
         this._stateAdjustment.ease(ControlsState.HIDDEN, {
             duration: Overview.ANIMATION_TIME,
@@ -772,8 +772,7 @@ class ControlsManager extends St.Widget {
         this._stateAdjustment.remove_transition('value');
 
         tracker.confirmSwipe(baseDistance, points, progress, cancelProgress);
-        this._workspacesDisplay.prepareToEnterOverview();
-        this._searchController.prepareToEnterOverview();
+        this.prepareToEnterOverview();
         this._stateAdjustment.gestureInProgress = true;
     }
 
@@ -783,7 +782,7 @@ class ControlsManager extends St.Widget {
 
     gestureEnd(target, duration, onComplete) {
         if (target === ControlsState.HIDDEN)
-            this._workspacesDisplay.prepareToLeaveOverview();
+            this.prepareToLeaveOverview();
 
         this.dash.showAppsButton.checked =
             target === ControlsState.APP_GRID;
@@ -801,8 +800,7 @@ class ControlsManager extends St.Widget {
     async runStartupAnimation(callback) {
         this._ignoreShowAppsButtonToggle = true;
 
-        this._searchController.prepareToEnterOverview();
-        this._workspacesDisplay.prepareToEnterOverview();
+        this.prepareToEnterOverview();
 
         this._stateAdjustment.value = ControlsState.HIDDEN;
         this._stateAdjustment.ease(ControlsState.WINDOW_PICKER, {
@@ -819,7 +817,7 @@ class ControlsManager extends St.Widget {
         // We can't run the animation before the first allocation happens
         await this.layout_manager.ensureAllocation();
 
-        const { STARTUP_ANIMATION_TIME } = Layout;
+        const {STARTUP_ANIMATION_TIME} = Layout;
 
         // Opacity
         this.ease({
@@ -829,7 +827,7 @@ class ControlsManager extends St.Widget {
         });
 
         // Search bar falls from the ceiling
-        const { primaryMonitor } = Main.layoutManager;
+        const {primaryMonitor} = Main.layoutManager;
         const [, y] = this._searchEntryBin.get_transformed_position();
         const yOffset = y - primaryMonitor.y;
 
@@ -850,6 +848,10 @@ class ControlsManager extends St.Widget {
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => callback(),
         });
+    }
+
+    get searchController() {
+        return this._searchController;
     }
 
     get searchEntry() {

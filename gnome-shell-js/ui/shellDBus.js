@@ -1,22 +1,24 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported GnomeShell, ScreenSaverDBus */
 
-const { Gio, GLib, Meta, Shell } = imports.gi;
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 
-const Config = imports.misc.config;
-const ExtensionDownloader = imports.ui.extensionDownloader;
-const ExtensionUtils = imports.misc.extensionUtils;
-const Main = imports.ui.main;
-const Screenshot = imports.ui.screenshot;
+import * as Config from '../misc/config.js';
+import * as ExtensionDownloader from './extensionDownloader.js';
+import * as ExtensionUtils from '../misc/extensionUtils.js';
+import * as Main from './main.js';
+import * as Screenshot from './screenshot.js';
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
-const { DBusSenderChecker } = imports.misc.util;
-const { ControlsState } = imports.ui.overviewControls;
+import {loadInterfaceXML} from '../misc/fileUtils.js';
+import {DBusSenderChecker} from '../misc/util.js';
+import {ControlsState} from './overviewControls.js';
 
 const GnomeShellIface = loadInterfaceXML('org.gnome.Shell');
 const ScreenSaverIface = loadInterfaceXML('org.gnome.ScreenSaver');
 
-var GnomeShell = class {
+export class GnomeShell {
     constructor() {
         this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(GnomeShellIface, this);
         this._dbusImpl.export(Gio.DBus.session, '/org/gnome/Shell');
@@ -39,16 +41,12 @@ var GnomeShell = class {
 
         this._cachedOverviewVisible = false;
         Main.overview.connect('showing',
-                              this._checkOverviewVisibleChanged.bind(this));
+            this._checkOverviewVisibleChanged.bind(this));
         Main.overview.connect('hidden',
-                              this._checkOverviewVisibleChanged.bind(this));
+            this._checkOverviewVisibleChanged.bind(this));
     }
 
     /**
-     * Eval:
-     * @param {string} code: A string containing JavaScript code
-     * @returns {Array}
-     *
      * This function executes arbitrary code in the main
      * loop, and returns a boolean success and
      * JSON representation of the object as a string.
@@ -58,6 +56,8 @@ var GnomeShell = class {
      * If evaluation fails, then the return value will be
      * [false, JSON.stringify(exception)];
      *
+     * @param {string} code A string containing JavaScript code
+     * @returns {Array}
      */
     Eval(code) {
         if (!global.context.unsafe_mode)
@@ -68,7 +68,7 @@ var GnomeShell = class {
         try {
             returnValue = JSON.stringify(eval(code));
             // A hack; DBus doesn't have null/undefined
-            if (returnValue == undefined)
+            if (returnValue === undefined)
                 returnValue = '';
             success = true;
         } catch (e) {
@@ -127,7 +127,7 @@ var GnomeShell = class {
 
         let monitorIndex = -1;
         if (connector) {
-            let monitorManager = Meta.MonitorManager.get();
+            const monitorManager = global.backend.get_monitor_manager();
             monitorIndex = monitorManager.get_monitor_for_connector(connector);
         }
 
@@ -160,7 +160,7 @@ var GnomeShell = class {
             invocation.return_error_literal(
                 Gio.DBusError,
                 Gio.DBusError.FILE_NOT_FOUND,
-                `No application with ID ${id}`);
+                `No app with ID ${id}`);
             return;
         }
 
@@ -292,7 +292,7 @@ var GnomeShell = class {
 
     _grabAcceleratorForSender(accelerator, modeFlags, grabFlags, sender) {
         let bindingAction = global.display.grab_accelerator(accelerator, grabFlags);
-        if (bindingAction == Meta.KeyBindingAction.NONE)
+        if (bindingAction === Meta.KeyBindingAction.NONE)
             return Meta.KeyBindingAction.NONE;
 
         let bindingName = Meta.external_binding_name_for_action(bindingAction);
@@ -301,8 +301,8 @@ var GnomeShell = class {
         this._grabbedAccelerators.set(bindingAction, sender);
 
         if (!this._grabbers.has(sender)) {
-            let id = Gio.bus_watch_name(Gio.BusType.SESSION, sender, 0, null,
-                                        this._onGrabberBusNameVanished.bind(this));
+            let id = Gio.bus_watch_name(Gio.BusType.SESSION,
+                sender, 0, null, this._onGrabberBusNameVanished.bind(this));
             this._grabbers.set(sender, id);
         }
 
@@ -319,7 +319,7 @@ var GnomeShell = class {
 
     _ungrabAcceleratorForSender(action, sender) {
         let grabbedBy = this._grabbedAccelerators.get(action);
-        if (sender != grabbedBy)
+        if (sender !== grabbedBy)
             return false;
 
         return this._ungrabAccelerator(action);
@@ -328,7 +328,7 @@ var GnomeShell = class {
     _onGrabberBusNameVanished(connection, name) {
         let grabs = this._grabbedAccelerators.entries();
         for (let [action, sender] of grabs) {
-            if (sender == name)
+            if (sender === name)
                 this._ungrabAccelerator(action);
         }
         Gio.bus_unwatch_name(this._grabbers.get(name));
@@ -387,11 +387,11 @@ var GnomeShell = class {
     get ShellVersion() {
         return Config.PACKAGE_VERSION;
     }
-};
+}
 
 const GnomeShellExtensionsIface = loadInterfaceXML('org.gnome.Shell.Extensions');
 
-var GnomeShellExtensions = class {
+class GnomeShellExtensions {
     constructor() {
         this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(GnomeShellExtensionsIface, this);
         this._dbusImpl.export(Gio.DBus.session, '/org/gnome/Shell');
@@ -407,7 +407,7 @@ var GnomeShellExtensions = class {
         });
 
         Main.extensionManager.connect('extension-state-changed',
-                                      this._extensionStateChanged.bind(this));
+            this._extensionStateChanged.bind(this));
     }
 
     ListExtensions() {
@@ -488,11 +488,11 @@ var GnomeShellExtensions = class {
             new GLib.Variant('(sa{sv})', [newState.uuid, state]));
 
         this._dbusImpl.emit_signal('ExtensionStatusChanged',
-                                   GLib.Variant.new('(sis)', [newState.uuid, newState.state, newState.error]));
+            new GLib.Variant('(sis)', [newState.uuid, newState.state, newState.error]));
     }
-};
+}
 
-var ScreenSaverDBus = class {
+export class ScreenSaverDBus {
     constructor(screenShield) {
         this._screenShield = screenShield;
         screenShield.connect('active-changed', shield => {
@@ -537,4 +537,4 @@ var ScreenSaverDBus = class {
         else
             return 0;
     }
-};
+}

@@ -1,25 +1,31 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported AppSwitcherPopup, GroupCyclerPopup, WindowSwitcherPopup,
-            WindowCyclerPopup */
 
-const { Atk, Clutter, Gio, GLib, GObject, Meta, Shell, St } = imports.gi;
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
+import Shell from 'gi://Shell';
 
-const Main = imports.ui.main;
-const SwitcherPopup = imports.ui.switcherPopup;
+import * as Main from './main.js';
+import * as SwitcherPopup from './switcherPopup.js';
 
-var APP_ICON_HOVER_TIMEOUT = 200; // milliseconds
+const APP_ICON_HOVER_TIMEOUT = 200; // milliseconds
 
-var THUMBNAIL_DEFAULT_SIZE = 256;
-var THUMBNAIL_POPUP_TIME = 500; // milliseconds
-var THUMBNAIL_FADE_TIME = 100; // milliseconds
+const THUMBNAIL_DEFAULT_SIZE = 256;
+const THUMBNAIL_POPUP_TIME = 500; // milliseconds
+const THUMBNAIL_FADE_TIME = 100; // milliseconds
 
-var WINDOW_PREVIEW_SIZE = 128;
-var APP_ICON_SIZE = 96;
-var APP_ICON_SIZE_SMALL = 48;
+const WINDOW_PREVIEW_SIZE = 128;
+const APP_ICON_SIZE = 96;
+const APP_ICON_SIZE_SMALL = 48;
 
 const baseIconSizes = [96, 64, 48, 32, 22];
 
-var AppIconMode = {
+/** @enum {number} */
+const AppIconMode = {
     THUMBNAIL_ONLY: 1,
     APP_ICON_ONLY: 2,
     BOTH: 3,
@@ -40,20 +46,23 @@ function _createWindowClone(window, size) {
     });
 }
 
+/**
+ * @param {Meta.Workspace} workspace
+ * @returns {Meta.Window}
+ */
 function getWindows(workspace) {
     // We ignore skip-taskbar windows in switchers, but if they are attached
     // to their parent, their position in the MRU list may be more appropriate
     // than the parent; so start with the complete list ...
-    let windows = global.display.get_tab_list(Meta.TabList.NORMAL_ALL,
-                                              workspace);
+    let windows = global.display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
     // ... map windows to their parent where appropriate ...
     return windows.map(w => {
         return w.is_attached_dialog() ? w.get_transient_for() : w;
     // ... and filter out skip-taskbar windows and duplicates
-    }).filter((w, i, a) => !w.skip_taskbar && a.indexOf(w) == i);
+    }).filter((w, i, a) => !w.skip_taskbar && a.indexOf(w) === i);
 }
 
-var AppSwitcherPopup = GObject.registerClass(
+export const AppSwitcherPopup = GObject.registerClass(
 class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     _init() {
         super._init();
@@ -109,18 +118,18 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     }
 
     _initialSelection(backward, binding) {
-        if (binding == 'switch-group') {
+        if (binding === 'switch-group') {
             if (backward)
                 this._select(0, this._items[0].cachedWindows.length - 1);
             else if (this._items[0].cachedWindows.length > 1)
                 this._select(0, 1);
             else
                 this._select(0, 0);
-        } else if (binding == 'switch-group-backward') {
+        } else if (binding === 'switch-group-backward') {
             this._select(0, this._items[0].cachedWindows.length - 1);
-        } else if (binding == 'switch-applications-backward') {
+        } else if (binding === 'switch-applications-backward') {
             this._select(this._items.length - 1);
-        } else if (this._items.length == 1) {
+        } else if (this._items.length === 1) {
             this._select(0);
         } else if (backward) {
             this._select(this._items.length - 1);
@@ -131,18 +140,20 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
 
     _nextWindow() {
         // We actually want the second window if we're in the unset state
-        if (this._currentWindow == -1)
+        if (this._currentWindow === -1)
             this._currentWindow = 0;
-        return SwitcherPopup.mod(this._currentWindow + 1,
-                                 this._items[this._selectedIndex].cachedWindows.length);
+        return SwitcherPopup.mod(
+            this._currentWindow + 1,
+            this._items[this._selectedIndex].cachedWindows.length);
     }
 
     _previousWindow() {
         // Also assume second window here
-        if (this._currentWindow == -1)
+        if (this._currentWindow === -1)
             this._currentWindow = 1;
-        return SwitcherPopup.mod(this._currentWindow - 1,
-                                 this._items[this._selectedIndex].cachedWindows.length);
+        return SwitcherPopup.mod(
+            this._currentWindow - 1,
+            this._items[this._selectedIndex].cachedWindows.length);
     }
 
     _closeAppWindow(appIndex, windowIndex) {
@@ -167,18 +178,18 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
 
     _keyPressHandler(keysym, action) {
         const rtl = Clutter.get_default_text_direction() === Clutter.TextDirection.RTL;
-        if (action == Meta.KeyBindingAction.SWITCH_GROUP) {
+        if (action === Meta.KeyBindingAction.SWITCH_GROUP) {
             if (!this._thumbnailsFocused)
                 this._select(this._selectedIndex, 0);
             else
                 this._select(this._selectedIndex, this._nextWindow());
-        } else if (action == Meta.KeyBindingAction.SWITCH_GROUP_BACKWARD) {
+        } else if (action === Meta.KeyBindingAction.SWITCH_GROUP_BACKWARD) {
             this._select(this._selectedIndex, this._previousWindow());
-        } else if (action == Meta.KeyBindingAction.SWITCH_APPLICATIONS) {
+        } else if (action === Meta.KeyBindingAction.SWITCH_APPLICATIONS) {
             this._select(this._next());
-        } else if (action == Meta.KeyBindingAction.SWITCH_APPLICATIONS_BACKWARD) {
+        } else if (action === Meta.KeyBindingAction.SWITCH_APPLICATIONS_BACKWARD) {
             this._select(this._previous());
-        } else if (keysym == Clutter.KEY_q || keysym === Clutter.KEY_Q) {
+        } else if (keysym === Clutter.KEY_q || keysym === Clutter.KEY_Q) {
             this._quitApplication(this._selectedIndex);
         } else if (this._thumbnailsFocused) {
             if (keysym === Clutter.KEY_Left)
@@ -191,11 +202,11 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
                 this._closeAppWindow(this._selectedIndex, this._currentWindow);
             else
                 return Clutter.EVENT_PROPAGATE;
-        } else if (keysym == Clutter.KEY_Left) {
+        } else if (keysym === Clutter.KEY_Left) {
             this._select(rtl ? this._next() : this._previous());
-        } else if (keysym == Clutter.KEY_Right) {
+        } else if (keysym === Clutter.KEY_Right) {
             this._select(rtl ? this._previous() : this._next());
-        } else if (keysym == Clutter.KEY_Down) {
+        } else if (keysym === Clutter.KEY_Down) {
             this._select(this._selectedIndex, 0);
         } else {
             return Clutter.EVENT_PROPAGATE;
@@ -205,9 +216,9 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     }
 
     _scrollHandler(direction) {
-        if (direction == Clutter.ScrollDirection.UP) {
+        if (direction === Clutter.ScrollDirection.UP) {
             if (this._thumbnailsFocused) {
-                if (this._currentWindow == 0 || this._currentWindow == -1)
+                if (this._currentWindow === 0 || this._currentWindow === -1)
                     this._select(this._previous());
                 else
                     this._select(this._selectedIndex, this._previousWindow());
@@ -218,9 +229,9 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
                 else
                     this._select(this._previous());
             }
-        } else if (direction == Clutter.ScrollDirection.DOWN) {
+        } else if (direction === Clutter.ScrollDirection.DOWN) {
             if (this._thumbnailsFocused) {
-                if (this._currentWindow == this._items[this._selectedIndex].cachedWindows.length - 1)
+                if (this._currentWindow === this._items[this._selectedIndex].cachedWindows.length - 1)
                     this._select(this._next());
                 else
                     this._select(this._selectedIndex, this._nextWindow());
@@ -238,7 +249,7 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
         // If the user clicks on the selected app, activate the
         // selected window; otherwise (eg, they click on an app while
         // !mouseActive) activate the clicked-on app.
-        if (n == this._selectedIndex && this._currentWindow >= 0)
+        if (n === this._selectedIndex && this._currentWindow >= 0)
             this._select(n, this._currentWindow);
         else
             this._select(n);
@@ -279,7 +290,7 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     }
 
     _onDestroy() {
-        if (this._thumbnailTimeoutId != 0)
+        if (this._thumbnailTimeoutId !== 0)
             GLib.source_remove(this._thumbnailTimeoutId);
 
         super._onDestroy();
@@ -287,36 +298,37 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
 
     /**
      * _select:
-     * @param {number} app: index of the app to select
-     * @param {number=} window: index of which of @app's windows to select
-     * @param {bool} forceAppFocus: optional flag, see below
      *
-     * Selects the indicated @app, and optional @window, and sets
+     * @param {number} app index of the app to select
+     * @param {number} [window] index of which of `app`'s windows to select
+     * @param {boolean} [forceAppFocus] optional flag, see below
+     *
+     * Selects the indicated `app`, and optional `window`, and sets
      * this._thumbnailsFocused appropriately to indicate whether the
      * arrow keys should act on the app list or the thumbnail list.
      *
-     * If @app is specified and @window is unspecified or %null, then
+     * If `app` is specified and `window` is unspecified or %null, then
      * the app is highlighted (ie, given a light background), and the
-     * current thumbnail list, if any, is destroyed. If @app has
-     * multiple windows, and @forceAppFocus is not %true, then a
+     * current thumbnail list, if any, is destroyed. If `app` has
+     * multiple windows, and `forceAppFocus` is not %true, then a
      * timeout is started to open a thumbnail list.
      *
-     * If @app and @window are specified (and @forceAppFocus is not),
-     * then @app will be outlined, a thumbnail list will be created
-     * and focused (if it hasn't been already), and the @window'th
+     * If `app` and `window` are specified (and `forceAppFocus` is not),
+     * then `app` will be outlined, a thumbnail list will be created
+     * and focused (if it hasn't been already), and the `window`'th
      * window in it will be highlighted.
      *
-     * If @app and @window are specified and @forceAppFocus is %true,
-     * then @app will be highlighted, and @window outlined, and the
+     * If `app` and `window` are specified and `forceAppFocus` is %true,
+     * then `app` will be highlighted, and `window` outlined, and the
      * app list will have the keyboard focus.
      */
     _select(app, window, forceAppFocus) {
-        if (app != this._selectedIndex || window == null) {
+        if (app !== this._selectedIndex || window == null) {
             if (this._thumbnails)
                 this._destroyThumbnails();
         }
 
-        if (this._thumbnailTimeoutId != 0) {
+        if (this._thumbnailTimeoutId !== 0) {
             GLib.source_remove(this._thumbnailTimeoutId);
             this._thumbnailTimeoutId = 0;
         }
@@ -395,20 +407,20 @@ class AppSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     }
 });
 
-var CyclerHighlight = GObject.registerClass(
+const CyclerHighlight = GObject.registerClass(
 class CyclerHighlight extends St.Widget {
     _init() {
-        super._init({ layout_manager: new Clutter.BinLayout() });
+        super._init({layout_manager: new Clutter.BinLayout()});
         this._window = null;
 
         this._clone = new Clutter.Clone();
         this.add_actor(this._clone);
 
-        this._highlight = new St.Widget({ style_class: 'cycler-highlight' });
+        this._highlight = new St.Widget({style_class: 'cycler-highlight'});
         this.add_actor(this._highlight);
 
         let coordinate = Clutter.BindCoordinate.ALL;
-        let constraint = new Clutter.BindConstraint({ coordinate });
+        let constraint = new Clutter.BindConstraint({coordinate});
         this._clone.bind_property('source', constraint, 'source', 0);
 
         this.add_constraint(constraint);
@@ -417,7 +429,7 @@ class CyclerHighlight extends St.Widget {
     }
 
     set window(w) {
-        if (this._window == w)
+        if (this._window === w)
             return;
 
         this._window?.disconnectObject(this);
@@ -461,12 +473,12 @@ class CyclerHighlight extends St.Widget {
 
 // We don't show an actual popup, so just provide what SwitcherPopup
 // expects instead of inheriting from SwitcherList
-var CyclerList = GObject.registerClass({
+const CyclerList = GObject.registerClass({
     Signals: {
-        'item-activated': { param_types: [GObject.TYPE_INT] },
-        'item-entered': { param_types: [GObject.TYPE_INT] },
-        'item-removed': { param_types: [GObject.TYPE_INT] },
-        'item-highlighted': { param_types: [GObject.TYPE_INT] },
+        'item-activated': {param_types: [GObject.TYPE_INT]},
+        'item-entered': {param_types: [GObject.TYPE_INT]},
+        'item-removed': {param_types: [GObject.TYPE_INT]},
+        'item-highlighted': {param_types: [GObject.TYPE_INT]},
     },
 }, class CyclerList extends St.Widget {
     highlight(index, _justOutline) {
@@ -474,7 +486,7 @@ var CyclerList = GObject.registerClass({
     }
 });
 
-var CyclerPopup = GObject.registerClass({
+const CyclerPopup = GObject.registerClass({
     GTypeFlags: GObject.TypeFlags.ABSTRACT,
 }, class CyclerPopup extends SwitcherPopup.SwitcherPopup {
     _init() {
@@ -507,7 +519,7 @@ var CyclerPopup = GObject.registerClass({
             window.unminimize();
         }
 
-        if (activeWs == ws) {
+        if (activeWs === ws) {
             Main.activateWindow(window);
         } else {
             // If the selected window is on a different workspace, we don't
@@ -530,10 +542,10 @@ var CyclerPopup = GObject.registerClass({
 });
 
 
-var GroupCyclerPopup = GObject.registerClass(
+export const GroupCyclerPopup = GObject.registerClass(
 class GroupCyclerPopup extends CyclerPopup {
     _init() {
-        this._settings = new Gio.Settings({ schema_id: 'org.gnome.shell.app-switcher' });
+        this._settings = new Gio.Settings({schema_id: 'org.gnome.shell.app-switcher'});
         super._init();
     }
 
@@ -552,9 +564,9 @@ class GroupCyclerPopup extends CyclerPopup {
     }
 
     _keyPressHandler(keysym, action) {
-        if (action == Meta.KeyBindingAction.CYCLE_GROUP)
+        if (action === Meta.KeyBindingAction.CYCLE_GROUP)
             this._select(this._next());
-        else if (action == Meta.KeyBindingAction.CYCLE_GROUP_BACKWARD)
+        else if (action === Meta.KeyBindingAction.CYCLE_GROUP_BACKWARD)
             this._select(this._previous());
         else
             return Clutter.EVENT_PROPAGATE;
@@ -563,11 +575,11 @@ class GroupCyclerPopup extends CyclerPopup {
     }
 });
 
-var WindowSwitcherPopup = GObject.registerClass(
+export const WindowSwitcherPopup = GObject.registerClass(
 class WindowSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     _init() {
         super._init();
-        this._settings = new Gio.Settings({ schema_id: 'org.gnome.shell.window-switcher' });
+        this._settings = new Gio.Settings({schema_id: 'org.gnome.shell.window-switcher'});
 
         let windows = this._getWindowList();
 
@@ -598,13 +610,13 @@ class WindowSwitcherPopup extends SwitcherPopup.SwitcherPopup {
 
     _keyPressHandler(keysym, action) {
         const rtl = Clutter.get_default_text_direction() === Clutter.TextDirection.RTL;
-        if (action == Meta.KeyBindingAction.SWITCH_WINDOWS)
+        if (action === Meta.KeyBindingAction.SWITCH_WINDOWS)
             this._select(this._next());
-        else if (action == Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWARD)
+        else if (action === Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWARD)
             this._select(this._previous());
-        else if (keysym == Clutter.KEY_Left)
+        else if (keysym === Clutter.KEY_Left)
             this._select(rtl ? this._next() : this._previous());
-        else if (keysym == Clutter.KEY_Right)
+        else if (keysym === Clutter.KEY_Right)
             this._select(rtl ? this._previous() : this._next());
         else if (keysym === Clutter.KEY_w || keysym === Clutter.KEY_W || keysym === Clutter.KEY_F4)
             this._closeWindow(this._selectedIndex);
@@ -621,10 +633,10 @@ class WindowSwitcherPopup extends SwitcherPopup.SwitcherPopup {
     }
 });
 
-var WindowCyclerPopup = GObject.registerClass(
+export const WindowCyclerPopup = GObject.registerClass(
 class WindowCyclerPopup extends CyclerPopup {
     _init() {
-        this._settings = new Gio.Settings({ schema_id: 'org.gnome.shell.window-switcher' });
+        this._settings = new Gio.Settings({schema_id: 'org.gnome.shell.window-switcher'});
         super._init();
     }
 
@@ -641,9 +653,9 @@ class WindowCyclerPopup extends CyclerPopup {
     }
 
     _keyPressHandler(keysym, action) {
-        if (action == Meta.KeyBindingAction.CYCLE_WINDOWS)
+        if (action === Meta.KeyBindingAction.CYCLE_WINDOWS)
             this._select(this._next());
-        else if (action == Meta.KeyBindingAction.CYCLE_WINDOWS_BACKWARD)
+        else if (action === Meta.KeyBindingAction.CYCLE_WINDOWS_BACKWARD)
             this._select(this._previous());
         else
             return Clutter.EVENT_PROPAGATE;
@@ -652,7 +664,7 @@ class WindowCyclerPopup extends CyclerPopup {
     }
 });
 
-var AppIcon = GObject.registerClass(
+export const AppIcon = GObject.registerClass(
 class AppIcon extends St.BoxLayout {
     _init(app) {
         super._init({
@@ -679,7 +691,7 @@ class AppIcon extends St.BoxLayout {
     }
 });
 
-var AppSwitcher = GObject.registerClass(
+const AppSwitcher = GObject.registerClass(
 class AppSwitcher extends SwitcherPopup.SwitcherList {
     _init(apps, altTabPopup) {
         super._init(true);
@@ -688,7 +700,7 @@ class AppSwitcher extends SwitcherPopup.SwitcherList {
         this._arrows = [];
 
         let windowTracker = Shell.WindowTracker.get_default();
-        let settings = new Gio.Settings({ schema_id: 'org.gnome.shell.app-switcher' });
+        let settings = new Gio.Settings({schema_id: 'org.gnome.shell.app-switcher'});
 
         let workspace = null;
         if (settings.get_boolean('current-workspace-only')) {
@@ -718,7 +730,7 @@ class AppSwitcher extends SwitcherPopup.SwitcherList {
     }
 
     _onDestroy() {
-        if (this._mouseTimeOutId != 0)
+        if (this._mouseTimeOutId !== 0)
             GLib.source_remove(this._mouseTimeOutId);
 
         this.icons.forEach(
@@ -727,7 +739,7 @@ class AppSwitcher extends SwitcherPopup.SwitcherList {
 
     _setIconSize() {
         let j = 0;
-        while (this._items.length > 1 && this._items[j].style_class != 'item-box')
+        while (this._items.length > 1 && this._items[j].style_class !== 'item-box')
             j++;
 
         let themeNode = this._items[j].get_theme_node();
@@ -866,16 +878,16 @@ class AppSwitcher extends SwitcherPopup.SwitcherList {
         let item = this.addItem(appIcon, appIcon.label);
 
         appIcon.app.connectObject('notify::state', app => {
-            if (app.state != Shell.AppState.RUNNING)
+            if (app.state !== Shell.AppState.RUNNING)
                 this._removeIcon(app);
         }, this);
 
-        let arrow = new St.DrawingArea({ style_class: 'switcher-arrow' });
+        let arrow = new St.DrawingArea({style_class: 'switcher-arrow'});
         arrow.connect('repaint', () => SwitcherPopup.drawArrow(arrow, St.Side.BOTTOM));
         this.add_actor(arrow);
         this._arrows.push(arrow);
 
-        if (appIcon.cachedWindows.length == 1)
+        if (appIcon.cachedWindows.length === 1)
             arrow.hide();
         else
             item.add_accessible_state(Atk.StateType.EXPANDABLE);
@@ -883,7 +895,7 @@ class AppSwitcher extends SwitcherPopup.SwitcherList {
 
     _removeIcon(app) {
         let index = this.icons.findIndex(icon => {
-            return icon.app == app;
+            return icon.app === app;
         });
         if (index === -1)
             return;
@@ -896,7 +908,7 @@ class AppSwitcher extends SwitcherPopup.SwitcherList {
     }
 });
 
-var ThumbnailSwitcher = GObject.registerClass(
+const ThumbnailSwitcher = GObject.registerClass(
 class ThumbnailSwitcher extends SwitcherPopup.SwitcherList {
     _init(windows) {
         super._init(false);
@@ -912,25 +924,21 @@ class ThumbnailSwitcher extends SwitcherPopup.SwitcherList {
                 vertical: true,
             });
 
-            let bin = new St.Bin({ style_class: 'thumbnail' });
+            let bin = new St.Bin({style_class: 'thumbnail'});
 
             box.add_actor(bin);
             this._thumbnailBins.push(bin);
 
-            let title = windows[i].get_title();
-            if (title) {
-                let name = new St.Label({
-                    text: title,
-                    // St.Label doesn't support text-align
-                    x_align: Clutter.ActorAlign.CENTER,
-                });
-                this._labels.push(name);
-                box.add_actor(name);
+            const title = windows[i].get_title();
+            const name = new St.Label({
+                text: title,
+                // St.Label doesn't support text-align
+                x_align: Clutter.ActorAlign.CENTER,
+            });
+            this._labels.push(name);
+            box.add_actor(name);
 
-                this.addItem(box, name);
-            } else {
-                this.addItem(box, null);
-            }
+            this.addItem(box, name);
         }
 
         this.connect('destroy', this._onDestroy.bind(this));
@@ -990,7 +998,7 @@ class ThumbnailSwitcher extends SwitcherPopup.SwitcherList {
     }
 });
 
-var WindowIcon = GObject.registerClass(
+export const WindowIcon = GObject.registerClass(
 class WindowIcon extends St.BoxLayout {
     _init(window, mode) {
         super._init({
@@ -1000,10 +1008,10 @@ class WindowIcon extends St.BoxLayout {
 
         this.window = window;
 
-        this._icon = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+        this._icon = new St.Widget({layout_manager: new Clutter.BinLayout()});
 
         this.add_child(this._icon);
-        this.label = new St.Label({ text: window.get_title() });
+        this.label = new St.Label({text: window.get_title()});
 
         let tracker = Shell.WindowTracker.get_default();
         this.app = tracker.get_window_app(window);
@@ -1026,8 +1034,8 @@ class WindowIcon extends St.BoxLayout {
             this._icon.add_actor(_createWindowClone(mutterWindow, size * scaleFactor));
 
             if (this.app) {
-                this._icon.add_actor(this._createAppIcon(this.app,
-                                                         APP_ICON_SIZE_SMALL));
+                this._icon.add_actor(
+                    this._createAppIcon(this.app, APP_ICON_SIZE_SMALL));
             }
             break;
 
@@ -1042,7 +1050,7 @@ class WindowIcon extends St.BoxLayout {
     _createAppIcon(app, size) {
         let appIcon = app
             ? app.create_icon_texture(size)
-            : new St.Icon({ icon_name: 'icon-missing', icon_size: size });
+            : new St.Icon({icon_name: 'icon-missing', icon_size: size});
         appIcon.x_expand = appIcon.y_expand = true;
         appIcon.x_align = appIcon.y_align = Clutter.ActorAlign.END;
 
@@ -1050,7 +1058,7 @@ class WindowIcon extends St.BoxLayout {
     }
 });
 
-var WindowSwitcher = GObject.registerClass(
+const WindowSwitcher = GObject.registerClass(
 class WindowSwitcher extends SwitcherPopup.SwitcherList {
     _init(windows, mode) {
         super._init(true);
@@ -1122,12 +1130,12 @@ class WindowSwitcher extends SwitcherPopup.SwitcherList {
     highlight(index, justOutline) {
         super.highlight(index, justOutline);
 
-        this._label.set_text(index == -1 ? '' : this.icons[index].label.text);
+        this._label.set_text(index === -1 ? '' : this.icons[index].label.text);
     }
 
     _removeWindow(window) {
         let index = this.icons.findIndex(icon => {
-            return icon.window == window;
+            return icon.window === window;
         });
         if (index === -1)
             return;

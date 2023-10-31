@@ -21,23 +21,26 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-/* exported getDefault */
-
-const { Gio, GObject, Shell } = imports.gi;
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
 
 // We require libmalcontent ≥ 0.6.0
 const HAVE_MALCONTENT = imports.package.checkSymbol(
     'Malcontent', '0', 'ManagerGetValueFlags');
 
-var Malcontent = null;
+let Malcontent = null;
 if (HAVE_MALCONTENT) {
-    Malcontent = imports.gi.Malcontent;
+    ({default: Malcontent} = await import('gi://Malcontent?version=0'));
     Gio._promisify(Malcontent.Manager.prototype, 'get_app_filter_async');
 }
 
 let _singleton = null;
 
-function getDefault() {
+/**
+ * @returns {ParentalControlsManager}
+ */
+export function getDefault() {
     if (_singleton === null)
         _singleton = new ParentalControlsManager();
 
@@ -48,7 +51,7 @@ function getDefault() {
 // parental controls settings. It’s possible for the user’s parental controls
 // to change at runtime if the Parental Controls application is used by an
 // administrator from within the user’s session.
-var ParentalControlsManager = GObject.registerClass({
+const ParentalControlsManager = GObject.registerClass({
     Signals: {
         'app-filter-changed': {},
     },
@@ -73,19 +76,11 @@ var ParentalControlsManager = GObject.registerClass({
 
         try {
             const connection = await Gio.DBus.get(Gio.BusType.SYSTEM, null);
-            this._manager = new Malcontent.Manager({ connection });
-            this._appFilter = await this._manager.get_app_filter_async(
-                Shell.util_get_uid(),
-                Malcontent.ManagerGetValueFlags.NONE,
-                null);
+            this._manager = new Malcontent.Manager({connection});
+            this._appFilter = await this._getAppFilter();
         } catch (e) {
-            if (e.matches(Malcontent.ManagerError, Malcontent.ManagerError.DISABLED)) {
-                console.debug('Parental controls globally disabled');
-                this._disabled = true;
-            } else {
-                logError(e, 'Failed to get parental controls settings');
-                return;
-            }
+            logError(e, 'Failed to get parental controls settings');
+            return;
         }
 
         this._manager.connect('app-filter-changed', this._onAppFilterChanged.bind(this));
@@ -95,6 +90,25 @@ var ParentalControlsManager = GObject.registerClass({
         this.emit('app-filter-changed');
     }
 
+    async _getAppFilter() {
+        let appFilter = null;
+
+        try {
+            appFilter = await this._manager.get_app_filter_async(
+                Shell.util_get_uid(),
+                Malcontent.ManagerGetValueFlags.NONE,
+                null);
+        } catch (e) {
+            if (!e.matches(Malcontent.ManagerError, Malcontent.ManagerError.DISABLED))
+                throw e;
+
+            console.debug('Parental controls globally disabled');
+            this._disabled = true;
+        }
+
+        return appFilter;
+    }
+
     async _onAppFilterChanged(manager, uid) {
         // Emit 'changed' signal only if app-filter is changed for currently logged-in user.
         let currentUid = Shell.util_get_uid();
@@ -102,10 +116,7 @@ var ParentalControlsManager = GObject.registerClass({
             return;
 
         try {
-            this._appFilter = await this._manager.get_app_filter_async(
-                currentUid,
-                Malcontent.ManagerGetValueFlags.NONE,
-                null);
+            this._appFilter = await this._getAppFilter();
             this.emit('app-filter-changed');
         } catch (e) {
             // Log an error and keep the old app filter.

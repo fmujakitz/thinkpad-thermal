@@ -1,5 +1,4 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported LoginDialog */
 /*
  * Copyright 2011 Red Hat, Inc
  *
@@ -17,29 +16,36 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-const {
-    AccountsService, Atk, Clutter, Gdm, Gio,
-    GLib, GObject, Meta, Pango, Shell, St,
-} = imports.gi;
+import AccountsService from 'gi://AccountsService';
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
+import Gdm from 'gi://Gdm';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const AuthPrompt = imports.gdm.authPrompt;
-const Batch = imports.gdm.batch;
-const BoxPointer = imports.ui.boxpointer;
-const CtrlAltTab = imports.ui.ctrlAltTab;
-const GdmUtil = imports.gdm.util;
-const Layout = imports.ui.layout;
-const LoginManager = imports.misc.loginManager;
-const Main = imports.ui.main;
-const PopupMenu = imports.ui.popupMenu;
-const Realmd = imports.gdm.realmd;
-const UserWidget = imports.ui.userWidget;
+import * as AuthPrompt from './authPrompt.js';
+import * as Batch from './batch.js';
+import * as BoxPointer from '../ui/boxpointer.js';
+import * as CtrlAltTab from '../ui/ctrlAltTab.js';
+import * as GdmUtil from './util.js';
+import * as Layout from '../ui/layout.js';
+import * as LoginManager from '../misc/loginManager.js';
+import * as Main from '../ui/main.js';
+import * as PopupMenu from '../ui/popupMenu.js';
+import * as Realmd from './realmd.js';
+import * as UserWidget from '../ui/userWidget.js';
 
 const _FADE_ANIMATION_TIME = 250;
 const _SCROLL_ANIMATION_TIME = 500;
 const _TIMED_LOGIN_IDLE_THRESHOLD = 5.0;
 
-var UserListItem = GObject.registerClass({
-    Signals: { 'activate': {} },
+export const UserListItem = GObject.registerClass({
+    Signals: {'activate': {}},
 }, class UserListItem extends St.Button {
     _init(user) {
         let layout = new St.BoxLayout({
@@ -64,8 +70,9 @@ var UserListItem = GObject.registerClass({
         this._userWidget = new UserWidget.UserWidget(this.user);
         layout.add(this._userWidget);
 
-        this._userWidget.bind_property('label-actor', this, 'label-actor',
-                                       GObject.BindingFlags.SYNC_CREATE);
+        this._userWidget.bind_property('label-actor',
+            this, 'label-actor',
+            GObject.BindingFlags.SYNC_CREATE);
 
         this._timedLoginIndicator = new St.Bin({
             style_class: 'login-dialog-timed-login-indicator',
@@ -150,10 +157,10 @@ var UserListItem = GObject.registerClass({
     }
 });
 
-var UserList = GObject.registerClass({
+const UserList = GObject.registerClass({
     Signals: {
-        'activate': { param_types: [UserListItem.$gtype] },
-        'item-added': { param_types: [UserListItem.$gtype] },
+        'activate': {param_types: [UserListItem.$gtype]},
+        'item-added': {param_types: [UserListItem.$gtype]},
     },
 }, class UserList extends St.ScrollView {
     _init() {
@@ -162,8 +169,9 @@ var UserList = GObject.registerClass({
             x_expand: true,
             y_expand: true,
         });
-        this.set_policy(St.PolicyType.NEVER,
-                        St.PolicyType.AUTOMATIC);
+        this.set_policy(
+            St.PolicyType.NEVER,
+            St.PolicyType.AUTOMATIC);
 
         this._box = new St.BoxLayout({
             vertical: true,
@@ -186,12 +194,13 @@ var UserList = GObject.registerClass({
         if (!hasItems)
             return;
 
-        if (global.stage.get_key_focus() != this)
+        if (global.stage.get_key_focus() !== this)
             return;
 
         let focusSet = this.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
         if (!focusSet) {
-            Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+            const laters = global.compositor.get_laters();
+            laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
                 this._moveFocusToItems();
                 return false;
             });
@@ -304,23 +313,23 @@ var UserList = GObject.registerClass({
     }
 });
 
-var SessionMenuButton = GObject.registerClass({
-    Signals: { 'session-activated': { param_types: [GObject.TYPE_STRING] } },
+const SessionMenuButton = GObject.registerClass({
+    Signals: {'session-activated': {param_types: [GObject.TYPE_STRING]}},
 }, class SessionMenuButton extends St.Bin {
     _init() {
         let button = new St.Button({
-            style_class: 'modal-dialog-button button login-dialog-session-list-button',
+            style_class: 'login-dialog-button login-dialog-session-list-button',
             icon_name: 'emblem-system-symbolic',
             reactive: true,
             track_hover: true,
             can_focus: true,
-            accessible_name: _("Choose Session"),
+            accessible_name: _('Choose Session'),
             accessible_role: Atk.Role.MENU,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
 
-        super._init({ child: button });
+        super._init({child: button});
         this._button = button;
 
         this._menu = new PopupMenu.PopupMenu(this._button, 0, St.Side.BOTTOM);
@@ -335,7 +344,7 @@ var SessionMenuButton = GObject.registerClass({
         });
 
         this._manager = new PopupMenu.PopupMenuManager(this._button,
-                                                       { actionMode: Shell.ActionMode.NONE });
+            {actionMode: Shell.ActionMode.NONE});
         this._manager.addMenu(this._menu);
 
         this._button.connect('clicked', () => this._menu.toggle());
@@ -355,7 +364,7 @@ var SessionMenuButton = GObject.registerClass({
     _updateOrnament() {
         let itemIds = Object.keys(this._items);
         for (let i = 0; i < itemIds.length; i++) {
-            if (itemIds[i] == this._activeSessionId)
+            if (itemIds[i] === this._activeSessionId)
                 this._items[itemIds[i]].setOrnament(PopupMenu.Ornament.DOT);
             else
                 this._items[itemIds[i]].setOrnament(PopupMenu.Ornament.NONE);
@@ -363,7 +372,7 @@ var SessionMenuButton = GObject.registerClass({
     }
 
     setActiveSession(sessionId) {
-        if (sessionId == this._activeSessionId)
+        if (sessionId === this._activeSessionId)
             return;
 
         this._activeSessionId = sessionId;
@@ -399,18 +408,18 @@ var SessionMenuButton = GObject.registerClass({
     }
 });
 
-var LoginDialog = GObject.registerClass({
+export const LoginDialog = GObject.registerClass({
     Signals: {
         'failed': {},
         'wake-up-screen': {},
     },
 }, class LoginDialog extends St.Widget {
     _init(parentActor) {
-        super._init({ style_class: 'login-dialog', visible: false });
+        super._init({style_class: 'login-dialog', visible: false});
 
         this.get_accessible().set_role(Atk.Role.WINDOW);
 
-        this.add_constraint(new Layout.MonitorConstraint({ primary: true }));
+        this.add_constraint(new Layout.MonitorConstraint({primary: true}));
         this.connect('destroy', this._onDestroy.bind(this));
         parentActor.add_child(this);
 
@@ -422,16 +431,16 @@ var LoginDialog = GObject.registerClass({
         } catch (e) {
         }
 
-        this._settings = new Gio.Settings({ schema_id: GdmUtil.LOGIN_SCREEN_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: GdmUtil.LOGIN_SCREEN_SCHEMA});
 
         this._settings.connect(`changed::${GdmUtil.BANNER_MESSAGE_KEY}`,
-                               this._updateBanner.bind(this));
+            this._updateBanner.bind(this));
         this._settings.connect(`changed::${GdmUtil.BANNER_MESSAGE_TEXT_KEY}`,
-                               this._updateBanner.bind(this));
+            this._updateBanner.bind(this));
         this._settings.connect(`changed::${GdmUtil.DISABLE_USER_LIST_KEY}`,
-                               this._updateDisableUserList.bind(this));
+            this._updateDisableUserList.bind(this));
         this._settings.connect(`changed::${GdmUtil.LOGO_KEY}`,
-                               this._updateLogo.bind(this));
+            this._updateLogo.bind(this));
 
         this._textureCache = St.TextureCache.get_default();
         this._textureCache.connectObject('texture-file-changed',
@@ -459,7 +468,7 @@ var LoginDialog = GObject.registerClass({
         // login screen. It can be activated to reveal an entry for
         // manually entering the username.
         let notListedLabel = new St.Label({
-            text: _("Not listed?"),
+            text: _('Not listed?'),
             style_class: 'login-dialog-not-listed-label',
         });
         this._notListedButton = new St.Button({
@@ -486,7 +495,7 @@ var LoginDialog = GObject.registerClass({
         });
         this.add_child(this._bannerView);
 
-        let bannerBox = new St.BoxLayout({ vertical: true });
+        let bannerBox = new St.BoxLayout({vertical: true});
 
         this._bannerView.add_actor(bannerBox);
         this._bannerLabel = new St.Label({
@@ -765,13 +774,13 @@ var LoginDialog = GObject.registerClass({
         let disableUserList = this._settings.get_boolean(GdmUtil.DISABLE_USER_LIST_KEY);
 
         // Disable user list when there are no users.
-        if (this._userListLoaded && this._userList.numItems() == 0)
+        if (this._userListLoaded && this._userList.numItems() === 0)
             disableUserList = true;
 
-        if (disableUserList != this._disableUserList) {
+        if (disableUserList !== this._disableUserList) {
             this._disableUserList = disableUserList;
 
-            if (this._authPrompt.verificationStatus == AuthPrompt.AuthPromptStatus.NOT_VERIFYING)
+            if (this._authPrompt.verificationStatus === AuthPrompt.AuthPromptStatus.NOT_VERIFYING)
                 this._authPrompt.reset();
 
             if (this._disableUserList && this._timedLoginUserListHold)
@@ -784,7 +793,8 @@ var LoginDialog = GObject.registerClass({
 
         // Hide the cancel button if the user list is disabled and we're asking for
         // a username
-        if (this._authPrompt.verificationStatus == AuthPrompt.AuthPromptStatus.NOT_VERIFYING && this._disableUserList)
+        if (this._authPrompt.verificationStatus === AuthPrompt.AuthPromptStatus.NOT_VERIFYING &&
+            this._disableUserList)
             cancelVisible = false;
         else
             cancelVisible = true;
@@ -826,11 +836,12 @@ var LoginDialog = GObject.registerClass({
         this._logoBin.destroy_all_children();
         const resourceScale = this._logoBin.get_resource_scale();
         if (this._logoFile) {
-            let scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-            this._logoBin.add_child(this._textureCache.load_file_async(this._logoFile,
-                                                                       -1, -1,
-                                                                       scaleFactor,
-                                                                       resourceScale));
+            const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+            const texture = this._textureCache.load_file_async(
+                this._logoFile,
+                -1, -1,
+                scaleFactor, resourceScale);
+            this._logoBin.add_child(texture);
         }
     }
 
@@ -850,7 +861,7 @@ var LoginDialog = GObject.registerClass({
     }
 
     _resetGreeterProxy() {
-        if (GLib.getenv('GDM_GREETER_TEST') != '1') {
+        if (GLib.getenv('GDM_GREETER_TEST') !== '1') {
             if (this._greeter)
                 this._greeter.run_dispose();
 
@@ -878,7 +889,7 @@ var LoginDialog = GObject.registerClass({
         if (previousUser && beginRequest === AuthPrompt.BeginRequestType.REUSE_USERNAME) {
             this._user = previousUser;
             this._authPrompt.setUser(this._user);
-            this._authPrompt.begin({ userName: previousUser.get_user_name() });
+            this._authPrompt.begin({userName: previousUser.get_user_name()});
         } else if (beginRequest === AuthPrompt.BeginRequestType.PROVIDE_USERNAME) {
             if (!this._disableUserList)
                 this._showUserList();
@@ -894,8 +905,8 @@ var LoginDialog = GObject.registerClass({
     }
 
     _shouldShowSessionMenuButton() {
-        if (this._authPrompt.verificationStatus != AuthPrompt.AuthPromptStatus.VERIFYING &&
-            this._authPrompt.verificationStatus != AuthPrompt.AuthPromptStatus.VERIFICATION_FAILED)
+        if (this._authPrompt.verificationStatus !== AuthPrompt.AuthPromptStatus.VERIFYING &&
+            this._authPrompt.verificationStatus !== AuthPrompt.AuthPromptStatus.VERIFICATION_FAILED)
             return false;
 
         if (this._user && this._user.is_loaded && this._user.is_logged_in())
@@ -927,7 +938,7 @@ var LoginDialog = GObject.registerClass({
 
         // Translators: this message is shown below the username entry field
         // to clue the user in on how to login to the local network realm
-        this._authPrompt.setMessage(_("(e.g., user or %s)").format(hint), GdmUtil.MessageType.HINT);
+        this._authPrompt.setMessage(_('(e.g., user or %s)').format(hint), GdmUtil.MessageType.HINT);
     }
 
     _askForUsernameAndBeginVerification() {
@@ -946,7 +957,7 @@ var LoginDialog = GObject.registerClass({
                 let answer = this._authPrompt.getAnswer();
                 this._user = this._userManager.get_user(answer);
                 this._authPrompt.clear();
-                this._authPrompt.begin({ userName: answer });
+                this._authPrompt.begin({userName: answer});
                 this._updateCancelButton();
             });
         this._updateCancelButton();
@@ -958,7 +969,7 @@ var LoginDialog = GObject.registerClass({
 
     _bindOpacity() {
         this._bindings = Main.layoutManager.uiGroup.get_children()
-            .filter(c => c != Main.layoutManager.screenShieldGroup)
+            .filter(c => c !== Main.layoutManager.screenShieldGroup)
             .map(c => this.bind_property('opacity', c, 'opacity', 0));
     }
 
@@ -967,7 +978,8 @@ var LoginDialog = GObject.registerClass({
     }
 
     _loginScreenSessionActivated() {
-        if (this.opacity == 255 && this._authPrompt.verificationStatus == AuthPrompt.AuthPromptStatus.NOT_VERIFYING)
+        if (this.opacity === 255 &&
+            this._authPrompt.verificationStatus === AuthPrompt.AuthPromptStatus.NOT_VERIFYING)
             return;
 
         if (this._authPrompt.verificationStatus !== AuthPrompt.AuthPromptStatus.NOT_VERIFYING)
@@ -1142,8 +1154,8 @@ var LoginDialog = GObject.registerClass({
 
         // Restart timed login on user interaction
         global.stage.connect('captured-event', (actor, event) => {
-            if (event.type() == Clutter.EventType.KEY_PRESS ||
-                event.type() == Clutter.EventType.BUTTON_PRESS)
+            if (event.type() === Clutter.EventType.KEY_PRESS ||
+                event.type() === Clutter.EventType.BUTTON_PRESS)
                 this._startTimedLogin(userName, seconds);
 
             return Clutter.EVENT_PROPAGATE;
@@ -1188,7 +1200,7 @@ var LoginDialog = GObject.registerClass({
         let userName = item.user.get_user_name();
         let hold = new Batch.Hold();
 
-        this._authPrompt.begin({ userName, hold });
+        this._authPrompt.begin({userName, hold});
         return hold;
     }
 
@@ -1255,14 +1267,14 @@ var LoginDialog = GObject.registerClass({
 
     open() {
         Main.ctrlAltTabManager.addGroup(this,
-                                        _("Login Window"),
-                                        'dialog-password-symbolic',
-                                        { sortGroup: CtrlAltTab.SortGroup.MIDDLE });
+            _('Login Window'),
+            'dialog-password-symbolic',
+            {sortGroup: CtrlAltTab.SortGroup.MIDDLE});
         this.activate();
 
         this.opacity = 0;
 
-        this._grab = Main.pushModal(global.stage, { actionMode: Shell.ActionMode.LOGIN_SCREEN });
+        this._grab = Main.pushModal(global.stage, {actionMode: Shell.ActionMode.LOGIN_SCREEN});
 
         this.ease({
             opacity: 255,

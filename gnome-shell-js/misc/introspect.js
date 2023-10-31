@@ -1,5 +1,8 @@
-/* exported IntrospectService */
-const { Gio, GLib, Meta, Shell, St } = imports.gi;
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 const APP_ALLOWLIST = [
     'org.freedesktop.impl.portal.desktop.gtk',
@@ -8,19 +11,19 @@ const APP_ALLOWLIST = [
 
 const INTROSPECT_DBUS_API_VERSION = 3;
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
-const { DBusSenderChecker } = imports.misc.util;
+import {loadInterfaceXML} from './fileUtils.js';
+import {DBusSenderChecker} from './util.js';
 
 const IntrospectDBusIface = loadInterfaceXML('org.gnome.Shell.Introspect');
 
-var IntrospectService = class {
+export class IntrospectService {
     constructor() {
-        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(IntrospectDBusIface,
-                                                             this);
+        this._dbusImpl =
+            Gio.DBusExportedObject.wrapJSObject(IntrospectDBusIface, this);
         this._dbusImpl.export(Gio.DBus.session, '/org/gnome/Shell/Introspect');
         Gio.DBus.session.own_name('org.gnome.Shell.Introspect',
-                                  Gio.BusNameOwnerFlags.REPLACE,
-                                  null, null);
+            Gio.BusNameOwnerFlags.REPLACE,
+            null, null);
 
         this._runningApplications = {};
         this._runningApplicationsDirty = true;
@@ -29,18 +32,16 @@ var IntrospectService = class {
         this._animationsEnabled = true;
 
         this._appSystem = Shell.AppSystem.get_default();
-        this._appSystem.connect('app-state-changed',
-                                () => {
-                                    this._runningApplicationsDirty = true;
-                                    this._syncRunningApplications();
-                                });
+        this._appSystem.connect('app-state-changed', () => {
+            this._runningApplicationsDirty = true;
+            this._syncRunningApplications();
+        });
 
         let tracker = Shell.WindowTracker.get_default();
-        tracker.connect('notify::focus-app',
-                        () => {
-                            this._activeApplicationDirty = true;
-                            this._syncRunningApplications();
-                        });
+        tracker.connect('notify::focus-app', () => {
+            this._activeApplicationDirty = true;
+            this._syncRunningApplications();
+        });
 
         tracker.connect('tracked-windows-changed',
             () => this._dbusImpl.emit_signal('WindowsChanged', null));
@@ -54,7 +55,7 @@ var IntrospectService = class {
             this._syncAnimationsEnabled.bind(this));
         this._syncAnimationsEnabled();
 
-        const monitorManager = Meta.MonitorManager.get();
+        const monitorManager = global.backend.get_monitor_manager();
         monitorManager.connect('monitors-changed',
             this._syncScreenSize.bind(this));
         this._syncScreenSize();
@@ -72,7 +73,7 @@ var IntrospectService = class {
     _syncRunningApplications() {
         let tracker = Shell.WindowTracker.get_default();
         let apps = this._appSystem.get_running();
-        let seatName = "seat0";
+        let seatName = 'seat0';
         let newRunningApplications = {};
 
         let newActiveApplication = null;
@@ -80,7 +81,7 @@ var IntrospectService = class {
 
         for (let app of apps) {
             let appInfo = {};
-            let isAppActive = focusedApp == app;
+            let isAppActive = focusedApp === app;
 
             if (!this._isStandaloneApp(app))
                 continue;
@@ -99,7 +100,7 @@ var IntrospectService = class {
 
         if (this._runningApplicationsDirty ||
             (this._activeApplicationDirty &&
-             this._activeApplication != newActiveApplication)) {
+             this._activeApplication !== newActiveApplication)) {
             this._runningApplications = newRunningApplications;
             this._activeApplication = newActiveApplication;
 
@@ -114,10 +115,10 @@ var IntrospectService = class {
             return false;
 
         let type = window.get_window_type();
-        return type == Meta.WindowType.NORMAL ||
-                type == Meta.WindowType.DIALOG ||
-                type == Meta.WindowType.MODAL_DIALOG ||
-                type == Meta.WindowType.UTILITY;
+        return type === Meta.WindowType.NORMAL ||
+            type === Meta.WindowType.DIALOG ||
+            type === Meta.WindowType.MODAL_DIALOG ||
+            type === Meta.WindowType.UTILITY;
     }
 
     async GetRunningApplicationsAsync(params, invocation) {
@@ -159,7 +160,7 @@ var IntrospectService = class {
                     'app-id': GLib.Variant.new('s', app.get_id()),
                     'client-type': GLib.Variant.new('u', window.get_client_type()),
                     'is-hidden': GLib.Variant.new('b', window.is_hidden()),
-                    'has-focus': GLib.Variant.new('b', window == focusWindow),
+                    'has-focus': GLib.Variant.new('b', window === focusWindow),
                     'width': GLib.Variant.new('u', frameRect.width),
                     'height': GLib.Variant.new('u', frameRect.height),
                 };
@@ -214,4 +215,4 @@ var IntrospectService = class {
     get version() {
         return INTROSPECT_DBUS_API_VERSION;
     }
-};
+}

@@ -1,9 +1,9 @@
-/* exported Indicator */
-const {Gio, GObject} = imports.gi;
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
 
-const SystemActions = imports.misc.systemActions;
+import * as SystemActions from '../../misc/systemActions.js';
 
-const {QuickToggle, SystemIndicator} = imports.ui.quickSettings;
+import {QuickToggle, SystemIndicator} from '../quickSettings.js';
 
 const RotationToggle = GObject.registerClass(
 class RotationToggle extends QuickToggle {
@@ -11,7 +11,7 @@ class RotationToggle extends QuickToggle {
         this._systemActions = new SystemActions.getDefault();
 
         super._init({
-            label: _('Auto Rotate'),
+            title: _('Auto Rotate'),
         });
 
         this._systemActions.bind_property('can-lock-orientation',
@@ -35,7 +35,7 @@ class RotationToggle extends QuickToggle {
     }
 });
 
-var Indicator = GObject.registerClass(
+export const Indicator = GObject.registerClass(
 class Indicator extends SystemIndicator {
     _init() {
         super._init();

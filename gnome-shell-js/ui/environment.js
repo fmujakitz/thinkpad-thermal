@@ -1,52 +1,25 @@
-// -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported init */
+// Load all required dependencies with the correct versions
+import '../misc/dependencies.js';
 
-const Config = imports.misc.config;
+import {setConsoleLogDomain} from 'console';
+import * as Gettext from 'gettext';
 
-imports.gi.versions.AccountsService = '1.0';
-imports.gi.versions.Atk = '1.0';
-imports.gi.versions.Atspi = '2.0';
-imports.gi.versions.Clutter = Config.LIBMUTTER_API_VERSION;
-imports.gi.versions.Cogl = Config.LIBMUTTER_API_VERSION;
-imports.gi.versions.Gcr = '4';
-imports.gi.versions.Gdk = '3.0';
-imports.gi.versions.Gdm = '1.0';
-imports.gi.versions.Geoclue = '2.0';
-imports.gi.versions.Gio = '2.0';
-imports.gi.versions.GDesktopEnums = '3.0';
-imports.gi.versions.GdkPixbuf = '2.0';
-imports.gi.versions.GnomeBluetooth = '3.0';
-imports.gi.versions.GnomeDesktop = '3.0';
-imports.gi.versions.Graphene = '1.0';
-imports.gi.versions.Gtk = '3.0';
-imports.gi.versions.GWeather = '4.0';
-imports.gi.versions.IBus = '1.0';
-imports.gi.versions.Malcontent = '0';
-imports.gi.versions.NM = '1.0';
-imports.gi.versions.NMA = '1.0';
-imports.gi.versions.Pango = '1.0';
-imports.gi.versions.Polkit = '1.0';
-imports.gi.versions.PolkitAgent = '1.0';
-imports.gi.versions.Rsvg = '2.0';
-imports.gi.versions.Soup = '3.0';
-imports.gi.versions.TelepathyGLib = '0.12';
-imports.gi.versions.TelepathyLogger = '0.2';
-imports.gi.versions.UPowerGlib = '1.0';
+import Cairo from 'cairo';
+import Clutter from 'gi://Clutter';
+import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Mtk from 'gi://Mtk';
+import Polkit from 'gi://Polkit';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-try {
-    if (Config.HAVE_SOUP2)
-        throw new Error('Soup3 support not enabled');
-    const Soup_ = imports.gi.Soup;
-} catch (e) {
-    imports.gi.versions.Soup = '2.4';
-    const { Soup } = imports.gi;
-    _injectSoup3Compat(Soup);
-}
+import * as SignalTracker from '../misc/signalTracker.js';
+import {adjustAnimationTime} from '../misc/animationUtils.js';
 
-const { Clutter, Gio, GLib, GObject, Meta, Polkit, Shell, St } = imports.gi;
-const Gettext = imports.gettext;
-const System = imports.system;
-const SignalTracker = imports.misc.signalTracker;
+setConsoleLogDomain('GNOME Shell');
 
 Gio._promisify(Gio.DataInputStream.prototype, 'fill_async');
 Gio._promisify(Gio.DataInputStream.prototype, 'read_line_async');
@@ -55,14 +28,12 @@ Gio._promisify(Gio.DBusConnection.prototype, 'call');
 Gio._promisify(Gio.DBusProxy, 'new');
 Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
 Gio._promisify(Gio.DBusProxy.prototype, 'call_with_unix_fd_list');
+Gio._promisify(Gio.File.prototype, 'query_info_async');
 Gio._promisify(Polkit.Permission, 'new');
 
-let _localTimeZone = null;
-
 // We can't import shell JS modules yet, because they may have
-// variable initializations, etc, that depend on init() already having
-// been run.
-
+// variable initializations, etc, that depend on this file's
+// changes
 
 // "monkey patch" in some varargs ClutterContainer methods; we need
 // to do this per-container class since there is no representation
@@ -98,42 +69,6 @@ function _patchLayoutClass(layoutClass, styleProps) {
             });
         };
     }
-}
-
-/**
- * Mimick the Soup 3 APIs we use when falling back to Soup 2.4
- *
- * @param {object} Soup 2.4 namespace
- * @returns {void}
- */
-function _injectSoup3Compat(Soup) {
-    Soup.StatusCode = Soup.KnownStatusCode;
-
-    Soup.Message.new_from_encoded_form =
-        function (method, uri, form) {
-            const soupUri = new Soup.URI(uri);
-            soupUri.set_query(form);
-            return Soup.Message.new_from_uri(method, soupUri);
-        };
-    Soup.Message.prototype.set_request_body_from_bytes =
-        function (contentType, bytes) {
-            this.set_request(
-                contentType,
-                Soup.MemoryUse.COPY,
-                new TextDecoder().decode(bytes.get_data()));
-        };
-
-    Soup.Session.prototype.send_and_read_async =
-        function (message, prio, cancellable, callback) {
-            this.queue_message(message, () => callback(this, message));
-        };
-    Soup.Session.prototype.send_and_read_finish =
-        function (message) {
-            if (message.status_code !== Soup.KnownStatusCode.OK)
-                return null;
-
-            return message.response_body.flatten().get_as_bytes();
-        };
 }
 
 function _makeEaseCallback(params, cleanup) {
@@ -177,21 +112,21 @@ function _getPropertyTarget(actor, propName) {
 function _easeActor(actor, params) {
     actor.save_easing_state();
 
-    if (params.duration != undefined)
+    if (params.duration !== undefined)
         actor.set_easing_duration(params.duration);
     delete params.duration;
 
-    if (params.delay != undefined)
+    if (params.delay !== undefined)
         actor.set_easing_delay(params.delay);
     delete params.delay;
 
     let repeatCount = 0;
-    if (params.repeatCount != undefined)
+    if (params.repeatCount !== undefined)
         repeatCount = params.repeatCount;
     delete params.repeatCount;
 
     let autoReverse = false;
-    if (params.autoReverse != undefined)
+    if (params.autoReverse !== undefined)
         autoReverse = params.autoReverse;
     delete params.autoReverse;
 
@@ -200,7 +135,7 @@ function _easeActor(actor, params) {
     // whether the transition should finish where it started
     const isReversed = autoReverse && numIterations % 2 === 0;
 
-    if (params.mode != undefined)
+    if (params.mode !== undefined)
         actor.set_easing_mode(params.mode);
     delete params.mode;
 
@@ -226,7 +161,7 @@ function _easeActor(actor, params) {
         .map(p => actor.get_transition(p))
         .filter(t => t !== null);
 
-    transitions.forEach(t => t.set({ repeatCount, autoReverse }));
+    transitions.forEach(t => t.set({repeatCount, autoReverse}));
 
     const [transition] = transitions;
 
@@ -252,12 +187,12 @@ function _easeActorProperty(actor, propName, target, params) {
     let duration = Math.floor(params.duration || 0);
 
     let repeatCount = 0;
-    if (params.repeatCount != undefined)
+    if (params.repeatCount !== undefined)
         repeatCount = params.repeatCount;
     delete params.repeatCount;
 
     let autoReverse = false;
-    if (params.autoReverse != undefined)
+    if (params.autoReverse !== undefined)
         autoReverse = params.autoReverse;
     delete params.autoReverse;
 
@@ -284,7 +219,7 @@ function _easeActorProperty(actor, propName, target, params) {
     // cancel overwritten transition
     actor.remove_transition(propName);
 
-    if (duration == 0) {
+    if (duration === 0) {
         let [obj, prop] = _getPropertyTarget(actor, propName);
 
         if (!isReversed)
@@ -299,7 +234,7 @@ function _easeActorProperty(actor, propName, target, params) {
     let pspec = actor.find_property(propName);
     let transition = new Clutter.PropertyTransition(Object.assign({
         property_name: propName,
-        interval: new Clutter.Interval({ value_type: pspec.value_type }),
+        interval: new Clutter.Interval({value_type: pspec.value_type}),
         remove_on_complete: true,
         repeat_count: repeatCount,
         auto_reverse: autoReverse,
@@ -316,155 +251,129 @@ function _easeActorProperty(actor, propName, target, params) {
     transition.connect('stopped', (t, finished) => callback(finished));
 }
 
-function init() {
-    // Add some bindings to the global JS namespace
-    globalThis.global = Shell.Global.get();
+// Add some bindings to the global JS namespace
+globalThis.global = Shell.Global.get();
 
-    globalThis._ = Gettext.gettext;
-    globalThis.C_ = Gettext.pgettext;
-    globalThis.ngettext = Gettext.ngettext;
-    globalThis.N_ = s => s;
+globalThis._ = Gettext.gettext;
+globalThis.C_ = Gettext.pgettext;
+globalThis.ngettext = Gettext.ngettext;
+globalThis.N_ = s => s;
 
-    GObject.gtypeNameBasedOnJSPath = true;
+GObject.gtypeNameBasedOnJSPath = true;
 
-    GObject.Object.prototype.connectObject = function (...args) {
-        SignalTracker.connectObject(this, ...args);
-    };
-    GObject.Object.prototype.connect_object = function (...args) {
-        SignalTracker.connectObject(this, ...args);
-    };
-    GObject.Object.prototype.disconnectObject = function (...args) {
-        SignalTracker.disconnectObject(this, ...args);
-    };
-    GObject.Object.prototype.disconnect_object = function (...args) {
-        SignalTracker.disconnectObject(this, ...args);
-    };
+GObject.Object.prototype.connectObject = function (...args) {
+    SignalTracker.connectObject(this, ...args);
+};
+GObject.Object.prototype.connect_object = function (...args) {
+    SignalTracker.connectObject(this, ...args);
+};
+GObject.Object.prototype.disconnectObject = function (...args) {
+    SignalTracker.disconnectObject(this, ...args);
+};
+GObject.Object.prototype.disconnect_object = function (...args) {
+    SignalTracker.disconnectObject(this, ...args);
+};
 
-    SignalTracker.registerDestroyableType(Clutter.Actor);
+SignalTracker.registerDestroyableType(Clutter.Actor);
 
-    // Miscellaneous monkeypatching
-    _patchContainerClass(St.BoxLayout);
+Cairo.Context.prototype.setSourceColor = function (color) {
+    const {red, green, blue, alpha} = color;
+    const rgb = [red, green, blue].map(v => v / 255.0);
 
-    _patchLayoutClass(Clutter.GridLayout, {
-        row_spacing: 'spacing-rows',
-        column_spacing: 'spacing-columns',
-    });
-    _patchLayoutClass(Clutter.BoxLayout, { spacing: 'spacing' });
+    if (alpha !== 0xff)
+        this.setSourceRGBA(...rgb, alpha / 255.0);
+    else
+        this.setSourceRGB(...rgb);
+};
 
-    let origSetEasingDuration = Clutter.Actor.prototype.set_easing_duration;
-    Clutter.Actor.prototype.set_easing_duration = function (msecs) {
-        origSetEasingDuration.call(this, adjustAnimationTime(msecs));
-    };
-    let origSetEasingDelay = Clutter.Actor.prototype.set_easing_delay;
-    Clutter.Actor.prototype.set_easing_delay = function (msecs) {
-        origSetEasingDelay.call(this, adjustAnimationTime(msecs));
-    };
+// Miscellaneous monkeypatching
+_patchContainerClass(St.BoxLayout);
 
-    Clutter.Actor.prototype.ease = function (props) {
-        _easeActor(this, props);
-    };
-    Clutter.Actor.prototype.ease_property = function (propName, target, params) {
-        _easeActorProperty(this, propName, target, params);
-    };
-    St.Adjustment.prototype.ease = function (target, params) {
-        // we're not an actor of course, but we implement the same
-        // transition API as Clutter.Actor, so this works anyway
-        _easeActorProperty(this, 'value', target, params);
-    };
+_patchLayoutClass(Clutter.GridLayout, {
+    row_spacing: 'spacing-rows',
+    column_spacing: 'spacing-columns',
+});
+_patchLayoutClass(Clutter.BoxLayout, {spacing: 'spacing'});
 
-    Clutter.Actor.prototype[Symbol.iterator] = function* () {
-        for (let c = this.get_first_child(); c; c = c.get_next_sibling())
-            yield c;
-    };
+const origSetEasingDuration = Clutter.Actor.prototype.set_easing_duration;
+Clutter.Actor.prototype.set_easing_duration = function (msecs) {
+    origSetEasingDuration.call(this, adjustAnimationTime(msecs));
+};
+const origSetEasingDelay = Clutter.Actor.prototype.set_easing_delay;
+Clutter.Actor.prototype.set_easing_delay = function (msecs) {
+    origSetEasingDelay.call(this, adjustAnimationTime(msecs));
+};
 
-    Clutter.Actor.prototype.toString = function () {
-        return St.describe_actor(this);
-    };
-    // Deprecation warning for former JS classes turned into an actor subclass
-    Object.defineProperty(Clutter.Actor.prototype, 'actor', {
-        get() {
-            let klass = this.constructor.name;
-            let { stack } = new Error();
-            log(`Usage of object.actor is deprecated for ${klass}\n${stack}`);
-            return this;
-        },
-    });
+Clutter.Actor.prototype.ease = function (props) {
+    _easeActor(this, props);
+};
+Clutter.Actor.prototype.ease_property = function (propName, target, params) {
+    _easeActorProperty(this, propName, target, params);
+};
+St.Adjustment.prototype.ease = function (target, params) {
+    // we're not an actor of course, but we implement the same
+    // transition API as Clutter.Actor, so this works anyway
+    _easeActorProperty(this, 'value', target, params);
+};
 
-    Gio.File.prototype.touch_async = function (callback) {
-        Shell.util_touch_file_async(this, callback);
-    };
-    Gio.File.prototype.touch_finish = function (result) {
-        return Shell.util_touch_file_finish(this, result);
-    };
+Clutter.Actor.prototype[Symbol.iterator] = function* () {
+    for (let c = this.get_first_child(); c; c = c.get_next_sibling())
+        yield c;
+};
 
-    St.set_slow_down_factor = function (factor) {
-        let { stack } = new Error();
-        log(`St.set_slow_down_factor() is deprecated, use St.Settings.slow_down_factor\n${stack}`);
-        St.Settings.get().slow_down_factor = factor;
-    };
+Clutter.Actor.prototype.toString = function () {
+    return St.describe_actor(this);
+};
+// Deprecation warning for former JS classes turned into an actor subclass
+Object.defineProperty(Clutter.Actor.prototype, 'actor', {
+    get() {
+        let klass = this.constructor.name;
+        let {stack} = new Error();
+        log(`Usage of object.actor is deprecated for ${klass}\n${stack}`);
+        return this;
+    },
+});
 
-    let origToString = Object.prototype.toString;
-    Object.prototype.toString = function () {
-        let base = origToString.call(this);
-        try {
-            if ('actor' in this && this.actor instanceof Clutter.Actor)
-                return base.replace(/\]$/, ` delegate for ${this.actor.toString().substring(1)}`);
-            else
-                return base;
-        } catch (e) {
+Meta.Rectangle = function (params = {}) {
+    console.warn('Meta.Rectangle is deprecated, use Mtk.Rectangle instead');
+    return new Mtk.Rectangle(params);
+};
+
+Gio.File.prototype.touch_async = function (callback) {
+    Shell.util_touch_file_async(this, callback);
+};
+Gio.File.prototype.touch_finish = function (result) {
+    return Shell.util_touch_file_finish(this, result);
+};
+
+const origToString = Object.prototype.toString;
+Object.prototype.toString = function () {
+    let base = origToString.call(this);
+    try {
+        if ('actor' in this && this.actor instanceof Clutter.Actor)
+            return base.replace(/\]$/, ` delegate for ${this.actor.toString().substring(1)}`);
+        else
             return base;
-        }
-    };
-
-    // Override to clear our own timezone cache as well
-    const origClearDateCaches = System.clearDateCaches;
-    System.clearDateCaches = function () {
-        _localTimeZone = null;
-        origClearDateCaches();
-    };
-
-    // Work around https://bugzilla.mozilla.org/show_bug.cgi?id=508783
-    Date.prototype.toLocaleFormat = function (format) {
-        if (_localTimeZone === null)
-            _localTimeZone = GLib.TimeZone.new_local();
-
-        let dt = GLib.DateTime.new(_localTimeZone,
-            this.getFullYear(),
-            this.getMonth() + 1,
-            this.getDate(),
-            this.getHours(),
-            this.getMinutes(),
-            this.getSeconds());
-        return dt?.format(format) ?? '';
-    };
-
-    let slowdownEnv = GLib.getenv('GNOME_SHELL_SLOWDOWN_FACTOR');
-    if (slowdownEnv) {
-        let factor = parseFloat(slowdownEnv);
-        if (!isNaN(factor) && factor > 0.0)
-            St.Settings.get().slow_down_factor = factor;
+    } catch (e) {
+        return base;
     }
+};
 
-    // OK, now things are initialized enough that we can import shell JS
-    const Format = imports.format;
-
-    String.prototype.format = Format.format;
-
-    Math.clamp = function (x, lower, upper) {
-        return Math.min(Math.max(x, lower), upper);
-    };
+const slowdownEnv = GLib.getenv('GNOME_SHELL_SLOWDOWN_FACTOR');
+if (slowdownEnv) {
+    let factor = parseFloat(slowdownEnv);
+    if (!isNaN(factor) && factor > 0.0)
+        St.Settings.get().slow_down_factor = factor;
 }
 
-// adjustAnimationTime:
-// @msecs: time in milliseconds
-//
-// Adjust @msecs to account for St's enable-animations
-// and slow-down-factor settings
-function adjustAnimationTime(msecs) {
-    let settings = St.Settings.get();
+// OK, now things are initialized enough that we can import shell JS
+const Format = imports.format;
 
-    if (!settings.enable_animations)
-        return 1;
-    return settings.slow_down_factor * msecs;
-}
+String.prototype.format = Format.format;
 
+Math.clamp = function (x, lower, upper) {
+    return Math.min(Math.max(x, lower), upper);
+};
+
+// Prevent extensions from opening a display connection to ourselves
+Gdk.set_allowed_backends('');

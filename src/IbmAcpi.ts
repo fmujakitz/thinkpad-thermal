@@ -1,7 +1,7 @@
-import * as Gio from "@gi-types/gio2"
-import * as GLib from "@gi-types/glib2"
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
-import ConsoleUtil from "./Console"
+import ConsoleUtil from "./Console.js"
 
 type IbmAcpiData = {
   cpu: number
@@ -41,11 +41,11 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   private parse(str: string) {
     const getVal = (str: string) => str
       .replace(/\t+/, " ")
-      .split(': ')[1]
+      .split(': ')[1] as string
 
-    const row = str.split(/\n/)
+    const row: any[] = str.split(/\n/)
 
-    const [cpu, gpu] = getVal(row[0]).split(' ')
+    const [cpu, gpu] = getVal(row[0] as string).split(' ') as any[]
 
     let levels: string[] = []
 
@@ -93,9 +93,9 @@ export default class IbmAcpiUtil extends ConsoleUtil {
         proc.communicate_utf8_async(null, null, (proc, res) => {
           if (proc) {
             try {
-              let [, stdout, stderr] = proc?.communicate_utf8_finish(res)
+              let [, , stderr] = proc?.communicate_utf8_finish(res)
 
-              if (!proc?.get_successful()) throw new Error(stderr)
+              if (!proc?.get_successful()) throw new Error(stderr as string)
               // done
             } catch (e) {
               logError(e as Error)

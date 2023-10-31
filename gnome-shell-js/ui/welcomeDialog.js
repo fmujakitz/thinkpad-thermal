@@ -1,22 +1,26 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported WelcomeDialog */
 
-const { Clutter, GObject, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Config = imports.misc.config;
-const Dialog = imports.ui.dialog;
-const Main = imports.ui.main;
-const ModalDialog = imports.ui.modalDialog;
+import * as Config from '../misc/config.js';
+import * as Main from './main.js';
+import * as Dialog from './dialog.js';
+import * as ModalDialog from './modalDialog.js';
 
-var DialogResponse = {
-    NO_THANKS: 0,
+/** @enum {number} */
+const DialogResponse = {
+    SKIP: 0,
     TAKE_TOUR: 1,
 };
 
-var WelcomeDialog = GObject.registerClass(
+export const WelcomeDialog = GObject.registerClass(
 class WelcomeDialog extends ModalDialog.ModalDialog {
     _init() {
-        super._init({ styleClass: 'welcome-dialog' });
+        super._init({styleClass: 'welcome-dialog'});
 
         const appSystem = Shell.AppSystem.get_default();
         this._tourAppInfo = appSystem.lookup_app('org.gnome.Tour.desktop');
@@ -31,20 +35,33 @@ class WelcomeDialog extends ModalDialog.ModalDialog {
         return super.open();
     }
 
-    _buildLayout() {
-        const [majorVersion] = Config.PACKAGE_VERSION.split('.');
-        const title = _('Welcome to GNOME %s').format(majorVersion);
-        const description = _('If you want to learn your way around, check out the tour.');
-        const content = new Dialog.MessageDialogContent({ title, description });
+    _getOSName() {
+        const prettyName = GLib.get_os_info('PRETTY_NAME');
+        if (prettyName)
+            return prettyName;
 
-        const icon = new St.Widget({ style_class: 'welcome-dialog-image' });
+        const name = GLib.get_os_info('NAME');
+        const version = GLib.get_os_info('VERSION');
+        if (name)
+            return version ? `${name} ${version}` : name;
+
+        const [majorVersion] = Config.PACKAGE_VERSION.split('.');
+        return _('GNOME %s').format(majorVersion);
+    }
+
+    _buildLayout() {
+        const title = _('Welcome to %s').format(this._getOSName());
+        const description = _('If you want to learn your way around, check out the tour.');
+        const content = new Dialog.MessageDialogContent({title, description});
+
+        const icon = new St.Widget({style_class: 'welcome-dialog-image'});
         content.insert_child_at_index(icon, 0);
 
         this.contentLayout.add_child(content);
 
         this.addButton({
-            label: _('No Thanks'),
-            action: () => this._sendResponse(DialogResponse.NO_THANKS),
+            label: _('Skip'),
+            action: () => this._sendResponse(DialogResponse.SKIP),
             key: Clutter.KEY_Escape,
         });
         this.addButton({

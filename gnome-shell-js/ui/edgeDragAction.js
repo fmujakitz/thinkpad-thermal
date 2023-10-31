@@ -1,17 +1,19 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported EdgeDragAction */
 
-const { Clutter, GObject, Meta, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Mtk from 'gi://Mtk';
+import St from 'gi://St';
 
-const Main = imports.ui.main;
+import * as Main from './main.js';
 
-var EDGE_THRESHOLD = 20;
-var DRAG_DISTANCE = 80;
+const EDGE_THRESHOLD = 20;
+const DRAG_DISTANCE = 80;
 
-var EdgeDragAction = GObject.registerClass({
+export const EdgeDragAction = GObject.registerClass({
     Signals: {
         'activated': {},
-        'progress': { param_types: [GObject.TYPE_DOUBLE] },
+        'progress': {param_types: [GObject.TYPE_DOUBLE]},
     },
 }, class EdgeDragAction extends Clutter.GestureAction {
     _init(side, allowedModes) {
@@ -20,19 +22,17 @@ var EdgeDragAction = GObject.registerClass({
         this._allowedModes = allowedModes;
         this.set_n_touch_points(1);
         this.set_threshold_trigger_edge(Clutter.GestureTriggerEdge.AFTER);
-
-        global.display.connect('grab-op-begin', () => this.cancel());
     }
 
     _getMonitorRect(x, y) {
-        let rect = new Meta.Rectangle({ x: x - 1, y: y - 1, width: 1, height: 1 });
+        const rect = new Mtk.Rectangle({x: x - 1, y: y - 1, width: 1, height: 1});
         let monitorIndex = global.display.get_monitor_index_for_rect(rect);
 
         return global.display.get_monitor_geometry(monitorIndex);
     }
 
     vfunc_gesture_prepare(_actor) {
-        if (this.get_n_current_points() == 0)
+        if (this.get_n_current_points() === 0)
             return false;
 
         if (!(this._allowedModes & Main.actionMode))
@@ -41,10 +41,10 @@ var EdgeDragAction = GObject.registerClass({
         let [x, y] = this.get_press_coords(0);
         let monitorRect = this._getMonitorRect(x, y);
 
-        return (this._side == St.Side.LEFT && x < monitorRect.x + EDGE_THRESHOLD) ||
-                (this._side == St.Side.RIGHT && x > monitorRect.x + monitorRect.width - EDGE_THRESHOLD) ||
-                (this._side == St.Side.TOP && y < monitorRect.y + EDGE_THRESHOLD) ||
-                (this._side == St.Side.BOTTOM && y > monitorRect.y + monitorRect.height - EDGE_THRESHOLD);
+        return (this._side === St.Side.LEFT && x < monitorRect.x + EDGE_THRESHOLD) ||
+                (this._side === St.Side.RIGHT && x > monitorRect.x + monitorRect.width - EDGE_THRESHOLD) ||
+                (this._side === St.Side.TOP && y < monitorRect.y + EDGE_THRESHOLD) ||
+                (this._side === St.Side.BOTTOM && y > monitorRect.y + monitorRect.height - EDGE_THRESHOLD);
     }
 
     vfunc_gesture_progress(_actor) {
@@ -57,9 +57,9 @@ var EdgeDragAction = GObject.registerClass({
             return true;
 
         if ((offsetX > offsetY &&
-             (this._side == St.Side.TOP || this._side == St.Side.BOTTOM)) ||
+             (this._side === St.Side.TOP || this._side === St.Side.BOTTOM)) ||
             (offsetY > offsetX &&
-             (this._side == St.Side.LEFT || this._side == St.Side.RIGHT))) {
+             (this._side === St.Side.LEFT || this._side === St.Side.RIGHT))) {
             this.cancel();
             return false;
         }
@@ -78,10 +78,10 @@ var EdgeDragAction = GObject.registerClass({
         let [x, y] = this.get_motion_coords(0);
         let monitorRect = this._getMonitorRect(startX, startY);
 
-        if ((this._side == St.Side.TOP && y > monitorRect.y + DRAG_DISTANCE) ||
-            (this._side == St.Side.BOTTOM && y < monitorRect.y + monitorRect.height - DRAG_DISTANCE) ||
-            (this._side == St.Side.LEFT && x > monitorRect.x + DRAG_DISTANCE) ||
-            (this._side == St.Side.RIGHT && x < monitorRect.x + monitorRect.width - DRAG_DISTANCE))
+        if ((this._side === St.Side.TOP && y > monitorRect.y + DRAG_DISTANCE) ||
+            (this._side === St.Side.BOTTOM && y < monitorRect.y + monitorRect.height - DRAG_DISTANCE) ||
+            (this._side === St.Side.LEFT && x > monitorRect.x + DRAG_DISTANCE) ||
+            (this._side === St.Side.RIGHT && x < monitorRect.x + monitorRect.width - DRAG_DISTANCE))
             this.emit('activated');
         else
             this.cancel();

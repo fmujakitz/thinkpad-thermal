@@ -1,18 +1,23 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported UnlockDialog */
 
-const {
-    AccountsService, Atk, Clutter, Gdm, Gio,
-    GnomeDesktop, GLib, GObject, Meta, Shell, St,
-} = imports.gi;
+import AccountsService from 'gi://AccountsService';
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
+import Gdm from 'gi://Gdm';
+import Gio from 'gi://Gio';
+import GnomeDesktop from 'gi://GnomeDesktop';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Background = imports.ui.background;
-const Layout = imports.ui.layout;
-const Main = imports.ui.main;
-const MessageTray = imports.ui.messageTray;
-const SwipeTracker = imports.ui.swipeTracker;
-
-const AuthPrompt = imports.gdm.authPrompt;
+import * as Background from './background.js';
+import * as Layout from './layout.js';
+import * as Main from './main.js';
+import * as MessageTray from './messageTray.js';
+import * as SwipeTracker from './swipeTracker.js';
+import {formatDateWithCFormatString} from '../misc/dateUtils.js';
+import * as AuthPrompt from '../gdm/authPrompt.js';
 
 // The timeout before going back automatically to the lock screen (in seconds)
 const IDLE_TIMEOUT = 2 * 60;
@@ -24,22 +29,21 @@ const CROSSFADE_TIME = 300;
 const FADE_OUT_TRANSLATION = 200;
 const FADE_OUT_SCALE = 0.3;
 
-const BLUR_BRIGHTNESS = 0.55;
-const BLUR_SIGMA = 60;
+const BLUR_BRIGHTNESS = 0.65;
+const BLUR_SIGMA = 45;
 
 const SUMMARY_ICON_SIZE = 32;
 
-var NotificationsBox = GObject.registerClass({
-    Signals: { 'wake-up-screen': {} },
+const NotificationsBox = GObject.registerClass({
+    Signals: {'wake-up-screen': {}},
 }, class NotificationsBox extends St.BoxLayout {
     _init() {
         super._init({
             vertical: true,
             name: 'unlockDialogNotifications',
-            style_class: 'unlock-dialog-notifications-container',
         });
 
-        this._scrollView = new St.ScrollView({ hscrollbar_policy: St.PolicyType.NEVER });
+        this._scrollView = new St.ScrollView({hscrollbar_policy: St.PolicyType.NEVER});
         this._notificationBox = new St.BoxLayout({
             vertical: true,
             style_class: 'unlock-dialog-notifications-container',
@@ -110,10 +114,10 @@ var NotificationsBox = GObject.registerClass({
 
     _makeNotificationDetailedSource(source, box) {
         let sourceActor = new MessageTray.SourceActor(source, SUMMARY_ICON_SIZE);
-        let sourceBin = new St.Bin({ child: sourceActor });
+        let sourceBin = new St.Bin({child: sourceActor});
         box.add(sourceBin);
 
-        let textBox = new St.BoxLayout({ vertical: true });
+        let textBox = new St.BoxLayout({vertical: true});
         box.add_child(textBox);
 
         let title = new St.Label({
@@ -137,7 +141,7 @@ var NotificationsBox = GObject.registerClass({
                     : GLib.markup_escape_text(bodyText, -1);
             }
 
-            let label = new St.Label({ style_class: 'unlock-dialog-notification-count-text' });
+            let label = new St.Label({style_class: 'unlock-dialog-notification-count-text'});
             label.clutter_text.set_markup(`<b>${n.title}</b> ${body}`);
             textBox.add(label);
 
@@ -307,10 +311,10 @@ var NotificationsBox = GObject.registerClass({
     }
 });
 
-var Clock = GObject.registerClass(
+const Clock = GObject.registerClass(
 class UnlockDialogClock extends St.BoxLayout {
     _init() {
-        super._init({ style_class: 'unlock-dialog-clock', vertical: true });
+        super._init({style_class: 'unlock-dialog-clock', vertical: true});
 
         this._time = new St.Label({
             style_class: 'unlock-dialog-clock-time',
@@ -330,14 +334,14 @@ class UnlockDialogClock extends St.BoxLayout {
         this.add_child(this._date);
         this.add_child(this._hint);
 
-        this._wallClock = new GnomeDesktop.WallClock({ time_only: true });
+        this._wallClock = new GnomeDesktop.WallClock({time_only: true});
         this._wallClock.connect('notify::clock', this._updateClock.bind(this));
 
         this._seat = Clutter.get_default_backend().get_default_seat();
         this._seat.connectObject('notify::touch-mode',
             this._updateHint.bind(this), this);
 
-        this._monitorManager = Meta.MonitorManager.get();
+        this._monitorManager = global.backend.get_monitor_manager();
         this._monitorManager.connectObject('power-save-mode-changed',
             () => (this._hint.opacity = 0), this);
 
@@ -362,7 +366,7 @@ class UnlockDialogClock extends St.BoxLayout {
         /* Translators: This is a time format for a date in
            long format */
         let dateFormat = Shell.util_translate_time_string(N_('%A %B %-d'));
-        this._date.text = date.toLocaleFormat(dateFormat);
+        this._date.text = formatDateWithCFormatString(date, dateFormat);
     }
 
     _updateHint() {
@@ -378,7 +382,7 @@ class UnlockDialogClock extends St.BoxLayout {
     }
 });
 
-var UnlockDialogLayout = GObject.registerClass(
+const UnlockDialogLayout = GObject.registerClass(
 class UnlockDialogLayout extends Clutter.LayoutManager {
     _init(stack, notifications, switchUserButton) {
         super._init();
@@ -457,7 +461,7 @@ class UnlockDialogLayout extends Clutter.LayoutManager {
     }
 });
 
-var UnlockDialog = GObject.registerClass({
+export const UnlockDialog = GObject.registerClass({
     Signals: {
         'failed': {},
         'wake-up-screen': {},
@@ -539,7 +543,7 @@ var UnlockDialog = GObject.registerClass({
         // Authentication & Clock stack
         this._stack = new Shell.Stack();
 
-        this._promptBox = new St.BoxLayout({ vertical: true });
+        this._promptBox = new St.BoxLayout({vertical: true});
         this._promptBox.set_pivot_point(0.5, 0.5);
         this._promptBox.hide();
         this._stack.add_child(this._promptBox);
@@ -559,7 +563,7 @@ var UnlockDialog = GObject.registerClass({
 
         // Switch User button
         this._otherUserButton = new St.Button({
-            style_class: 'modal-dialog-button button switch-user-button',
+            style_class: 'login-dialog-button switch-user-button',
             accessible_name: _('Log in as another user'),
             button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
             reactive: false,
@@ -571,12 +575,12 @@ var UnlockDialog = GObject.registerClass({
         this._otherUserButton.set_pivot_point(0.5, 0.5);
         this._otherUserButton.connect('clicked', this._otherUserClicked.bind(this));
 
-        this._screenSaverSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.screensaver' });
+        this._screenSaverSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.screensaver'});
 
         this._screenSaverSettings.connectObject('changed::user-switch-enabled',
             this._updateUserSwitchVisibility.bind(this), this);
 
-        this._lockdownSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.lockdown' });
+        this._lockdownSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.lockdown'});
         this._lockdownSettings.connect('changed::disable-user-switching',
             this._updateUserSwitchVisibility.bind(this));
 
@@ -587,7 +591,7 @@ var UnlockDialog = GObject.registerClass({
 
         // Main Box
         let mainBox = new St.Widget();
-        mainBox.add_constraint(new Layout.MonitorConstraint({ primary: true }));
+        mainBox.add_constraint(new Layout.MonitorConstraint({primary: true}));
         mainBox.add_child(this._stack);
         mainBox.add_child(this._notificationsBox);
         mainBox.add_child(this._otherUserButton);
@@ -603,19 +607,19 @@ var UnlockDialog = GObject.registerClass({
         this.connect('destroy', this._onDestroy.bind(this));
     }
 
-    vfunc_key_press_event(keyEvent) {
+    vfunc_key_press_event(event) {
         if (this._activePage === this._promptBox ||
             (this._promptBox && this._promptBox.visible))
             return Clutter.EVENT_PROPAGATE;
 
-        const { keyval } = keyEvent;
+        const keyval = event.get_key_symbol();
         if (keyval === Clutter.KEY_Shift_L ||
             keyval === Clutter.KEY_Shift_R ||
             keyval === Clutter.KEY_Shift_Lock ||
             keyval === Clutter.KEY_Caps_Lock)
             return Clutter.EVENT_PROPAGATE;
 
-        let unichar = keyEvent.unicode_value;
+        let unichar = event.get_key_unicode();
 
         this._showPrompt();
 
@@ -640,7 +644,7 @@ var UnlockDialog = GObject.registerClass({
             y: monitor.y,
             width: monitor.width,
             height: monitor.height,
-            effect: new Shell.BlurEffect({ name: 'blur' }),
+            effect: new Shell.BlurEffect({name: 'blur'}),
         });
 
         let bgManager = new Background.BackgroundManager({
@@ -744,7 +748,7 @@ var UnlockDialog = GObject.registerClass({
             can_focus: progress > 0,
         });
 
-        const { scaleFactor } = St.ThemeContext.get_for_stage(global.stage);
+        const {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
 
         this._promptBox.set({
             opacity: 255 * progress,
@@ -774,14 +778,14 @@ var UnlockDialog = GObject.registerClass({
 
     _onReset(authPrompt, beginRequest) {
         let userName;
-        if (beginRequest == AuthPrompt.BeginRequestType.PROVIDE_USERNAME) {
+        if (beginRequest === AuthPrompt.BeginRequestType.PROVIDE_USERNAME) {
             this._authPrompt.setUser(this._user);
             userName = this._userName;
         } else {
             userName = null;
         }
 
-        this._authPrompt.begin({ userName });
+        this._authPrompt.begin({userName});
     }
 
     _escape() {
