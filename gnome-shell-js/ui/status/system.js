@@ -1,15 +1,22 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Indicator */
 
-const {Atk, Clutter, Gio, GLib, GObject, Meta, Shell, St, UPowerGlib: UPower} = imports.gi;
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
+import UPower from 'gi://UPowerGlib';
 
-const SystemActions = imports.misc.systemActions;
-const Main = imports.ui.main;
-const PopupMenu = imports.ui.popupMenu;
-const {PopupAnimation} = imports.ui.boxpointer;
+import * as SystemActions from '../../misc/systemActions.js';
+import * as Main from '../main.js';
+import * as PopupMenu from '../popupMenu.js';
+import {PopupAnimation} from '../boxpointer.js';
 
-const {QuickSettingsItem, QuickToggle, SystemIndicator} = imports.ui.quickSettings;
-const {loadInterfaceXML} = imports.misc.fileUtils;
+import {QuickSettingsItem, QuickToggle, SystemIndicator} from '../quickSettings.js';
+import {loadInterfaceXML} from '../../misc/fileUtils.js';
 
 const BUS_NAME = 'org.freedesktop.UPower';
 const OBJECT_PATH = '/org/freedesktop/UPower/devices/DisplayDevice';
@@ -86,8 +93,9 @@ const PowerToggle = GObject.registerClass({
             use_default_fallbacks: false,
         });
 
+        const formatter = new Intl.NumberFormat(undefined, {style: 'percent'});
         this.set({
-            label: _('%d\u2009%%').format(this._proxy.Percentage),
+            title: formatter.format(this._proxy.Percentage / 100),
             fallback_icon_name: this._proxy.IconName,
             gicon,
         });
@@ -100,14 +108,15 @@ class ScreenshotItem extends QuickSettingsItem {
         super._init({
             style_class: 'icon-button',
             can_focus: true,
-            icon_name: 'camera-photo-symbolic',
+            icon_name: 'screenshooter-symbolic',
             visible: !Main.sessionMode.isGreeter,
             accessible_name: _('Take Screenshot'),
         });
 
         this.connect('clicked', () => {
             const topMenu = Main.panel.statusArea.quickSettings.menu;
-            Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+            const laters = global.compositor.get_laters();
+            laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
                 Main.screenshotUI.open().catch(logError);
                 return GLib.SOURCE_REMOVE;
             });
@@ -164,7 +173,7 @@ class ShutdownItem extends QuickSettingsItem {
         this._systemActions = new SystemActions.getDefault();
         this._items = [];
 
-        this.menu.setHeader('system-shutdown-symbolic', 'Power Off');
+        this.menu.setHeader('system-shutdown-symbolic', C_('title', 'Power Off'));
 
         this._addSystemAction(_('Suspend'), 'can-suspend', () => {
             this._systemActions.activateSuspend();
@@ -183,7 +192,7 @@ class ShutdownItem extends QuickSettingsItem {
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-        this._addSystemAction(_('Log Out'), 'can-logout', () => {
+        this._addSystemAction(_('Log Out…'), 'can-logout', () => {
             this._systemActions.activateLogout();
             Main.panel.closeQuickSettings();
         });
@@ -232,7 +241,7 @@ class LockItem extends QuickSettingsItem {
             style_class: 'icon-button',
             can_focus: true,
             icon_name: 'system-lock-screen-symbolic',
-            accessible_name: _('Lock Screen'),
+            accessible_name: C_('action', 'Lock Screen'),
         });
 
         this._systemActions.bind_property('can-lock-screen',
@@ -292,7 +301,7 @@ class SystemItem extends QuickSettingsItem {
     }
 });
 
-var Indicator = GObject.registerClass(
+export const Indicator = GObject.registerClass(
 class Indicator extends SystemIndicator {
     _init() {
         super._init();
@@ -315,7 +324,7 @@ class Indicator extends SystemIndicator {
 
         const {powerToggle} = this._systemItem;
 
-        powerToggle.bind_property('label',
+        powerToggle.bind_property('title',
             this._percentageLabel, 'text',
             GObject.BindingFlags.SYNC_CREATE);
 

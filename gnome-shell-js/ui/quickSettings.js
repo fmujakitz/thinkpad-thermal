@@ -1,16 +1,24 @@
-/* exported QuickToggle, QuickMenuToggle, QuickSlider, QuickSettingsMenu, SystemIndicator */
-const {Atk, Clutter, Gio, GLib, GObject, Graphene, Pango, St} = imports.gi;
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Graphene from 'gi://Graphene';
+import Meta from 'gi://Meta';
+import Pango from 'gi://Pango';
+import St from 'gi://St';
 
-const Main = imports.ui.main;
-const PopupMenu = imports.ui.popupMenu;
-const {Slider} = imports.ui.slider;
+import * as Main from './main.js';
+import * as PopupMenu from './popupMenu.js';
+import {Slider} from './slider.js';
 
-const {PopupAnimation} = imports.ui.boxpointer;
+import {PopupAnimation} from './boxpointer.js';
 
 const DIM_BRIGHTNESS = -0.4;
 const POPUP_ANIMATION_TIME = 400;
+const MENU_BUTTON_BRIGHTNESS = 0.1;
 
-var QuickSettingsItem = GObject.registerClass({
+export const QuickSettingsItem = GObject.registerClass({
     Properties: {
         'has-menu': GObject.ParamSpec.boolean(
             'has-menu', 'has-menu', 'has-menu',
@@ -32,9 +40,14 @@ var QuickSettingsItem = GObject.registerClass({
     }
 });
 
-var QuickToggle = GObject.registerClass({
+export const QuickToggle = GObject.registerClass({
     Properties: {
-        'label': GObject.ParamSpec.override('label', St.Button),
+        'title': GObject.ParamSpec.string('title', '', '',
+            GObject.ParamFlags.READWRITE,
+            null),
+        'subtitle': GObject.ParamSpec.string('subtitle', '', '',
+            GObject.ParamFlags.READWRITE,
+            null),
         'icon-name': GObject.ParamSpec.override('icon-name', St.Button),
         'gicon': GObject.ParamSpec.object('gicon', '', '',
             GObject.ParamFlags.READWRITE,
@@ -76,31 +89,76 @@ var QuickToggle = GObject.registerClass({
             GObject.BindingFlags.SYNC_CREATE |
             GObject.BindingFlags.BIDIRECTIONAL);
 
-        this._label = new St.Label({
-            style_class: 'quick-toggle-label',
+        this._title = new St.Label({
+            style_class: 'quick-toggle-title',
             y_align: Clutter.ActorAlign.CENTER,
             x_align: Clutter.ActorAlign.START,
             x_expand: true,
         });
-        this.label_actor = this._label;
-        this._box.add_child(this._label);
+        this.label_actor = this._title;
 
-        this._label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        this._subtitle = new St.Label({
+            style_class: 'quick-toggle-subtitle',
+            y_align: Clutter.ActorAlign.CENTER,
+            x_align: Clutter.ActorAlign.START,
+            x_expand: true,
+        });
 
-        this.bind_property('label',
-            this._label, 'text',
+        const titleBox = new St.BoxLayout({
+            y_align: Clutter.ActorAlign.CENTER,
+            x_align: Clutter.ActorAlign.START,
+            x_expand: true,
+            vertical: true,
+        });
+        titleBox.add_child(this._title);
+        titleBox.add_child(this._subtitle);
+        this._box.add_child(titleBox);
+
+        this._title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+
+        this.bind_property('title',
+            this._title, 'text',
             GObject.BindingFlags.SYNC_CREATE);
+
+        this.bind_property('subtitle',
+            this._subtitle, 'text',
+            GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property_full('subtitle',
+            this._subtitle, 'visible',
+            GObject.BindingFlags.SYNC_CREATE,
+            (bind, source) => [true, source !== null],
+            null);
+    }
+
+    get label() {
+        console.warn('Trying to get label from QuickToggle. Use title instead.');
+        return this.title;
+    }
+
+    set label(label) {
+        console.warn('Trying to set label on QuickToggle. Use title instead.');
+        this.title = label;
     }
 });
 
-var QuickMenuToggle = GObject.registerClass({
+export const QuickMenuToggle = GObject.registerClass({
     Properties: {
+        'title': GObject.ParamSpec.string('title', '', '',
+            GObject.ParamFlags.READWRITE,
+            null),
+        'subtitle': GObject.ParamSpec.string('subtitle', '', '',
+            GObject.ParamFlags.READWRITE,
+            null),
+        'icon-name': GObject.ParamSpec.override('icon-name', St.Button),
+        'gicon': GObject.ParamSpec.object('gicon', '', '',
+            GObject.ParamFlags.READWRITE,
+            Gio.Icon),
         'menu-enabled': GObject.ParamSpec.boolean(
             'menu-enabled', '', '',
             GObject.ParamFlags.READWRITE,
             true),
     },
-}, class QuickMenuToggle extends QuickToggle {
+}, class QuickMenuToggle extends QuickSettingsItem {
     _init(params) {
         super._init({
             ...params,
@@ -109,15 +167,50 @@ var QuickMenuToggle = GObject.registerClass({
 
         this.add_style_class_name('quick-menu-toggle');
 
+        this._box = new St.BoxLayout();
+        this.set_child(this._box);
+
+        const contents = new QuickToggle({
+            x_expand: true,
+        });
+        this._box.add_child(contents);
+
+        // Use an effect to lighten the menu button a bit, so we don't
+        // have to define two full sets of button styles (normal/default)
+        // with slightly different colors
+        const menuHighlight = new Clutter.BrightnessContrastEffect();
+        menuHighlight.set_brightness(MENU_BUTTON_BRIGHTNESS);
+
         this._menuButton = new St.Button({
-            child: new St.Icon({
-                style_class: 'quick-toggle-arrow',
-                icon_name: 'go-next-symbolic',
-            }),
+            style_class: 'quick-toggle-arrow icon-button',
+            child: new St.Icon({icon_name: 'go-next-symbolic'}),
+            accessible_name: _('Open menu'),
+            effect: menuHighlight,
+            can_focus: true,
             x_expand: false,
             y_expand: true,
         });
         this._box.add_child(this._menuButton);
+
+        this.bind_property('toggle-mode',
+            contents, 'toggle-mode',
+            GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property('checked',
+            contents, 'checked',
+            GObject.BindingFlags.SYNC_CREATE |
+            GObject.BindingFlags.BIDIRECTIONAL);
+        this.bind_property('title',
+            contents, 'title',
+            GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property('subtitle',
+            contents, 'subtitle',
+            GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property('gicon',
+            contents, 'gicon',
+            GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property('icon-name',
+            contents, 'icon-name',
+            GObject.BindingFlags.SYNC_CREATE);
 
         this.bind_property('menu-enabled',
             this._menuButton, 'visible',
@@ -125,7 +218,13 @@ var QuickMenuToggle = GObject.registerClass({
         this.bind_property('reactive',
             this._menuButton, 'reactive',
             GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property('checked',
+            this._menuButton, 'checked',
+            GObject.BindingFlags.SYNC_CREATE);
+        contents.connect('clicked', (o, button) => this.emit('clicked', button));
         this._menuButton.connect('clicked', () => this.menu.open());
+        this._menuButton.connect('popup-menu', () => this.emit('popup-menu'));
+        contents.connect('popup-menu', () => this.emit('popup-menu'));
         this.connect('popup-menu', () => {
             if (this.menuEnabled)
                 this.menu.open();
@@ -133,16 +232,27 @@ var QuickMenuToggle = GObject.registerClass({
     }
 });
 
-var QuickSlider = GObject.registerClass({
+export const QuickSlider = GObject.registerClass({
     Properties: {
         'icon-name': GObject.ParamSpec.override('icon-name', St.Button),
         'gicon': GObject.ParamSpec.object('gicon', '', '',
             GObject.ParamFlags.READWRITE,
             Gio.Icon),
+        'icon-reactive': GObject.ParamSpec.boolean(
+            'icon-reactive', '', '',
+            GObject.ParamFlags.READWRITE,
+            false),
+        'icon-label': GObject.ParamSpec.string(
+            'icon-label', '', '',
+            GObject.ParamFlags.READWRITE,
+            ''),
         'menu-enabled': GObject.ParamSpec.boolean(
             'menu-enabled', '', '',
             GObject.ParamFlags.READWRITE,
             false),
+    },
+    Signals: {
+        'icon-clicked': {},
     },
 }, class QuickSlider extends QuickSettingsItem {
     _init(params) {
@@ -164,10 +274,28 @@ var QuickSlider = GObject.registerClass({
             iconProps['icon-name'] = this.iconName;
 
         this._icon = new St.Icon({
-            style_class: 'quick-toggle-icon',
             ...iconProps,
         });
-        box.add_child(this._icon);
+        this._iconButton = new St.Button({
+            child: this._icon,
+            style_class: 'icon-button flat',
+            can_focus: true,
+            x_expand: false,
+            y_expand: true,
+        });
+        this._iconButton.connect('clicked',
+            () => this.emit('icon-clicked'));
+        // Show as regular icon when non-interactive
+        this._iconButton.connect('notify::reactive',
+            () => this._iconButton.remove_style_pseudo_class('insensitive'));
+        box.add_child(this._iconButton);
+
+        this.bind_property('icon-reactive',
+            this._iconButton, 'reactive',
+            GObject.BindingFlags.SYNC_CREATE);
+        this.bind_property('icon-label',
+            this._iconButton, 'accessible-name',
+            GObject.BindingFlags.SYNC_CREATE);
 
         // bindings are in the "wrong" direction, so we
         // pick up StIcon's linking of the two properties
@@ -193,12 +321,15 @@ var QuickSlider = GObject.registerClass({
         });
         box.add_child(sliderBin);
 
-        sliderBin.set_accessible(this.slider.get_accessible());
+        // Make the slider bin transparent for a11y
+        const sliderAccessible = this.slider.get_accessible();
+        sliderAccessible.set_parent(sliderBin.get_parent().get_accessible());
+        sliderBin.set_accessible(sliderAccessible);
         sliderBin.connect('event', (bin, event) => this.slider.event(event, false));
 
         this._menuButton = new St.Button({
             child: new St.Icon({icon_name: 'go-next-symbolic'}),
-            style_class: 'icon-button',
+            style_class: 'icon-button flat',
             can_focus: true,
             x_expand: false,
             y_expand: true,
@@ -518,9 +649,7 @@ const QuickSettingsLayout = GObject.registerClass({
     vfunc_get_preferred_height(container, _forWidth) {
         const rows = this._getRows(container);
 
-        let [minHeight, natHeight] = this._overlay
-            ? this._overlay.get_preferred_height(-1)
-            : [0, 0];
+        let [minHeight, natHeight] = this._overlay.get_preferred_height(-1);
 
         const spacing = (rows.length - 1) * this.row_spacing;
         minHeight += spacing;
@@ -538,14 +667,12 @@ const QuickSettingsLayout = GObject.registerClass({
     vfunc_allocate(container, box) {
         const rows = this._getRows(container);
 
-        const [, overlayHeight] = this._overlay
-            ? this._overlay.get_preferred_height(-1)
-            : [0, 0];
+        const [, overlayHeight] = this._overlay.get_preferred_height(-1);
 
-        const availWidth = box.get_width() - (this.nColumns - 1) * this.row_spacing;
-        const childWidth = availWidth / this.nColumns;
+        const availWidth = box.get_width() - (this.nColumns - 1) * this.column_spacing;
+        const childWidth = Math.floor(availWidth / this.nColumns);
 
-        this._overlay?.allocate_available_size(0, 0, box.get_width(), box.get_height());
+        this._overlay.allocate_available_size(0, 0, box.get_width(), box.get_height());
 
         const isRtl = container.text_direction === Clutter.TextDirection.RTL;
 
@@ -578,11 +705,11 @@ const QuickSettingsLayout = GObject.registerClass({
     }
 });
 
-var QuickSettingsMenu = class extends PopupMenu.PopupMenu {
+export const QuickSettingsMenu = class extends PopupMenu.PopupMenu {
     constructor(sourceActor, nColumns = 1) {
         super(sourceActor, 0, St.Side.TOP);
 
-        this.actor = new St.Widget({reactive: true});
+        this.actor = new St.Widget({reactive: true, width: 0, height: 0});
         this.actor.add_child(this._boxPointer);
         this.actor._delegate = this;
 
@@ -626,9 +753,13 @@ var QuickSettingsMenu = class extends PopupMenu.PopupMenu {
 
         // Pick up additional spacing from any intermediate actors
         const updateOffset = () => {
-            const offset = this._grid.apply_relative_transform_to_point(
-                this._boxPointer, new Graphene.Point3D());
-            yConstraint.offset = offset.y;
+            const laters = global.compositor.get_laters();
+            laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
+                const offset = this._grid.apply_relative_transform_to_point(
+                    this._boxPointer, new Graphene.Point3D());
+                yConstraint.offset = offset.y;
+                return GLib.SOURCE_REMOVE;
+            });
         };
         this._grid.connect('notify::y', updateOffset);
         this.box.connect('notify::y', updateOffset);
@@ -649,6 +780,15 @@ var QuickSettingsMenu = class extends PopupMenu.PopupMenu {
 
     addItem(item, colSpan = 1) {
         this._grid.add_child(item);
+        this._completeAddItem(item, colSpan);
+    }
+
+    insertItemBefore(item, sibling, colSpan = 1) {
+        this._grid.insert_child_below(item, sibling);
+        this._completeAddItem(item, colSpan);
+    }
+
+    _completeAddItem(item, colSpan) {
         this._grid.layout_manager.child_set_property(
             this._grid, item, 'column-span', colSpan);
 
@@ -660,6 +800,10 @@ var QuickSettingsMenu = class extends PopupMenu.PopupMenu {
                 this._activeMenu = isOpen ? item.menu : null;
             });
         }
+    }
+
+    getFirstItem() {
+        return this._grid.get_first_child();
     }
 
     open(animate) {
@@ -685,7 +829,7 @@ var QuickSettingsMenu = class extends PopupMenu.PopupMenu {
     }
 };
 
-var SystemIndicator = GObject.registerClass(
+export const SystemIndicator = GObject.registerClass(
 class SystemIndicator extends St.BoxLayout {
     _init() {
         super._init({

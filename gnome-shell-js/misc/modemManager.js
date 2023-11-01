@@ -1,20 +1,26 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported ModemBase, ModemGsm, ModemCdma, BroadbandModem  */
 
-const { Gio, GObject, NM, NMA } = imports.gi;
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import NM from 'gi://NM';
+import NMA4 from 'gi://NMA4';
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
+import {loadInterfaceXML} from './fileUtils.js';
 
-// _getMobileProvidersDatabase:
-//
-// Gets the database of mobile providers, with references between MCCMNC/SID and
-// operator name
-//
 let _mpd;
+
+/**
+ * _getMobileProvidersDatabase:
+ *
+ * Gets the database of mobile providers, with references between MCCMNC/SID and
+ * operator name
+ *
+ * @returns {NMA4.MobileProvidersDatabase | null}
+ */
 function _getMobileProvidersDatabase() {
     if (_mpd == null) {
         try {
-            _mpd = new NMA.MobileProvidersDatabase();
+            _mpd = new NMA4.MobileProvidersDatabase();
             _mpd.init(null);
         } catch (e) {
             log(e.message);
@@ -34,7 +40,7 @@ function _getMobileProvidersDatabase() {
 //
 function _findProviderForMccMnc(operatorName, operatorCode) {
     if (operatorName) {
-        if (operatorName.length != 0 &&
+        if (operatorName.length !== 0 &&
             (operatorName.length > 6 || operatorName.length < 5)) {
             // this looks like a valid name, i.e. not an MCCMNC (that some
             // devices return when not yet connected
@@ -49,9 +55,9 @@ function _findProviderForMccMnc(operatorName, operatorCode) {
     }
 
     let needle;
-    if ((!operatorName || operatorName.length == 0) && operatorCode)
+    if ((!operatorName || operatorName.length === 0) && operatorCode)
         needle = operatorCode;
-    else if (operatorName && (operatorName.length == 6 || operatorName.length == 5))
+    else if (operatorName && (operatorName.length === 6 || operatorName.length === 5))
         needle = operatorName;
     else // nothing to search
         return null;
@@ -98,7 +104,7 @@ const ModemGsmNetworkProxy = Gio.DBusProxy.makeProxyWrapper(ModemGsmNetworkInter
 const ModemCdmaInterface = loadInterfaceXML('org.freedesktop.ModemManager.Modem.Cdma');
 const ModemCdmaProxy = Gio.DBusProxy.makeProxyWrapper(ModemCdmaInterface);
 
-var ModemBase = GObject.registerClass({
+const ModemBase = GObject.registerClass({
     GTypeFlags: GObject.TypeFlags.ABSTRACT,
     Properties: {
         'operator-name': GObject.ParamSpec.string(
@@ -126,21 +132,21 @@ var ModemBase = GObject.registerClass({
     }
 
     _setOperatorName(operatorName) {
-        if (this._operatorName == operatorName)
+        if (this._operatorName === operatorName)
             return;
         this._operatorName = operatorName;
         this.notify('operator-name');
     }
 
     _setSignalQuality(signalQuality) {
-        if (this._signalQuality == signalQuality)
+        if (this._signalQuality === signalQuality)
             return;
         this._signalQuality = signalQuality;
         this.notify('signal-quality');
     }
 });
 
-var ModemGsm = GObject.registerClass(
+export const ModemGsm = GObject.registerClass(
 class ModemGsm extends ModemBase {
     _init(path) {
         super._init();
@@ -174,7 +180,7 @@ class ModemGsm extends ModemBase {
     }
 });
 
-var ModemCdma = GObject.registerClass(
+export const ModemCdma = GObject.registerClass(
 class ModemCdma extends ModemBase {
     _init(path) {
         super._init();
@@ -227,7 +233,7 @@ const BroadbandModem3gppProxy = Gio.DBusProxy.makeProxyWrapper(BroadbandModem3gp
 const BroadbandModemCdmaInterface = loadInterfaceXML('org.freedesktop.ModemManager1.Modem.ModemCdma');
 const BroadbandModemCdmaProxy = Gio.DBusProxy.makeProxyWrapper(BroadbandModemCdmaInterface);
 
-var BroadbandModem = GObject.registerClass({
+export const BroadbandModem = GObject.registerClass({
     Properties: {
         'capabilities': GObject.ParamSpec.flags(
             'capabilities', 'capabilities', 'capabilities',
@@ -237,7 +243,7 @@ var BroadbandModem = GObject.registerClass({
     },
 }, class BroadbandModem extends ModemBase {
     _init(path, capabilities) {
-        super._init({ capabilities });
+        super._init({capabilities});
         this._proxy = new BroadbandModemProxy(Gio.DBus.system, 'org.freedesktop.ModemManager1', path);
         this._proxy_3gpp = new BroadbandModem3gppProxy(Gio.DBus.system, 'org.freedesktop.ModemManager1', path);
         this._proxy_cdma = new BroadbandModemCdmaProxy(Gio.DBus.system, 'org.freedesktop.ModemManager1', path);
@@ -270,13 +276,13 @@ var BroadbandModem = GObject.registerClass({
     }
 
     _reloadOperatorName() {
-        let newName = "";
+        let newName = '';
         if (this.operator_name_3gpp && this.operator_name_3gpp.length > 0)
             newName += this.operator_name_3gpp;
 
         if (this.operator_name_cdma && this.operator_name_cdma.length > 0) {
-            if (newName != "")
-                newName += ", ";
+            if (newName !== '')
+                newName += ', ';
             newName += this.operator_name_cdma;
         }
 

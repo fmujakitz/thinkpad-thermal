@@ -1,36 +1,40 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported NotificationPolicy, NotificationGenericPolicy,
-   NotificationApplicationPolicy, Source, SourceActor,
-   SystemNotificationSource, MessageTray */
 
-const { Clutter, Gio, GLib, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Calendar = imports.ui.calendar;
-const GnomeSession = imports.misc.gnomeSession;
-const Layout = imports.ui.layout;
-const Main = imports.ui.main;
-const Params = imports.misc.params;
-const SignalTracker = imports.misc.signalTracker;
+import * as Calendar from './calendar.js';
+import * as GnomeSession from '../misc/gnomeSession.js';
+import * as Layout from './layout.js';
+import * as Main from './main.js';
+import * as Params from '../misc/params.js';
+import * as SignalTracker from '../misc/signalTracker.js';
 
 const SHELL_KEYBINDINGS_SCHEMA = 'org.gnome.shell.keybindings';
 
-var ANIMATION_TIME = 200;
-var NOTIFICATION_TIMEOUT = 4000;
+export const ANIMATION_TIME = 200;
 
-var HIDE_TIMEOUT = 200;
-var LONGER_HIDE_TIMEOUT = 600;
+const NOTIFICATION_TIMEOUT = 4000;
 
-var MAX_NOTIFICATIONS_IN_QUEUE = 3;
-var MAX_NOTIFICATIONS_PER_SOURCE = 3;
-var MAX_NOTIFICATION_BUTTONS = 3;
+const HIDE_TIMEOUT = 200;
+const LONGER_HIDE_TIMEOUT = 600;
+
+const MAX_NOTIFICATIONS_IN_QUEUE = 3;
+const MAX_NOTIFICATIONS_PER_SOURCE = 3;
+const MAX_NOTIFICATION_BUTTONS = 3;
 
 // We delay hiding of the tray if the mouse is within MOUSE_LEFT_ACTOR_THRESHOLD
 // range from the point where it left the tray.
-var MOUSE_LEFT_ACTOR_THRESHOLD = 20;
+const MOUSE_LEFT_ACTOR_THRESHOLD = 20;
 
-var IDLE_TIME = 1000;
+const IDLE_TIME = 1000;
 
-var State = {
+export const State = {
     HIDDEN:  0,
     SHOWING: 1,
     SHOWN:   2,
@@ -44,7 +48,8 @@ var State = {
 // notifications that were requested to be destroyed by the associated source,
 // and REPLACED for notifications that were destroyed as a consequence of a
 // newer version having replaced them.
-var NotificationDestroyedReason = {
+/** @enum {number} */
+export const NotificationDestroyedReason = {
     EXPIRED: 1,
     DISMISSED: 2,
     SOURCE_CLOSED: 3,
@@ -55,7 +60,8 @@ var NotificationDestroyedReason = {
 // urgency values map to the corresponding values for the notifications received
 // through the notification daemon. HIGH urgency value is used for chats received
 // through the Telepathy client.
-var Urgency = {
+/** @enum {number} */
+export const Urgency = {
     LOW: 0,
     NORMAL: 1,
     HIGH: 2,
@@ -68,12 +74,13 @@ var Urgency = {
 // contain information private to the physical system (for example, battery
 // status) and hence the same for every user. This affects whether the content
 // of a notification is shown on the lock screen.
-var PrivacyScope = {
+/** @enum {number} */
+export const PrivacyScope = {
     USER: 0,
     SYSTEM: 1,
 };
 
-var FocusGrabber = class FocusGrabber {
+class FocusGrabber {
     constructor(actor) {
         this._actor = actor;
         this._prevKeyFocusActor = null;
@@ -124,14 +131,14 @@ var FocusGrabber = class FocusGrabber {
                 global.stage.set_key_focus(null);
         }
     }
-};
+}
 
 // NotificationPolicy:
 // An object that holds all bits of configurable policy related to a notification
 // source, such as whether to play sound or honour the critical bit.
 //
 // A notification without a policy object will inherit the default one.
-var NotificationPolicy = GObject.registerClass({
+export const NotificationPolicy = GObject.registerClass({
     GTypeFlags: GObject.TypeFlags.ABSTRACT,
     Properties: {
         'enable': GObject.ParamSpec.boolean(
@@ -186,13 +193,13 @@ var NotificationPolicy = GObject.registerClass({
     }
 });
 
-var NotificationGenericPolicy = GObject.registerClass({
+export const NotificationGenericPolicy = GObject.registerClass({
 }, class NotificationGenericPolicy extends NotificationPolicy {
     _init() {
         super._init();
         this.id = 'generic';
 
-        this._masterSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.notifications' });
+        this._masterSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
         this._masterSettings.connect('changed', this._changed.bind(this));
     }
 
@@ -216,7 +223,7 @@ var NotificationGenericPolicy = GObject.registerClass({
     }
 });
 
-var NotificationApplicationPolicy = GObject.registerClass({
+export const NotificationApplicationPolicy = GObject.registerClass({
 }, class NotificationApplicationPolicy extends NotificationPolicy {
     _init(id) {
         super._init();
@@ -224,7 +231,7 @@ var NotificationApplicationPolicy = GObject.registerClass({
         this.id = id;
         this._canonicalId = this._canonicalizeId(id);
 
-        this._masterSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.notifications' });
+        this._masterSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
         this._settings = new Gio.Settings({
             schema_id: 'org.gnome.desktop.notifications.application',
             path: `/org/gnome/desktop/notifications/application/${this._canonicalId}/`,
@@ -344,7 +351,7 @@ var NotificationApplicationPolicy = GObject.registerClass({
 // @source allows playing sounds).
 //
 // [1] https://developer.gnome.org/notification-spec/#markup
-var Notification = GObject.registerClass({
+export const Notification = GObject.registerClass({
     Properties: {
         'acknowledged': GObject.ParamSpec.boolean(
             'acknowledged', 'acknowledged', 'acknowledged',
@@ -353,8 +360,8 @@ var Notification = GObject.registerClass({
     },
     Signals: {
         'activated': {},
-        'destroy': { param_types: [GObject.TYPE_UINT] },
-        'updated': { param_types: [GObject.TYPE_BOOLEAN] },
+        'destroy': {param_types: [GObject.TYPE_UINT]},
+        'updated': {param_types: [GObject.TYPE_BOOLEAN]},
     },
 }, class Notification extends GObject.Object {
     _init(source, title, banner, params) {
@@ -379,7 +386,7 @@ var Notification = GObject.registerClass({
         // will call .update() later on. This is the case of
         // NotificationDaemon, which wants to use the same code
         // for new and updated notifications
-        if (arguments.length != 1)
+        if (arguments.length !== 1)
             this.update(title, banner, params);
     }
 
@@ -420,8 +427,8 @@ var Notification = GObject.registerClass({
         if (params.clear)
             this.actions = [];
 
-        if (this._soundName != params.soundName ||
-            this._soundFile != params.soundFile) {
+        if (this._soundName !== params.soundName ||
+            this._soundFile !== params.soundFile) {
             this._soundName = params.soundName;
             this._soundFile = params.soundFile;
             this._soundPlayed = false;
@@ -434,7 +441,7 @@ var Notification = GObject.registerClass({
     // @label: the label for the action's button
     // @callback: the callback for the action
     addAction(label, callback) {
-        this.actions.push({ label, callback });
+        this.actions.push({label, callback});
     }
 
     setUrgency(urgency) {
@@ -496,7 +503,7 @@ var Notification = GObject.registerClass({
 });
 SignalTracker.registerDestroyableType(Notification);
 
-var NotificationBanner = GObject.registerClass({
+export const NotificationBanner = GObject.registerClass({
     Signals: {
         'done-displaying': {},
         'unfocused': {},
@@ -593,7 +600,7 @@ var NotificationBanner = GObject.registerClass({
     }
 });
 
-var SourceActor = GObject.registerClass(
+export const SourceActor = GObject.registerClass(
 class SourceActor extends St.Widget {
     _init(source, size) {
         super._init();
@@ -633,7 +640,7 @@ class SourceActor extends St.Widget {
     }
 });
 
-var Source = GObject.registerClass({
+export const Source = GObject.registerClass({
     Properties: {
         'count': GObject.ParamSpec.int(
             'count', 'count', 'count',
@@ -649,14 +656,14 @@ var Source = GObject.registerClass({
             null),
     },
     Signals: {
-        'destroy': { param_types: [GObject.TYPE_UINT] },
+        'destroy': {param_types: [GObject.TYPE_UINT]},
         'icon-updated': {},
-        'notification-added': { param_types: [Notification.$gtype] },
-        'notification-show': { param_types: [Notification.$gtype] },
+        'notification-added': {param_types: [Notification.$gtype]},
+        'notification-show': {param_types: [Notification.$gtype]},
     },
 }, class Source extends GObject.Object {
     _init(title, iconName) {
-        super._init({ title });
+        super._init({title});
 
         this.SOURCE_ICON_SIZE = 48;
 
@@ -700,13 +707,13 @@ var Source = GObject.registerClass({
     }
 
     get narrowestPrivacyScope() {
-        return this.notifications.every(n => n.privacyScope == PrivacyScope.SYSTEM)
+        return this.notifications.every(n => n.privacyScope === PrivacyScope.SYSTEM)
             ? PrivacyScope.SYSTEM
             : PrivacyScope.USER;
     }
 
     setTitle(newTitle) {
-        if (this.title == newTitle)
+        if (this.title === newTitle)
             return;
 
         this.title = newTitle;
@@ -728,7 +735,7 @@ var Source = GObject.registerClass({
     }
 
     getIcon() {
-        return new Gio.ThemedIcon({ name: this.iconName });
+        return new Gio.ThemedIcon({name: this.iconName});
     }
 
     _onNotificationDestroy(notification) {
@@ -739,7 +746,7 @@ var Source = GObject.registerClass({
         this.notifications.splice(index, 1);
         this.countUpdated();
 
-        if (this.notifications.length == 0)
+        if (this.notifications.length === 0)
             this.destroy();
     }
 
@@ -765,7 +772,7 @@ var Source = GObject.registerClass({
         if (notification.urgency === Urgency.LOW)
             return;
 
-        if (this.policy.showBanners || notification.urgency == Urgency.CRITICAL)
+        if (this.policy.showBanners || notification.urgency === Urgency.CRITICAL)
             this.emit('notification-show', notification);
     }
 
@@ -799,11 +806,11 @@ var Source = GObject.registerClass({
 });
 SignalTracker.registerDestroyableType(Source);
 
-var MessageTray = GObject.registerClass({
+export const MessageTray = GObject.registerClass({
     Signals: {
         'queue-changed': {},
-        'source-added': { param_types: [Source.$gtype] },
-        'source-removed': { param_types: [Source.$gtype] },
+        'source-added': {param_types: [Source.$gtype]},
+        'source-removed': {param_types: [Source.$gtype]},
     },
 }, class MessageTray extends St.Widget {
     _init() {
@@ -822,10 +829,10 @@ var MessageTray = GObject.registerClass({
             this._onStatusChanged(status);
         });
 
-        let constraint = new Layout.MonitorConstraint({ primary: true });
+        let constraint = new Layout.MonitorConstraint({primary: true});
         Main.layoutManager.panelBox.bind_property('visible',
-                                                  constraint, 'work-area',
-                                                  GObject.BindingFlags.SYNC_CREATE);
+            constraint, 'work-area',
+            GObject.BindingFlags.SYNC_CREATE);
         this.add_constraint(constraint);
 
         this._bannerBin = new St.Widget({
@@ -839,9 +846,9 @@ var MessageTray = GObject.registerClass({
             layout_manager: new Clutter.BinLayout(),
         });
         this._bannerBin.connect('key-release-event',
-                                this._onNotificationKeyRelease.bind(this));
+            this._onNotificationKeyRelease.bind(this));
         this._bannerBin.connect('notify::hover',
-                                this._onNotificationHoverChanged.bind(this));
+            this._onNotificationHoverChanged.bind(this));
         this.add_actor(this._bannerBin);
 
         this._notificationFocusGrabber = new FocusGrabber(this._bannerBin);
@@ -870,38 +877,37 @@ var MessageTray = GObject.registerClass({
         this._notificationTimeoutId = 0;
         this._notificationRemoved = false;
 
-        Main.layoutManager.addChrome(this, { affectsInputRegion: false });
-        Main.layoutManager.trackChrome(this._bannerBin, { affectsInputRegion: true });
+        Main.layoutManager.addChrome(this, {affectsInputRegion: false});
+        Main.layoutManager.trackChrome(this._bannerBin, {affectsInputRegion: true});
 
         global.display.connect('in-fullscreen-changed', this._updateState.bind(this));
 
         Main.sessionMode.connect('updated', this._sessionUpdated.bind(this));
 
         Main.overview.connect('window-drag-begin',
-                              this._onDragBegin.bind(this));
+            this._onDragBegin.bind(this));
         Main.overview.connect('window-drag-cancelled',
-                              this._onDragEnd.bind(this));
+            this._onDragEnd.bind(this));
         Main.overview.connect('window-drag-end',
-                              this._onDragEnd.bind(this));
+            this._onDragEnd.bind(this));
 
         Main.overview.connect('item-drag-begin',
-                              this._onDragBegin.bind(this));
+            this._onDragBegin.bind(this));
         Main.overview.connect('item-drag-cancelled',
-                              this._onDragEnd.bind(this));
+            this._onDragEnd.bind(this));
         Main.overview.connect('item-drag-end',
-                              this._onDragEnd.bind(this));
+            this._onDragEnd.bind(this));
 
         Main.xdndHandler.connect('drag-begin',
-                                 this._onDragBegin.bind(this));
+            this._onDragBegin.bind(this));
         Main.xdndHandler.connect('drag-end',
-                                 this._onDragEnd.bind(this));
+            this._onDragEnd.bind(this));
 
         Main.wm.addKeybinding('focus-active-notification',
-                              new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                              Meta.KeyBindingFlags.NONE,
-                              Shell.ActionMode.NORMAL |
-                              Shell.ActionMode.OVERVIEW,
-                              this._expandActiveNotification.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.NONE,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._expandActiveNotification.bind(this));
 
         this._sources = new Set();
 
@@ -929,7 +935,7 @@ var MessageTray = GObject.registerClass({
     }
 
     _onNotificationKeyRelease(actor, event) {
-        if (event.get_key_symbol() == Clutter.KEY_Escape && event.get_state() == 0) {
+        if (event.get_key_symbol() === Clutter.KEY_Escape && event.get_state() === 0) {
             this._expireNotification();
             return Clutter.EVENT_STOP;
         }
@@ -947,7 +953,7 @@ var MessageTray = GObject.registerClass({
     }
 
     set bannerBlocked(v) {
-        if (this._bannerBlocked == v)
+        if (this._bannerBlocked === v)
             return;
         this._bannerBlocked = v;
         this._updateState();
@@ -997,7 +1003,7 @@ var MessageTray = GObject.registerClass({
         let wasEnabled = this.contains(source);
         let shouldBeEnabled = policy.enable;
 
-        if (wasEnabled != shouldBeEnabled) {
+        if (wasEnabled !== shouldBeEnabled) {
             if (shouldBeEnabled)
                 this._addSource(source);
             else
@@ -1006,9 +1012,8 @@ var MessageTray = GObject.registerClass({
     }
 
     _onNotificationDestroy(notification) {
-        this._notificationRemoved = this._notification === notification;
-
-        if (this._notificationRemoved) {
+        if (this._notification === notification) {
+            this._notificationRemoved = true;
             if (this._notificationState === State.SHOWN ||
                 this._notificationState === State.SHOWING) {
                 this._updateNotificationTimeout(0);
@@ -1024,7 +1029,7 @@ var MessageTray = GObject.registerClass({
     }
 
     _onNotificationShow(_source, notification) {
-        if (this._notification == notification) {
+        if (this._notification === notification) {
             // If a notification that is being shown is updated, we update
             // how it is shown and extend the time until it auto-hides.
             // If a new notification is updated while it is being hidden,
@@ -1036,9 +1041,9 @@ var MessageTray = GObject.registerClass({
             // notifications, as only banner mode allows expansion.
             let bannerCount = this._notification ? 1 : 0;
             let full = this.queueCount + bannerCount >= MAX_NOTIFICATIONS_IN_QUEUE;
-            if (!full || notification.urgency == Urgency.CRITICAL) {
+            if (!full || notification.urgency === Urgency.CRITICAL) {
                 notification.connect('destroy',
-                                     this._onNotificationDestroy.bind(this));
+                    this._onNotificationDestroy.bind(this));
                 this._notificationQueue.push(notification);
                 this._notificationQueue.sort(
                     (n1, n2) => n2.urgency - n1.urgency);
@@ -1059,7 +1064,7 @@ var MessageTray = GObject.registerClass({
     }
 
     _onNotificationHoverChanged() {
-        if (this._bannerBin.hover == this._notificationHovered)
+        if (this._bannerBin.hover === this._notificationHovered)
             return;
 
         this._notificationHovered = this._bannerBin.hover;
@@ -1103,11 +1108,11 @@ var MessageTray = GObject.registerClass({
     }
 
     _onStatusChanged(status) {
-        if (status == GnomeSession.PresenceStatus.BUSY) {
+        if (status === GnomeSession.PresenceStatus.BUSY) {
             // remove notification and allow the summary to be closed now
             this._updateNotificationTimeout(0);
             this._busy = true;
-        } else if (status != GnomeSession.PresenceStatus.IDLE) {
+        } else if (status !== GnomeSession.PresenceStatus.IDLE) {
             // We preserve the previous value of this._busy if the status turns to IDLE
             // so that we don't start showing notifications queued during the BUSY state
             // as the screensaver gets activated.
@@ -1177,19 +1182,19 @@ var MessageTray = GObject.registerClass({
 
         let hasNotifications = Main.sessionMode.hasNotifications;
 
-        if (this._notificationState == State.HIDDEN) {
+        if (this._notificationState === State.HIDDEN) {
             let nextNotification = this._notificationQueue[0] || null;
             if (hasNotifications && nextNotification) {
                 let limited = this._busy || Main.layoutManager.primaryMonitor.inFullscreen;
-                let showNextNotification = !limited || nextNotification.forFeedback || nextNotification.urgency == Urgency.CRITICAL;
+                let showNextNotification = !limited || nextNotification.forFeedback || nextNotification.urgency === Urgency.CRITICAL;
                 if (showNextNotification)
                     this._showNotification();
             }
         } else if (this._notificationState === State.SHOWING ||
                    this._notificationState === State.SHOWN) {
             let expired = (this._userActiveWhileNotificationShown &&
-                           this._notificationTimeoutId == 0 &&
-                           this._notification.urgency != Urgency.CRITICAL &&
+                           this._notificationTimeoutId === 0 &&
+                           this._notification.urgency !== Urgency.CRITICAL &&
                            !this._banner.focused &&
                            !this._pointerInNotification) || this._notificationExpired;
             let mustClose = this._notificationRemoved || !hasNotifications || expired;
@@ -1267,7 +1272,7 @@ var MessageTray = GObject.registerClass({
 
         // We auto-expand notifications with CRITICAL urgency, or for which the relevant setting
         // is on in the control center.
-        if (this._notification.urgency == Urgency.CRITICAL ||
+        if (this._notification.urgency === Urgency.CRITICAL ||
             this._notification.source.policy.forceExpanded)
             this._expandBanner(true);
 
@@ -1302,7 +1307,7 @@ var MessageTray = GObject.registerClass({
     }
 
     _showNotificationCompleted() {
-        if (this._notification.urgency != Urgency.CRITICAL)
+        if (this._notification.urgency !== Urgency.CRITICAL)
             this._updateNotificationTimeout(NOTIFICATION_TIMEOUT);
     }
 
@@ -1328,7 +1333,7 @@ var MessageTray = GObject.registerClass({
             // simpler.)
             this._updateNotificationTimeout(1000);
         } else if (this._useLongerNotificationLeftTimeout && !this._notificationLeftTimeoutId &&
-                  (x != this._lastSeenMouseX || y != this._lastSeenMouseY)) {
+                  (x !== this._lastSeenMouseX || y !== this._lastSeenMouseY)) {
             // Refresh the timeout if the notification originally
             // popped up under the pointer, and the pointer is hovering
             // inside it.
@@ -1351,29 +1356,23 @@ var MessageTray = GObject.registerClass({
         this._resetNotificationLeftTimeout();
         this._bannerBin.remove_all_transitions();
 
-        if (animate) {
-            this._notificationState = State.HIDING;
-            this._bannerBin.ease({
-                opacity: 0,
-                duration: ANIMATION_TIME,
-                mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            });
-            this._bannerBin.ease({
-                y: -this._bannerBin.height,
-                duration: ANIMATION_TIME,
-                mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                onComplete: () => {
-                    this._notificationState = State.HIDDEN;
-                    this._hideNotificationCompleted();
-                    this._updateState();
-                },
-            });
-        } else {
-            this._bannerBin.y = -this._bannerBin.height;
-            this._bannerBin.opacity = 0;
-            this._notificationState = State.HIDDEN;
-            this._hideNotificationCompleted();
-        }
+        const duration = animate ? ANIMATION_TIME : 0;
+        this._notificationState = State.HIDING;
+        this._bannerBin.ease({
+            opacity: 0,
+            duration,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        });
+        this._bannerBin.ease({
+            y: -this._bannerBin.height,
+            duration,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+            onComplete: () => {
+                this._notificationState = State.HIDDEN;
+                this._hideNotificationCompleted();
+                this._updateState();
+            },
+        });
     }
 
     _hideNotificationCompleted() {
@@ -1412,10 +1411,10 @@ var MessageTray = GObject.registerClass({
     }
 });
 
-var SystemNotificationSource = GObject.registerClass(
+export const SystemNotificationSource = GObject.registerClass(
 class SystemNotificationSource extends Source {
     _init() {
-        super._init(_("System Information"), 'dialog-information-symbolic');
+        super._init(_('System Information'), 'dialog-information-symbolic');
     }
 
     open() {

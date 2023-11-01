@@ -1,6 +1,6 @@
-import ConsoleUtil from './Console';
-import LsblkUtil from './Lsblk';
-import LscpuUtil from './Lscpu';
+import ConsoleUtil from "./Console.js"
+import LsblkUtil from "./Lsblk.js"
+import LscpuUtil from "./Lscpu.js"
 
 type SensorsData = {
   cpu: object,
@@ -66,7 +66,7 @@ export default class SensorsUtil extends ConsoleUtil {
       }
 
       if (drives.test(key)) {
-        acc.hdd[this._lsblk.name(key)] = value.toString()
+        acc.hdd[this._lsblk.name(key) as string] = value.toString()
         return acc
       }
 
@@ -76,17 +76,17 @@ export default class SensorsUtil extends ConsoleUtil {
 
         value = sensors
           .map(v => parseFloat(value[v]))
-          .reduce((acc,curr) => acc + curr, 0)
+          .reduce((acc, curr) => acc + curr, 0)
 
         value /= sensors.length
 
-        acc.hdd[this._lsblk.name(key)] = value.toString()
+        acc.hdd[this._lsblk.name(key) as string] = value.toString()
         return acc
       }
 
       if (batteries.test(key)) {
         const k = key.split('-')[0]
-        acc.bat[k] = value.toString()
+        acc.bat[k as string] = value.toString()
         return acc
       }
 

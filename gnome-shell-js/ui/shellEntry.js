@@ -1,14 +1,17 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported addContextMenu CapsLockWarning */
 
-const { Clutter, GObject, Pango, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const BoxPointer = imports.ui.boxpointer;
-const Main = imports.ui.main;
-const Params = imports.misc.params;
-const PopupMenu = imports.ui.popupMenu;
+import * as BoxPointer from './boxpointer.js';
+import * as Main from './main.js';
+import * as Params from '../misc/params.js';
+import * as PopupMenu from './popupMenu.js';
 
-var EntryMenu = class extends PopupMenu.PopupMenu {
+export class EntryMenu extends PopupMenu.PopupMenu {
     constructor(entry) {
         super(entry, 0, St.Side.TOP);
 
@@ -17,12 +20,12 @@ var EntryMenu = class extends PopupMenu.PopupMenu {
 
         // Populate menu
         let item;
-        item = new PopupMenu.PopupMenuItem(_("Copy"));
+        item = new PopupMenu.PopupMenuItem(_('Copy'));
         item.connect('activate', this._onCopyActivated.bind(this));
         this.addMenuItem(item);
         this._copyItem = item;
 
-        item = new PopupMenu.PopupMenuItem(_("Paste"));
+        item = new PopupMenu.PopupMenuItem(_('Paste'));
         item.connect('activate', this._onPasteActivated.bind(this));
         this.addMenuItem(item);
         this._pasteItem = item;
@@ -62,21 +65,21 @@ var EntryMenu = class extends PopupMenu.PopupMenu {
     _updateCopyItem() {
         let selection = this._entry.clutter_text.get_selection();
         this._copyItem.setSensitive(!this._entry.clutter_text.password_char &&
-                                    selection && selection != '');
+                                    selection && selection !== '');
     }
 
     _updatePasteItem() {
         this._clipboard.get_text(St.ClipboardType.CLIPBOARD,
             (clipboard, text) => {
-                this._pasteItem.setSensitive(text && text != '');
+                this._pasteItem.setSensitive(text && text !== '');
             });
     }
 
     _updatePasswordItem() {
         if (!this._entry.password_visible)
-            this._passwordItem.label.set_text(_("Show Text"));
+            this._passwordItem.label.set_text(_('Show Text'));
         else
-            this._passwordItem.label.set_text(_("Hide Text"));
+            this._passwordItem.label.set_text(_('Hide Text'));
     }
 
     _onCopyActivated() {
@@ -98,7 +101,7 @@ var EntryMenu = class extends PopupMenu.PopupMenu {
     _onPasswordActivated() {
         this._entry.password_visible  = !this._entry.password_visible;
     }
-};
+}
 
 function _setMenuAlignment(entry, stageX) {
     let [success, entryX] = entry.transform_stage_point(stageX, 0);
@@ -110,7 +113,7 @@ function _onButtonPressEvent(actor, event, entry) {
     if (entry.menu.isOpen) {
         entry.menu.close(BoxPointer.PopupAnimation.FULL);
         return Clutter.EVENT_STOP;
-    } else if (event.get_button() == 3) {
+    } else if (event.get_button() === 3) {
         let [stageX] = event.get_coords();
         _setMenuAlignment(entry, stageX);
         entry.menu.open(BoxPointer.PopupAnimation.FULL);
@@ -127,15 +130,20 @@ function _onPopup(actor, entry) {
     entry.menu.open(BoxPointer.PopupAnimation.FULL);
 }
 
-function addContextMenu(entry, params) {
+/**
+ * @param {St.Entry} entry
+ * @param {*} params
+ */
+export function addContextMenu(entry, params) {
     if (entry.menu)
         return;
 
-    params = Params.parse(params, { actionMode: Shell.ActionMode.POPUP });
+    params = Params.parse(params, {actionMode: Shell.ActionMode.POPUP});
 
     entry.menu = new EntryMenu(entry);
-    entry._menuManager = new PopupMenu.PopupMenuManager(entry,
-                                                        { actionMode: params.actionMode });
+    entry._menuManager = new PopupMenu.PopupMenuManager(entry, {
+        actionMode: params.actionMode,
+    });
     entry._menuManager.addMenu(entry.menu);
 
     // Add an event handler to both the entry and its clutter_text; the former
@@ -157,10 +165,10 @@ function addContextMenu(entry, params) {
     });
 }
 
-var CapsLockWarning = GObject.registerClass(
+export const CapsLockWarning = GObject.registerClass(
 class CapsLockWarning extends St.Label {
     _init(params) {
-        let defaultParams = { style_class: 'caps-lock-warning-label' };
+        let defaultParams = {style_class: 'caps-lock-warning-label'};
         super._init(Object.assign(defaultParams, params));
 
         this.text = _('Caps lock is on.');
@@ -170,7 +178,6 @@ class CapsLockWarning extends St.Label {
 
         let seat = Clutter.get_default_backend().get_default_seat();
         this._keymap = seat.get_keymap();
-        this._stateChangedId = 0;
 
         this.connect('notify::mapped', () => {
             if (this.is_mapped()) {
@@ -189,7 +196,7 @@ class CapsLockWarning extends St.Label {
 
         this.remove_all_transitions();
 
-        const { naturalHeightSet } = this;
+        const {naturalHeightSet} = this;
         this.natural_height_set = false;
         let [, height] = this.get_preferred_height(-1);
         this.natural_height_set = naturalHeightSet;

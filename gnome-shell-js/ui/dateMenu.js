@@ -1,19 +1,22 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported DateMenuButton */
 
-const {
-    Clutter, Gio, GLib, GnomeDesktop,
-    GObject, GWeather, Pango, Shell, St,
-} = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GnomeDesktop from 'gi://GnomeDesktop';
+import GObject from 'gi://GObject';
+import GWeather from 'gi://GWeather';
+import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Util = imports.misc.util;
-const Main = imports.ui.main;
-const PanelMenu = imports.ui.panelMenu;
-const Calendar = imports.ui.calendar;
-const Weather = imports.misc.weather;
-const System = imports.system;
+import * as Main from './main.js';
+import * as PanelMenu from './panelMenu.js';
+import * as Calendar from './calendar.js';
+import * as Weather from '../misc/weather.js';
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
+import {formatDateWithCFormatString, formatTime, clearCachedLocalTimeZone} from '../misc/dateUtils.js';
+import {loadInterfaceXML} from '../misc/fileUtils.js';
 
 const NC_ = (context, str) => `${context}\u0004${str}`;
 const T_ = Shell.util_translate_time_string;
@@ -24,18 +27,30 @@ const EN_CHAR = '\u2013';
 const ClocksIntegrationIface = loadInterfaceXML('org.gnome.Shell.ClocksIntegration');
 const ClocksProxy = Gio.DBusProxy.makeProxyWrapper(ClocksIntegrationIface);
 
+/**
+ * @private
+ *
+ * @param {Date} date a Date
+ * @returns {boolean}
+ */
 function _isToday(date) {
     let now = new Date();
-    return now.getYear() == date.getYear() &&
-           now.getMonth() == date.getMonth() &&
-           now.getDate() == date.getDate();
+    return now.getFullYear() === date.getFullYear() &&
+           now.getMonth() === date.getMonth() &&
+           now.getDate() === date.getDate();
 }
 
+/**
+ * @private
+ *
+ * @param {GLib.DateTime} datetime a GLib.DateTime
+ * @returns {Date}
+ */
 function _gDateTimeToDate(datetime) {
     return new Date(datetime.to_unix() * 1000 + datetime.get_microsecond() / 1000);
 }
 
-var TodayButton = GObject.registerClass(
+const TodayButton = GObject.registerClass(
 class TodayButton extends St.Button {
     _init(calendar) {
         // Having the ability to go to the current date if the user is already
@@ -48,7 +63,7 @@ class TodayButton extends St.Button {
             reactive: false,
         });
 
-        let hbox = new St.BoxLayout({ vertical: true });
+        const hbox = new St.BoxLayout({vertical: true});
         this.add_actor(hbox);
 
         this._dayLabel = new St.Label({
@@ -57,7 +72,7 @@ class TodayButton extends St.Button {
         });
         hbox.add_actor(this._dayLabel);
 
-        this._dateLabel = new St.Label({ style_class: 'date-label' });
+        this._dateLabel = new St.Label({style_class: 'date-label'});
         hbox.add_actor(this._dateLabel);
 
         this._calendar = calendar;
@@ -73,26 +88,26 @@ class TodayButton extends St.Button {
     }
 
     setDate(date) {
-        this._dayLabel.set_text(date.toLocaleFormat('%A'));
+        this._dayLabel.set_text(formatDateWithCFormatString(date, '%A'));
 
         /* Translators: This is the date format to use when the calendar popup is
          * shown - it is shown just below the time in the top bar (e.g.,
          * "Tue 9:29 AM").  The string itself should become a full date, e.g.,
          * "February 17 2015".
          */
-        let dateFormat = Shell.util_translate_time_string(N_("%B %-d %Y"));
-        this._dateLabel.set_text(date.toLocaleFormat(dateFormat));
+        const dateFormat = Shell.util_translate_time_string(N_('%B %-d %Y'));
+        this._dateLabel.set_text(formatDateWithCFormatString(date, dateFormat));
 
         /* Translators: This is the accessible name of the date button shown
          * below the time in the shell; it should combine the weekday and the
          * date, e.g. "Tuesday February 17 2015".
          */
-        dateFormat = Shell.util_translate_time_string(N_("%A %B %e %Y"));
-        this.accessible_name = date.toLocaleFormat(dateFormat);
+        const dateAccessibleNameFormat = Shell.util_translate_time_string(N_('%A %B %e %Y'));
+        this.accessible_name = formatDateWithCFormatString(date, dateAccessibleNameFormat);
     }
 });
 
-var EventsSection = GObject.registerClass(
+const EventsSection = GObject.registerClass(
 class EventsSection extends St.Button {
     _init() {
         super._init({
@@ -168,9 +183,9 @@ class EventsSection extends St.Button {
         else if (this._startDate > now && this._startDate - now <= timeSpanDay)
             this._title.text = _('Tomorrow');
         else if (this._startDate.getFullYear() === now.getFullYear())
-            this._title.text = this._startDate.toLocaleFormat(sameYearFormat);
+            this._title.text = formatDateWithCFormatString(this._startDate, sameYearFormat);
         else
-            this._title.text = this._startDate.toLocaleFormat(otherYearFormat);
+            this._title.text = formatDateWithCFormatString(this._startDate, otherYearFormat);
     }
 
     _isAtMidnight(eventTime) {
@@ -187,8 +202,8 @@ class EventsSection extends St.Button {
         const startsBeforeToday = eventStart < this._startDate;
         const endsAfterToday = eventEnd > this._endDate;
 
-        const startTimeOnly = Util.formatTime(eventStart, { timeOnly: true });
-        const endTimeOnly = Util.formatTime(eventEnd, { timeOnly: true });
+        const startTimeOnly = formatTime(eventStart, {timeOnly: true});
+        const endTimeOnly = formatTime(eventEnd, {timeOnly: true});
 
         const rtl = Clutter.get_default_text_direction() === Clutter.TextDirection.RTL;
 
@@ -223,8 +238,8 @@ class EventsSection extends St.Button {
             else
                 format = '%x';
 
-            const startDateOnly = eventStart.toLocaleFormat(format);
-            const endDateOnly = eventEnd.toLocaleFormat(format);
+            const startDateOnly = formatDateWithCFormatString(eventStart, format);
+            const endDateOnly = formatDateWithCFormatString(eventEnd, format);
 
             if (startsAtMidnight && endsAtMidnight)
                 title = `${rtl ? endDateOnly : startDateOnly} ${EN_CHAR} ${rtl ? startDateOnly : endDateOnly}`;
@@ -284,13 +299,12 @@ class EventsSection extends St.Button {
         Main.overview.hide();
         Main.panel.closeCalendar();
 
-        let appInfo = this._calendarApp;
-        if (appInfo.get_id() === 'org.gnome.Evolution.desktop') {
-            const app = this._appSys.lookup_app('evolution-calendar.desktop');
-            if (app)
-                appInfo = app.app_info;
-        }
-        appInfo.launch([], global.create_app_launch_context(0, -1));
+        const appInfo = this._calendarApp;
+        const context = global.create_app_launch_context(0, -1);
+        if (appInfo.get_id() === 'org.gnome.Evolution.desktop')
+            appInfo.launch_action('calendar', context);
+        else
+            appInfo.launch([], context);
     }
 
     _appInstalledChanged() {
@@ -312,7 +326,7 @@ class EventsSection extends St.Button {
     }
 });
 
-var WorldClocksSection = GObject.registerClass(
+const WorldClocksSection = GObject.registerClass(
 class WorldClocksSection extends St.Button {
     _init() {
         super._init({
@@ -326,7 +340,7 @@ class WorldClocksSection extends St.Button {
 
         this._locations = [];
 
-        let layout = new Clutter.GridLayout({ orientation: Clutter.Orientation.VERTICAL });
+        const layout = new Clutter.GridLayout({orientation: Clutter.Orientation.VERTICAL});
         this._grid = new St.Widget({
             style_class: 'world-clocks-grid',
             x_expand: true,
@@ -379,7 +393,7 @@ class WorldClocksSection extends St.Button {
         for (let i = 0; i < clocks.length; i++) {
             let l = world.deserialize(clocks[i]);
             if (l && l.get_timezone() != null)
-                this._locations.push({ location: l });
+                this._locations.push({location: l});
         }
 
         const unixtime = GLib.DateTime.new_now_local().to_unix();
@@ -392,9 +406,9 @@ class WorldClocksSection extends St.Button {
         });
 
         let layout = this._grid.layout_manager;
-        let title = this._locations.length == 0
-            ? _("Add world clocks…")
-            : _("World Clocks");
+        const title = this._locations.length === 0
+            ? _('Add world clocks…')
+            : _('World Clocks');
         const header = new St.Label({
             style_class: 'world-clocks-header',
             x_align: Clutter.ActorAlign.START,
@@ -418,7 +432,7 @@ class WorldClocksSection extends St.Button {
                 x_expand: true,
             });
 
-            let time = new St.Label({ style_class: 'world-clocks-time' });
+            const time = new St.Label({style_class: 'world-clocks-time'});
 
             const tz = new St.Label({
                 style_class: 'world-clocks-timezone',
@@ -429,7 +443,7 @@ class WorldClocksSection extends St.Button {
             time.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
             tz.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
 
-            if (this._grid.text_direction == Clutter.TextDirection.RTL) {
+            if (this._grid.text_direction === Clutter.TextDirection.RTL) {
                 layout.attach(tz, 0, i + 1, 1, 1);
                 layout.attach(time, 1, i + 1, 1, 1);
                 layout.attach(label, 2, i + 1, 1, 1);
@@ -487,7 +501,7 @@ class WorldClocksSection extends St.Button {
         for (let i = 0; i < this._locations.length; i++) {
             let l = this._locations[i];
             const now = GLib.DateTime.new_now(l.location.get_timezone());
-            l.timeLabel.text = Util.formatTime(now, { timeOnly: true });
+            l.timeLabel.text = formatTime(now, {timeOnly: true});
         }
     }
 
@@ -518,7 +532,7 @@ class WorldClocksSection extends St.Button {
     }
 });
 
-var WeatherSection = GObject.registerClass(
+const WeatherSection = GObject.registerClass(
 class WeatherSection extends St.Button {
     _init() {
         super._init({
@@ -537,7 +551,7 @@ class WeatherSection extends St.Button {
 
         this.child = box;
 
-        let titleBox = new St.BoxLayout({ style_class: 'weather-header-box' });
+        let titleBox = new St.BoxLayout({style_class: 'weather-header-box'});
         this._titleLabel = new St.Label({
             style_class: 'weather-header',
             x_align: Clutter.ActorAlign.START,
@@ -554,7 +568,7 @@ class WeatherSection extends St.Button {
         });
         titleBox.add_child(this._titleLocation);
 
-        let layout = new Clutter.GridLayout({ orientation: Clutter.Orientation.VERTICAL });
+        let layout = new Clutter.GridLayout({orientation: Clutter.Orientation.VERTICAL});
         this._forecastGrid = new St.Widget({
             style_class: 'weather-grid',
             layout_manager: layout,
@@ -596,7 +610,7 @@ class WeatherSection extends St.Button {
             if (datetime.difference(current) < GLib.TIME_SPAN_HOUR)
                 continue; // Enforce a minimum interval of 1h
 
-            if (infos.push(forecasts[i]) == MAX_FORECASTS)
+            if (infos.push(forecasts[i]) === MAX_FORECASTS)
                 break; // Use a maximum of five forecasts
 
             current = datetime;
@@ -608,13 +622,13 @@ class WeatherSection extends St.Button {
         let layout = this._forecastGrid.layout_manager;
 
         let infos = this._getInfos();
-        if (this._forecastGrid.text_direction == Clutter.TextDirection.RTL)
+        if (this._forecastGrid.text_direction === Clutter.TextDirection.RTL)
             infos.reverse();
 
         let col = 0;
         infos.forEach(fc => {
             const [valid_, timestamp] = fc.get_value_update();
-            let timeStr = Util.formatTime(new Date(timestamp * 1000), {
+            let timeStr = formatTime(new Date(timestamp * 1000), {
                 timeOnly: true,
                 ampm: false,
             });
@@ -650,7 +664,7 @@ class WeatherSection extends St.Button {
 
     _setStatusLabel(text) {
         let layout = this._forecastGrid.layout_manager;
-        let label = new St.Label({ text });
+        let label = new St.Label({text});
         layout.attach(label, 0, 0, 1, 1);
     }
 
@@ -674,11 +688,11 @@ class WeatherSection extends St.Button {
         if (!this._weatherClient.hasLocation)
             return;
 
-        const { info } = this._weatherClient;
+        const {info} = this._weatherClient;
         this._titleLocation.text = this._findBestLocationName(info.location);
 
         if (this._weatherClient.loading) {
-            this._setStatusLabel(_("Loading…"));
+            this._setStatusLabel(_('Loading…'));
             return;
         }
 
@@ -688,9 +702,9 @@ class WeatherSection extends St.Button {
         }
 
         if (info.network_error())
-            this._setStatusLabel(_("Go online for weather information"));
+            this._setStatusLabel(_('Go online for weather information'));
         else
-            this._setStatusLabel(_("Weather information is currently unavailable"));
+            this._setStatusLabel(_('Weather information is currently unavailable'));
     }
 
     _sync() {
@@ -711,7 +725,7 @@ class WeatherSection extends St.Button {
     }
 });
 
-var MessagesIndicator = GObject.registerClass(
+const MessagesIndicator = GObject.registerClass(
 class MessagesIndicator extends St.Icon {
     _init() {
         super._init({
@@ -772,7 +786,7 @@ class MessagesIndicator extends St.Icon {
     }
 });
 
-var FreezableBinLayout = GObject.registerClass(
+const FreezableBinLayout = GObject.registerClass(
 class FreezableBinLayout extends Clutter.BinLayout {
     _init() {
         super._init();
@@ -783,7 +797,7 @@ class FreezableBinLayout extends Clutter.BinLayout {
     }
 
     set frozen(v) {
-        if (this._frozen == v)
+        if (this._frozen === v)
             return;
 
         this._frozen = v;
@@ -812,10 +826,10 @@ class FreezableBinLayout extends Clutter.BinLayout {
     }
 });
 
-var CalendarColumnLayout = GObject.registerClass(
+const CalendarColumnLayout = GObject.registerClass(
 class CalendarColumnLayout extends Clutter.BoxLayout {
     _init(actors) {
-        super._init({ orientation: Clutter.Orientation.VERTICAL });
+        super._init({orientation: Clutter.Orientation.VERTICAL});
         this._colActors = actors;
     }
 
@@ -831,14 +845,14 @@ class CalendarColumnLayout extends Clutter.BoxLayout {
     }
 });
 
-var DateMenuButton = GObject.registerClass(
+export const DateMenuButton = GObject.registerClass(
 class DateMenuButton extends PanelMenu.Button {
     _init() {
         let hbox;
 
         super._init(0.5);
 
-        this._clockDisplay = new St.Label({ style_class: 'clock' });
+        this._clockDisplay = new St.Label({style_class: 'clock'});
         this._clockDisplay.clutter_text.y_align = Clutter.ActorAlign.CENTER;
         this._clockDisplay.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
 
@@ -853,7 +867,7 @@ class DateMenuButton extends PanelMenu.Button {
             coordinate: Clutter.BindCoordinate.SIZE,
         }));
 
-        let box = new St.BoxLayout({ style_class: 'clock-display-box' });
+        let box = new St.BoxLayout({style_class: 'clock-display-box'});
         box.add_actor(indicatorPad);
         box.add_actor(this._clockDisplay);
         box.add_actor(this._indicator);
@@ -863,12 +877,12 @@ class DateMenuButton extends PanelMenu.Button {
         this.add_style_class_name('clock-display');
 
         let layout = new FreezableBinLayout();
-        let bin = new St.Widget({ layout_manager: layout });
+        let bin = new St.Widget({layout_manager: layout});
         // For some minimal compatibility with PopupMenuItem
         bin._delegate = this;
         this.menu.box.add_child(bin);
 
-        hbox = new St.BoxLayout({ name: 'calendarArea' });
+        hbox = new St.BoxLayout({name: 'calendarArea'});
         bin.add_actor(hbox);
 
         this._calendar = new Calendar.Calendar();
@@ -954,10 +968,7 @@ class DateMenuButton extends PanelMenu.Button {
     }
 
     _updateTimeZone() {
-        // SpiderMonkey caches the time zone so we must explicitly clear it
-        // before we can update the calendar, see
-        // https://bugzilla.gnome.org/show_bug.cgi?id=678507
-        System.clearDateCaches();
+        clearCachedLocalTimeZone();
 
         this._calendar.updateTimeZone();
     }

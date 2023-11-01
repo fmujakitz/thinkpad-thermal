@@ -1,14 +1,15 @@
-/* exported Indicator */
-const {Gio, GObject} = imports.gi;
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
 
-const Main = imports.ui.main;
-const {QuickToggle, SystemIndicator} = imports.ui.quickSettings;
+import * as Main from '../main.js';
+
+import {QuickToggle, SystemIndicator} from '../quickSettings.js';
 
 const DarkModeToggle = GObject.registerClass(
 class DarkModeToggle extends QuickToggle {
     _init() {
         super._init({
-            label: _('Dark Mode'),
+            title: _('Dark Style'),
             iconName: 'dark-mode-symbolic',
         });
 
@@ -39,7 +40,7 @@ class DarkModeToggle extends QuickToggle {
     }
 });
 
-var Indicator = GObject.registerClass(
+export const Indicator = GObject.registerClass(
 class Indicator extends SystemIndicator {
     _init() {
         super._init();

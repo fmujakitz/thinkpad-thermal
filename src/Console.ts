@@ -1,5 +1,5 @@
-import * as Gio from "@gi-types/gio2"
-import * as GLib from "@gi-types/glib2"
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
 export default class ConsoleUtil {
   private _available: boolean = false
@@ -39,7 +39,7 @@ export default class ConsoleUtil {
           try {
             if (!proc) throw new Error("Util subprocess error")
             let [, stdout, stderr] = proc?.communicate_utf8_finish(res)
-            if (!proc?.get_successful()) throw new Error(stderr)
+            if (!proc?.get_successful()) throw new Error(stderr as string)
             resolve(stdout)
           } catch (e) {
             reject(e)

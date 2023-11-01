@@ -1,6 +1,7 @@
-import * as Gio from '@gi-types/gio2';
-import * as GLib from '@gi-types/glib2';
-import ConsoleUtil from './Console';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+
+import ConsoleUtil from "./Console.js"
 
 type IbmAcpiData = {
   cpu: number
@@ -43,13 +44,13 @@ export default class IbmAcpiUtil extends ConsoleUtil {
 
     const toInt = s => parseInt(s)
 
-    let [temps, status, speed, level, cmd1]:(string|number)[] = str
+    let [temps, status, speed, level, cmd1]: (string | number)[] = str
       .split(/\n/)
-      .map(r => r.slice(r.lastIndexOf('\t') + 1))
+      .map(r => r.slice(r.lastIndexOf('\t') + 1)) as [string, string, string, string, string]
 
-    let [cpu, gpu]:number[] = temps
+    let [cpu, gpu]: number[] = temps
       .split(' ')
-      .map(toInt)
+      .map(toInt) as [number, number]
 
     speed = parseInt(speed)
 
@@ -62,9 +63,9 @@ export default class IbmAcpiUtil extends ConsoleUtil {
         .slice(cmd1.indexOf('> is ') + 5, -1)
         .split(', ')
 
-      const [, to] = range
+      const [, to] = (range as string)
         .split('-')
-        .map(toInt)
+        .map(toInt) as [number, number]
 
       const nums = Array.from(Array(to + 1), (_, i) => i)
       const disabled = [0, 'disengaged']
@@ -116,9 +117,9 @@ export default class IbmAcpiUtil extends ConsoleUtil {
         proc.communicate_utf8_async(null, null, (proc, res) => {
           if (proc) {
             try {
-              let [, stdout, stderr] = proc?.communicate_utf8_finish(res)
+              let [, , stderr] = proc?.communicate_utf8_finish(res)
 
-              if (!proc?.get_successful()) throw new Error(stderr)
+              if (!proc?.get_successful()) throw new Error(stderr as string)
               // done
             } catch (e) {
               logError(e as Error)

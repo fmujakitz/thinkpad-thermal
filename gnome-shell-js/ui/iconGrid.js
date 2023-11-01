@@ -1,16 +1,21 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported BaseIcon, IconGrid, IconGridLayout */
 
-const { Clutter, GLib, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Params = imports.misc.params;
-const Main = imports.ui.main;
+import * as Params from '../misc/params.js';
+import * as Main from './main.js';
 
-var ICON_SIZE = 96;
+const ICON_SIZE = 96;
 
-var PAGE_SWITCH_TIME = 300;
+const PAGE_SWITCH_TIME = 300;
 
-var IconSize = {
+/** @enum {number} */
+const IconSize = {
     LARGE: 96,
     MEDIUM: 64,
     MEDIUM_SMALL: 48,
@@ -19,8 +24,8 @@ var IconSize = {
     TINY: 16,
 };
 
-var APPICON_ANIMATION_OUT_SCALE = 3;
-var APPICON_ANIMATION_OUT_TIME = 250;
+const APPICON_ANIMATION_OUT_SCALE = 3;
+const APPICON_ANIMATION_OUT_TIME = 250;
 
 const ICON_POSITION_DELAY = 10;
 
@@ -43,10 +48,11 @@ const defaultGridModes = [
     },
 ];
 
-var LEFT_DIVIDER_LEEWAY = 20;
-var RIGHT_DIVIDER_LEEWAY = 20;
+const LEFT_DIVIDER_LEEWAY = 20;
+const RIGHT_DIVIDER_LEEWAY = 20;
 
-var DragLocation = {
+/** @enum {number} */
+export const DragLocation = {
     INVALID: 0,
     START_EDGE: 1,
     ON_ICON: 2,
@@ -54,7 +60,7 @@ var DragLocation = {
     EMPTY_SPACE: 4,
 };
 
-var BaseIcon = GObject.registerClass(
+export const BaseIcon = GObject.registerClass(
 class BaseIcon extends Shell.SquareBin {
     _init(label, params) {
         params = Params.parse(params, {
@@ -67,7 +73,7 @@ class BaseIcon extends Shell.SquareBin {
         if (params.showLabel)
             styleClass += ' overview-icon-with-label';
 
-        super._init({ style_class: styleClass });
+        super._init({style_class: styleClass});
 
         this._box = new St.BoxLayout({
             vertical: true,
@@ -77,12 +83,12 @@ class BaseIcon extends Shell.SquareBin {
         this.set_child(this._box);
 
         this.iconSize = ICON_SIZE;
-        this._iconBin = new St.Bin({ x_align: Clutter.ActorAlign.CENTER });
+        this._iconBin = new St.Bin({x_align: Clutter.ActorAlign.CENTER});
 
         this._box.add_actor(this._iconBin);
 
         if (params.showLabel) {
-            this.label = new St.Label({ text: label });
+            this.label = new St.Label({text: label});
             this.label.clutter_text.set({
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
@@ -136,7 +142,7 @@ class BaseIcon extends Shell.SquareBin {
         if (this._setSizeManually) {
             size = this.iconSize;
         } else {
-            const { scaleFactor } =
+            const {scaleFactor} =
                 St.ThemeContext.get_for_stage(global.stage);
 
             let [found, len] = node.lookup_length('icon-size', false);
@@ -169,7 +175,10 @@ class BaseIcon extends Shell.SquareBin {
     }
 });
 
-function zoomOutActor(actor) {
+/**
+ * @param {Clutter.Actor} actor
+ */
+export function zoomOutActor(actor) {
     let [x, y] = actor.get_transformed_position();
     zoomOutActorAtPos(actor, x, y);
 }
@@ -233,7 +242,7 @@ function swap(value, length) {
     return length - value - 1;
 }
 
-var IconGridLayout = GObject.registerClass({
+export const IconGridLayout = GObject.registerClass({
     Properties: {
         'allow-incomplete-pages': GObject.ParamSpec.boolean('allow-incomplete-pages',
             'Allow incomplete pages', 'Allow incomplete pages',
@@ -517,7 +526,7 @@ var IconGridLayout = GObject.registerClass({
     }
 
     _appendPage() {
-        this._pages.push({ children: [] });
+        this._pages.push({children: []});
         this.emit('pages-changed');
     }
 
@@ -677,7 +686,8 @@ var IconGridLayout = GObject.registerClass({
 
     _onDestroy() {
         if (this._updateIconSizesLaterId >= 0) {
-            Meta.later_remove(this._updateIconSizesLaterId);
+            const laters = global.compositor.get_laters();
+            laters.remove(this._updateIconSizesLaterId);
             this._updateIconSizesLaterId = 0;
         }
     }
@@ -797,18 +807,32 @@ var IconGridLayout = GObject.registerClass({
         this._shouldEaseItems = false;
     }
 
+    _findBestPageToAppend(startPage) {
+        const itemsPerPage = this.columnsPerPage * this.rowsPerPage;
+
+        for (let i = startPage; i < this._pages.length; i++) {
+            const visibleItems = this._pages[i].visibleChildren;
+
+            if (visibleItems.length < itemsPerPage)
+                return i;
+        }
+
+        return this._pages.length;
+    }
+
     /**
      * addItem:
-     * @param {Clutter.Actor} item: item to append to the grid
-     * @param {int} page: page number
-     * @param {int} index: position in the page
      *
-     * Adds @item to the grid. @item must not be part of the grid.
+     * @param {Clutter.Actor} item item to append to the grid
+     * @param {number} page page number
+     * @param {number} index position in the page
      *
-     * If @index exceeds the number of items per page, @item will
+     * Adds `item` to the grid. `item` must not be part of the grid.
+     *
+     * If `index` exceeds the number of items per page, `item` will
      * be added to the next page.
      *
-     * @page must be a number between 0 and the number of pages.
+     * `page` must be a number between 0 and the number of pages.
      * Adding to the page after next will create a new page.
      */
     addItem(item, page = -1, index = -1) {
@@ -821,6 +845,9 @@ var IconGridLayout = GObject.registerClass({
         if (!this._container)
             return;
 
+        if (page !== -1 && index === -1)
+            page = this._findBestPageToAppend(page);
+
         this._shouldEaseItems = true;
 
         this._container.add_child(item);
@@ -829,7 +856,8 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * appendItem:
-     * @param {Clutter.Actor} item: item to append to the grid
+     *
+     * @param {Clutter.Actor} item item to append to the grid
      *
      * Appends @item to the grid. @item must not be part of the grid.
      */
@@ -839,11 +867,12 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * moveItem:
-     * @param {Clutter.Actor} item: item to move
-     * @param {int} newPage: new page of the item
-     * @param {int} newPosition: new page of the item
      *
-     * Moves @item to the grid. @item must be part of the grid.
+     * @param {Clutter.Actor} item item to move
+     * @param {number} newPage new page of the item
+     * @param {number} newPosition new page of the item
+     *
+     * Moves `item` to the grid. `item` must be part of the grid.
      */
     moveItem(item, newPage, newPosition) {
         if (!this._items.has(item))
@@ -852,14 +881,19 @@ var IconGridLayout = GObject.registerClass({
         this._shouldEaseItems = true;
 
         this._removeItemData(item);
+
+        if (newPage !== -1 && newPosition === -1)
+            newPage = this._findBestPageToAppend(newPage);
+
         this._addItemToPage(item, newPage, newPosition);
     }
 
     /**
      * removeItem:
-     * @param {Clutter.Actor} item: item to remove from the grid
      *
-     * Removes @item to the grid. @item must be part of the grid.
+     * @param {Clutter.Actor} item item to remove from the grid
+     *
+     * Removes `item` to the grid. `item` must be part of the grid.
      */
     removeItem(item) {
         if (!this._items.has(item))
@@ -876,7 +910,8 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * getItemsAtPage:
-     * @param {int} pageIndex: page index
+     *
+     * @param {number} pageIndex page index
      *
      * Retrieves the children at page @pageIndex. Children may be invisible.
      *
@@ -891,12 +926,12 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * getItemPosition:
-     * @param {BaseIcon} item: the item
      *
-     * Retrieves the position of @item is its page, or -1 if @item is not
+     * Retrieves the position of `item` is its page, or -1 if `item` is not
      * part of the grid.
      *
-     * @returns {[int, int]} the page and position of @item
+     * @param {BaseIcon} item the item
+     * @returns {[number, number]} the page and position of `item`
      */
     getItemPosition(item) {
         if (!this._items.has(item))
@@ -910,10 +945,11 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * getItemAt:
-     * @param {int} page: the page
-     * @param {int} position: the position in page
      *
      * Retrieves the item at @page and @position.
+     *
+     * @param {number} page the page
+     * @param {number} position the position in page
      *
      * @returns {BaseItem} the item at @page and @position, or null
      */
@@ -931,11 +967,12 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * getItemPage:
-     * @param {BaseIcon} item: the item
      *
-     * Retrieves the page @item is in, or -1 if @item is not part of the grid.
+     * Retrieves the page `item` is in, or -1 if `item` is not part of the grid.
      *
-     * @returns {int} the page where @item is in
+     * @param {BaseIcon} item the item
+     *
+     * @returns {number} the page where `item` is in
      */
     getItemPage(item) {
         if (!this._items.has(item))
@@ -962,8 +999,9 @@ var IconGridLayout = GObject.registerClass({
         this._pageSizeChanged = true;
 
         if (this._updateIconSizesLaterId === 0) {
+            const laters = global.compositor.get_laters();
             this._updateIconSizesLaterId =
-                Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+                laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
                     const iconSize = this._findBestIconSize();
 
                     if (this._iconSize !== iconSize) {
@@ -983,14 +1021,15 @@ var IconGridLayout = GObject.registerClass({
 
     /**
      * getDropTarget:
-     * @param {int} x: position of the horizontal axis
-     * @param {int} y: position of the vertical axis
      *
-     * Retrieves the item located at (@x, @y), as well as the drag location.
-     * Both @x and @y are relative to the grid.
+     * Retrieves the item located at (`x`, `y`), as well as the drag location.
+     * Both `x` and `y` are relative to the grid.
      *
-     * @returns {[Clutter.Actor, DragLocation]} the item and drag location
-     * under (@x, @y)
+     * @param {number} x position of the horizontal axis
+     * @param {number} y position of the vertical axis
+     *
+     * @returns {[BaseIcon | null, DragLocation]} the item and drag location
+     * under (`x`, `y`)
      */
     getDropTarget(x, y) {
         const childSize = this._getChildrenMaxSize();
@@ -1006,19 +1045,18 @@ var IconGridLayout = GObject.registerClass({
 
         // Out of bounds
         if (page >= this._pages.length)
-            return [null, DragLocation.INVALID];
+            return [0, 0, DragLocation.INVALID];
 
         if (isRtl && this._orientation === Clutter.Orientation.HORIZONTAL)
             page = swap(page, this._pages.length);
 
-        // Page-relative coordinates from now on
+        // Get page-relative coordinates
+        let adjX = x;
+        let adjY = y;
         if (this._orientation === Clutter.Orientation.HORIZONTAL)
-            x %= this._pageWidth;
+            adjX %= this._pageWidth;
         else
-            y %= this._pageHeight;
-
-        if (x < leftEmptySpace || y < topEmptySpace)
-            return [null, DragLocation.INVALID];
+            adjY %= this._pageHeight;
 
         const gridWidth =
             childSize * this.columnsPerPage +
@@ -1027,32 +1065,39 @@ var IconGridLayout = GObject.registerClass({
             childSize * this.rowsPerPage +
             vSpacing * (this.rowsPerPage - 1);
 
-        if (x > leftEmptySpace + gridWidth || y > topEmptySpace + gridHeight)
-            return [null, DragLocation.INVALID];
+        const inTopEmptySpace = adjY < topEmptySpace;
+        const inLeftEmptySpace = adjX < leftEmptySpace;
+        const inRightEmptySpace = adjX > leftEmptySpace + gridWidth;
+        const inBottomEmptySpace = adjY > topEmptySpace + gridHeight;
+
+        if (inTopEmptySpace || inBottomEmptySpace)
+            return [0, 0, DragLocation.INVALID];
 
         const halfHSpacing = hSpacing / 2;
         const halfVSpacing = vSpacing / 2;
         const visibleItems = this._pages[page].visibleChildren;
 
-        for (const item of visibleItems) {
-            const childBox = item.allocation.copy();
+        for (let i = 0; i < visibleItems.length; i++) {
+            const item = visibleItems[i];
+            const childBox = item.allocation;
 
-            // Page offset
-            switch (this._orientation) {
-            case Clutter.Orientation.HORIZONTAL:
-                childBox.set_origin(childBox.x1 % this._pageWidth, childBox.y1);
-                break;
-            case Clutter.Orientation.VERTICAL:
-                childBox.set_origin(childBox.x1, childBox.y1 % this._pageHeight);
-                break;
+            const firstInRow = i % this.columnsPerPage === 0;
+            const lastInRow = i % this.columnsPerPage === this.columnsPerPage - 1;
+
+            // Check icon boundaries
+            if ((inLeftEmptySpace && firstInRow) ||
+                (inRightEmptySpace && lastInRow)) {
+                if (y < childBox.y1 - halfVSpacing ||
+                    y > childBox.y2 + halfVSpacing)
+                    continue;
+            } else {
+                // eslint-disable-next-line no-lonely-if
+                if (x < childBox.x1 - halfHSpacing ||
+                    x > childBox.x2 + halfHSpacing ||
+                    y < childBox.y1 - halfVSpacing ||
+                    y > childBox.y2 + halfVSpacing)
+                    continue;
             }
-
-            // Outside the icon boundaries
-            if (x < childBox.x1 - halfHSpacing ||
-                x > childBox.x2 + halfHSpacing ||
-                y < childBox.y1 - halfVSpacing ||
-                y > childBox.y2 + halfVSpacing)
-                continue;
 
             let dragLocation;
 
@@ -1070,10 +1115,10 @@ var IconGridLayout = GObject.registerClass({
                     dragLocation = DragLocation.START_EDGE;
             }
 
-            return [item, dragLocation];
+            return [page, i, dragLocation];
         }
 
-        return [null, DragLocation.EMPTY_SPACE];
+        return [page, -1, DragLocation.EMPTY_SPACE];
     }
 
     get iconSize() {
@@ -1114,7 +1159,7 @@ var IconGridLayout = GObject.registerClass({
     }
 });
 
-var IconGrid = GObject.registerClass({
+export const IconGrid = GObject.registerClass({
     Signals: {
         'pages-changed': {},
     },
@@ -1181,7 +1226,7 @@ var IconGrid = GObject.registerClass({
     }
 
     _findBestModeForSize(width, height) {
-        const { pagePadding } = this.layout_manager;
+        const {pagePadding} = this.layout_manager;
         width -= pagePadding.left + pagePadding.right;
         height -= pagePadding.top + pagePadding.bottom;
 
@@ -1236,16 +1281,17 @@ var IconGrid = GObject.registerClass({
 
     /**
      * addItem:
-     * @param {Clutter.Actor} item: item to append to the grid
-     * @param {int} page: page number
-     * @param {int} index: position in the page
      *
-     * Adds @item to the grid. @item must not be part of the grid.
+     * @param {BaseItem} item item to append to the grid
+     * @param {number} page page number
+     * @param {number} index position in the page
      *
-     * If @index exceeds the number of items per page, @item will
+     * Adds `item` to the grid. `item` must not be part of the grid.
+     *
+     * If `index` exceeds the number of items per page, `item` will
      * be added to the next page.
      *
-     * @page must be a number between 0 and the number of pages.
+     * `page` must be a number between 0 and the number of pages.
      * Adding to the page after next will create a new page.
      */
     addItem(item, page = -1, index = -1) {
@@ -1257,9 +1303,10 @@ var IconGrid = GObject.registerClass({
 
     /**
      * appendItem:
-     * @param {Clutter.Actor} item: item to append to the grid
      *
-     * Appends @item to the grid. @item must not be part of the grid.
+     * @param {Clutter.Actor} item item to append to the grid
+     *
+     * Appends `item` to the grid. `item` must not be part of the grid.
      */
     appendItem(item) {
         this.layout_manager.appendItem(item);
@@ -1267,11 +1314,12 @@ var IconGrid = GObject.registerClass({
 
     /**
      * moveItem:
-     * @param {Clutter.Actor} item: item to move
-     * @param {int} newPage: new page of the item
-     * @param {int} newPosition: new page of the item
      *
-     * Moves @item to the grid. @item must be part of the grid.
+     * Moves `item` to the grid. `item` must be part of the grid.
+     *
+     * @param {Clutter.Actor} item item to move
+     * @param {number} newPage new page of the item
+     * @param {number} newPosition new page of the item
      */
     moveItem(item, newPage, newPosition) {
         this.layout_manager.moveItem(item, newPage, newPosition);
@@ -1280,9 +1328,10 @@ var IconGrid = GObject.registerClass({
 
     /**
      * removeItem:
-     * @param {Clutter.Actor} item: item to remove from the grid
      *
-     * Removes @item to the grid. @item must be part of the grid.
+     * Removes `item` to the grid. `item` must be part of the grid.
+     *
+     * @param {Clutter.Actor} item item to remove from the grid
      */
     removeItem(item) {
         if (!this.contains(item))
@@ -1293,11 +1342,12 @@ var IconGrid = GObject.registerClass({
 
     /**
      * goToPage:
-     * @param {int} pageIndex: page index
-     * @param {boolean} animate: animate the page transition
      *
-     * Moves the current page to @pageIndex. @pageIndex must be a valid page
+     * Moves the current page to `pageIndex`. `pageIndex` must be a valid page
      * number.
+     *
+     * @param {number} pageIndex page index
+     * @param {boolean} animate animate the page transition
      */
     goToPage(pageIndex, animate = true) {
         if (pageIndex >= this.nPages)
@@ -1321,19 +1371,24 @@ var IconGrid = GObject.registerClass({
         if (!this.mapped)
             animate = false;
 
-        adjustment.ease(newValue, {
-            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-            duration: animate ? PAGE_SWITCH_TIME : 0,
-        });
+        global.compositor.get_laters().add(
+            Meta.LaterType.BEFORE_REDRAW, () => {
+                adjustment.ease(newValue, {
+                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                    duration: animate ? PAGE_SWITCH_TIME : 0,
+                });
+                return GLib.SOURCE_REMOVE;
+            });
     }
 
     /**
      * getItemPage:
-     * @param {BaseIcon} item: the item
      *
-     * Retrieves the page @item is in, or -1 if @item is not part of the grid.
+     * Retrieves the page `item` is in, or -1 if `item` is not part of the grid.
      *
-     * @returns {int} the page where @item is in
+     * @param {BaseIcon} item the item
+     *
+     * @returns {number} the page where `item` is in
      */
     getItemPage(item) {
         return this.layout_manager.getItemPage(item);
@@ -1341,12 +1396,13 @@ var IconGrid = GObject.registerClass({
 
     /**
      * getItemPosition:
-     * @param {BaseIcon} item: the item
      *
-     * Retrieves the position of @item is its page, or -1 if @item is not
+     * Retrieves the position of `item` is its page, or -1 if `item` is not
      * part of the grid.
      *
-     * @returns {[int, int]} the page and position of @item
+     * @param {BaseIcon} item the item
+     *
+     * @returns {[number, number]} the page and position of `item`
      */
     getItemPosition(item) {
         if (!this.contains(item))
@@ -1358,12 +1414,13 @@ var IconGrid = GObject.registerClass({
 
     /**
      * getItemAt:
-     * @param {int} page: the page
-     * @param {int} position: the position in page
      *
-     * Retrieves the item at @page and @position.
+     * Retrieves the item at `page` and `position`.
      *
-     * @returns {BaseItem} the item at @page and @position, or null
+     * @param {number} page the page
+     * @param {number} position the position in page
+     *
+     * @returns {BaseItem} the item at `page` and `position`, or null
      */
     getItemAt(page, position) {
         const layoutManager = this.layout_manager;
@@ -1372,9 +1429,10 @@ var IconGrid = GObject.registerClass({
 
     /**
      * getItemsAtPage:
-     * @param {int} page: the page index
      *
-     * Retrieves the children at page @page, including invisible children.
+     * Retrieves the children at page `page`, including invisible children.
+     *
+     * @param {number} page the page index
      *
      * @returns {Array} an array of {Clutter.Actor}s
      */

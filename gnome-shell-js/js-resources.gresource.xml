@@ -11,10 +11,16 @@
     <file>gdm/realmd.js</file>
     <file>gdm/util.js</file>
 
+    <file>extensions/sharedInternals.js</file>
+    <file>extensions/extension.js</file>
+
+    <file>misc/animationUtils.js</file>
     <file>misc/config.js</file>
     <file>misc/extensionUtils.js</file>
     <file>misc/fileUtils.js</file>
+    <file>misc/dateUtils.js</file>
     <file>misc/dbusUtils.js</file>
+    <file>misc/dependencies.js</file>
     <file>misc/gnomeSession.js</file>
     <file>misc/history.js</file>
     <file>misc/ibusManager.js</file>
@@ -34,10 +40,6 @@
     <file>misc/systemActions.js</file>
     <file>misc/util.js</file>
     <file>misc/weather.js</file>
-
-    <file>perf/basic.js</file>
-    <file>perf/core.js</file>
-    <file>perf/hwtest.js</file>
 
     <file>ui/accessDialog.js</file>
     <file>ui/altTab.js</file>
@@ -73,6 +75,7 @@
     <file>ui/keyboard.js</file>
     <file>ui/layout.js</file>
     <file>ui/lightbox.js</file>
+    <file>ui/listModes.js</file>
     <file>ui/locatePointer.js</file>
     <file>ui/lookingGlass.js</file>
     <file>ui/magnifier.js</file>
@@ -124,7 +127,7 @@
     <file>ui/workspacesView.js</file>
     <file>ui/xdndHandler.js</file>
 
-    <file>ui/components/__init__.js</file>
+    <file>ui/components.js</file>
     <file>ui/components/autorunManager.js</file>
     <file>ui/components/automountManager.js</file>
     <file>ui/components/networkAgent.js</file>
@@ -134,7 +137,10 @@
 
     <file>ui/status/accessibility.js</file>
     <file>ui/status/autoRotate.js</file>
+    <file>ui/status/backgroundApps.js</file>
+    <file>ui/status/backlight.js</file>
     <file>ui/status/brightness.js</file>
+    <file>ui/status/camera.js</file>
     <file>ui/status/darkMode.js</file>
     <file>ui/status/dwellClick.js</file>
     <file>ui/status/location.js</file>

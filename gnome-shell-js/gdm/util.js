@@ -1,18 +1,18 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported BANNER_MESSAGE_KEY, BANNER_MESSAGE_TEXT_KEY, LOGO_KEY,
-            DISABLE_USER_LIST_KEY, fadeInActor, fadeOutActor, cloneAndFadeOutActor,
-            ShellUserVerifier */
 
-const { Clutter, Gdm, Gio, GLib } = imports.gi;
-const Signals = imports.misc.signals;
+import Clutter from 'gi://Clutter';
+import Gdm from 'gi://Gdm';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as Signals from '../misc/signals.js';
 
-const Batch = imports.gdm.batch;
-const OVirt = imports.gdm.oVirt;
-const Vmware = imports.gdm.vmware;
-const Main = imports.ui.main;
-const { loadInterfaceXML } = imports.misc.fileUtils;
-const Params = imports.misc.params;
-const SmartcardManager = imports.misc.smartcardManager;
+import * as Batch from './batch.js';
+import * as OVirt from './oVirt.js';
+import * as Vmware from './vmware.js';
+import * as Main from '../ui/main.js';
+import {loadInterfaceXML} from '../misc/fileUtils.js';
+import * as Params from '../misc/params.js';
+import * as SmartcardManager from '../misc/smartcardManager.js';
 
 const FprintManagerIface = loadInterfaceXML('net.reactivated.Fprint.Manager');
 const FprintManagerProxy = Gio.DBusProxy.makeProxyWrapper(FprintManagerIface);
@@ -25,29 +25,32 @@ Gio._promisify(Gdm.UserVerifierProxy.prototype,
     'call_begin_verification_for_user');
 Gio._promisify(Gdm.UserVerifierProxy.prototype, 'call_begin_verification');
 
-var PASSWORD_SERVICE_NAME = 'gdm-password';
-var FINGERPRINT_SERVICE_NAME = 'gdm-fingerprint';
-var SMARTCARD_SERVICE_NAME = 'gdm-smartcard';
-var FADE_ANIMATION_TIME = 160;
-var CLONE_FADE_ANIMATION_TIME = 250;
+export const PASSWORD_SERVICE_NAME = 'gdm-password';
+export const FINGERPRINT_SERVICE_NAME = 'gdm-fingerprint';
+export const SMARTCARD_SERVICE_NAME = 'gdm-smartcard';
+const CLONE_FADE_ANIMATION_TIME = 250;
 
-var LOGIN_SCREEN_SCHEMA = 'org.gnome.login-screen';
-var PASSWORD_AUTHENTICATION_KEY = 'enable-password-authentication';
-var FINGERPRINT_AUTHENTICATION_KEY = 'enable-fingerprint-authentication';
-var SMARTCARD_AUTHENTICATION_KEY = 'enable-smartcard-authentication';
-var BANNER_MESSAGE_KEY = 'banner-message-enable';
-var BANNER_MESSAGE_TEXT_KEY = 'banner-message-text';
-var ALLOWED_FAILURES_KEY = 'allowed-failures';
+export const LOGIN_SCREEN_SCHEMA = 'org.gnome.login-screen';
+export const PASSWORD_AUTHENTICATION_KEY = 'enable-password-authentication';
+export const FINGERPRINT_AUTHENTICATION_KEY = 'enable-fingerprint-authentication';
+export const SMARTCARD_AUTHENTICATION_KEY = 'enable-smartcard-authentication';
+export const BANNER_MESSAGE_KEY = 'banner-message-enable';
+export const BANNER_MESSAGE_TEXT_KEY = 'banner-message-text';
+export const ALLOWED_FAILURES_KEY = 'allowed-failures';
 
-var LOGO_KEY = 'logo';
-var DISABLE_USER_LIST_KEY = 'disable-user-list';
+export const LOGO_KEY = 'logo';
+export const DISABLE_USER_LIST_KEY = 'disable-user-list';
 
 // Give user 48ms to read each character of a PAM message
-var USER_READ_TIME = 48;
+const USER_READ_TIME = 48;
 const FINGERPRINT_ERROR_TIMEOUT_WAIT = 15;
 
-var MessageType = {
-    // Keep messages in order by priority
+/**
+ * Keep messages in order by priority
+ *
+ * @enum {number}
+ */
+export const MessageType = {
     NONE: 0,
     HINT: 1,
     INFO: 2,
@@ -60,53 +63,10 @@ const FingerprintReaderType = {
     SWIPE: 2,
 };
 
-function fadeInActor(actor) {
-    if (actor.opacity == 255 && actor.visible)
-        return null;
-
-    let hold = new Batch.Hold();
-    actor.show();
-    let [, naturalHeight] = actor.get_preferred_height(-1);
-
-    actor.opacity = 0;
-    actor.set_height(0);
-    actor.ease({
-        opacity: 255,
-        height: naturalHeight,
-        duration: FADE_ANIMATION_TIME,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => {
-            this.set_height(-1);
-            hold.release();
-        },
-    });
-
-    return hold;
-}
-
-function fadeOutActor(actor) {
-    if (!actor.visible || actor.opacity == 0) {
-        actor.opacity = 0;
-        actor.hide();
-        return null;
-    }
-
-    let hold = new Batch.Hold();
-    actor.ease({
-        opacity: 0,
-        height: 0,
-        duration: FADE_ANIMATION_TIME,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => {
-            this.hide();
-            this.set_height(-1);
-            hold.release();
-        },
-    });
-    return hold;
-}
-
-function cloneAndFadeOutActor(actor) {
+/**
+ * @param {Clutter.Actor} actor
+ */
+export function cloneAndFadeOutActor(actor) {
     // Immediately hide actor so its sibling can have its space
     // and position, but leave a non-reactive clone on-screen,
     // so from the user's point of view it smoothly fades away
@@ -136,10 +96,10 @@ function cloneAndFadeOutActor(actor) {
     return hold;
 }
 
-var ShellUserVerifier = class extends Signals.EventEmitter {
+export class ShellUserVerifier extends Signals.EventEmitter {
     constructor(client, params) {
         super();
-        params = Params.parse(params, { reauthenticationOnly: false });
+        params = Params.parse(params, {reauthenticationOnly: false});
         this._reauthOnly = params.reauthenticationOnly;
 
         this._client = client;
@@ -147,9 +107,9 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
         this._defaultService = null;
         this._preemptingService = null;
 
-        this._settings = new Gio.Settings({ schema_id: LOGIN_SCREEN_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: LOGIN_SCREEN_SCHEMA});
         this._settings.connect('changed',
-                               this._updateDefaultService.bind(this));
+            this._updateDefaultService.bind(this));
         this._updateDefaultService();
 
         this._fprintManager = new FprintManagerProxy(Gio.DBus.system,
@@ -179,18 +139,32 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
         this._unavailableServices = new Set();
 
         this._credentialManagers = {};
-        this._credentialManagers[OVirt.SERVICE_NAME] = OVirt.getOVirtCredentialsManager();
-        this._credentialManagers[Vmware.SERVICE_NAME] = Vmware.getVmwareCredentialsManager();
 
-        for (let service in this._credentialManagers) {
-            if (this._credentialManagers[service].token) {
-                this._onCredentialManagerAuthenticated(this._credentialManagers[service],
-                    this._credentialManagers[service].token);
-            }
+        this.addCredentialManager(OVirt.SERVICE_NAME, OVirt.getOVirtCredentialsManager());
+        this.addCredentialManager(Vmware.SERVICE_NAME, Vmware.getVmwareCredentialsManager());
+    }
 
-            this._credentialManagers[service].connectObject('user-authenticated',
-                this._onCredentialManagerAuthenticated.bind(this), this);
+    addCredentialManager(serviceName, credentialManager) {
+        if (this._credentialManagers[serviceName])
+            return;
+
+        this._credentialManagers[serviceName] = credentialManager;
+        if (credentialManager.token) {
+            this._onCredentialManagerAuthenticated(credentialManager,
+                credentialManager.token);
         }
+
+        credentialManager.connectObject('user-authenticated',
+            this._onCredentialManagerAuthenticated.bind(this), this);
+    }
+
+    removeCredentialManager(serviceName) {
+        let credentialManager = this._credentialManagers[serviceName];
+        if (!credentialManager)
+            return;
+
+        credentialManager.disconnectObject(this);
+        delete this._credentialManagers[serviceName];
     }
 
     get hasPendingMessages() {
@@ -262,11 +236,8 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
         this._smartcardManager.disconnectObject(this);
         this._smartcardManager = null;
 
-        for (let service in this._credentialManagers) {
-            let credentialManager = this._credentialManagers[service];
-            credentialManager.disconnectObject(this);
-            credentialManager = null;
-        }
+        for (let service in this._credentialManagers)
+            this.removeCredentialManager(service);
     }
 
     selectChoice(serviceName, key) {
@@ -318,7 +289,7 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
     }
 
     _queueMessageTimeout() {
-        if (this._messageQueueTimeoutId != 0)
+        if (this._messageQueueTimeoutId !== 0)
             return;
 
         const message = this.currentMessage;
@@ -345,7 +316,7 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
     _queueMessage(serviceName, message, messageType) {
         let interval = this._getIntervalForMessage(message);
 
-        this._messageQueue.push({ serviceName, text: message, type: messageType, interval });
+        this._messageQueue.push({serviceName, text: message, type: messageType, interval});
         this._queueMessageTimeout();
     }
 
@@ -366,7 +337,7 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
     _clearMessageQueue() {
         this.finishMessageQueue();
 
-        if (this._messageQueueTimeoutId != 0) {
+        if (this._messageQueueTimeoutId !== 0) {
             GLib.source_remove(this._messageQueueTimeoutId);
             this._messageQueueTimeoutId = 0;
         }
@@ -412,12 +383,12 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
         else
             smartcardDetected = this._smartcardManager.hasInsertedTokens();
 
-        if (smartcardDetected != this.smartcardDetected) {
+        if (smartcardDetected !== this.smartcardDetected) {
             this.smartcardDetected = smartcardDetected;
 
             if (this.smartcardDetected)
                 this._preemptingService = SMARTCARD_SERVICE_NAME;
-            else if (this._preemptingService == SMARTCARD_SERVICE_NAME)
+            else if (this._preemptingService === SMARTCARD_SERVICE_NAME)
                 this._preemptingService = null;
 
             this.emit('smartcard-status-changed');
@@ -509,6 +480,7 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
 
     _disconnectSignals() {
         this._userVerifier?.disconnectObject(this);
+        this._userVerifierChoiceList?.disconnectObject(this);
     }
 
     _getForegroundService() {
@@ -519,11 +491,20 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
     }
 
     serviceIsForeground(serviceName) {
-        return serviceName == this._getForegroundService();
+        return serviceName === this._getForegroundService();
+    }
+
+    foregroundServiceDeterminesUsername() {
+        for (let serviceName in this._credentialManagers) {
+            if (this.serviceIsForeground(serviceName))
+                return true;
+        }
+
+        return this.serviceIsForeground(SMARTCARD_SERVICE_NAME);
     }
 
     serviceIsDefault(serviceName) {
-        return serviceName == this._defaultService;
+        return serviceName === this._defaultService;
     }
 
     serviceIsFingerprint(serviceName) {
@@ -540,7 +521,7 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
             this._defaultService = FINGERPRINT_SERVICE_NAME;
 
         if (!this._defaultService) {
-            log("no authentication service is enabled, using password authentication");
+            log('no authentication service is enabled, using password authentication');
             this._defaultService = PASSWORD_SERVICE_NAME;
         }
     }
@@ -781,4 +762,4 @@ var ShellUserVerifier = class extends Signals.EventEmitter {
 
         this._verificationFailed(serviceName, true);
     }
-};
+}

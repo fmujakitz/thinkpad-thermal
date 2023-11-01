@@ -1,17 +1,20 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported getKeyboardManager, holdKeyboard, releaseKeyboard */
 
-const { GLib, GnomeDesktop } = imports.gi;
+import GLib from 'gi://GLib';
+import GnomeDesktop from 'gi://GnomeDesktop';
 
-const Main = imports.ui.main;
+import * as Main from '../ui/main.js';
 
-var DEFAULT_LOCALE = 'en_US';
-var DEFAULT_LAYOUT = 'us';
-var DEFAULT_VARIANT = '';
+export const DEFAULT_LOCALE = 'en_US';
+export const DEFAULT_LAYOUT = 'us';
+export const DEFAULT_VARIANT = '';
 
 let _xkbInfo = null;
 
-function getXkbInfo() {
+/**
+ * @returns {GnomeDesktop.XkbInfo}
+ */
+export function getXkbInfo() {
     if (_xkbInfo == null)
         _xkbInfo = new GnomeDesktop.XkbInfo();
     return _xkbInfo;
@@ -19,24 +22,27 @@ function getXkbInfo() {
 
 let _keyboardManager = null;
 
-function getKeyboardManager() {
+/**
+ * @returns {KeyboardManager}
+ */
+export function getKeyboardManager() {
     if (_keyboardManager == null)
         _keyboardManager = new KeyboardManager();
     return _keyboardManager;
 }
 
-function releaseKeyboard() {
+export function releaseKeyboard() {
     if (Main.modalCount > 0)
         global.display.unfreeze_keyboard(global.get_current_time());
     else
         global.display.ungrab_keyboard(global.get_current_time());
 }
 
-function holdKeyboard() {
+export function holdKeyboard() {
     global.display.freeze_keyboard(global.get_current_time());
 }
 
-var KeyboardManager = class {
+class KeyboardManager {
     constructor() {
         // The XKB protocol doesn't allow for more that 4 layouts in a
         // keymap. Wayland doesn't impose this limit and libxkbcommon can
@@ -56,12 +62,12 @@ var KeyboardManager = class {
         let [layouts, variants] = this._buildGroupStrings(group);
 
         if (this._currentKeymap &&
-            this._currentKeymap.layouts == layouts &&
-            this._currentKeymap.variants == variants &&
-            this._currentKeymap.options == options)
+            this._currentKeymap.layouts === layouts &&
+            this._currentKeymap.variants === variants &&
+            this._currentKeymap.options === options)
             return;
 
-        this._currentKeymap = { layouts, variants, options };
+        this._currentKeymap = {layouts, variants, options};
         global.backend.set_keymap(layouts, variants, options);
     }
 
@@ -74,8 +80,8 @@ var KeyboardManager = class {
         if (!info)
             return;
 
-        if (this._current && this._current.group == info.group) {
-            if (this._current.groupIndex != info.groupIndex)
+        if (this._current && this._current.group === info.group) {
+            if (this._current.groupIndex !== info.groupIndex)
                 this._applyLayoutGroupIndex(info.groupIndex);
         } else {
             this._applyLayoutGroup(info.group);
@@ -100,7 +106,7 @@ var KeyboardManager = class {
         for (let i = 0; i < ids.length; ++i) {
             let [found, , , _layout, _variant] = this._xkbInfo.get_layout_info(ids[i]);
             if (found)
-                this._layoutInfos[ids[i]] = { id: ids[i], layout: _layout, variant: _variant };
+                this._layoutInfos[ids[i]] = {id: ids[i], layout: _layout, variant: _variant};
         }
 
         let i = 0;
@@ -112,7 +118,7 @@ var KeyboardManager = class {
             // handle mnemonics like Alt+Ф even if the user is
             // actually typing in a different layout.
             let groupIndex = i % (this.MAX_LAYOUTS_PER_GROUP - 1);
-            if (groupIndex == 0)
+            if (groupIndex === 0)
                 group = [];
 
             let info = this._layoutInfos[id];
@@ -136,9 +142,9 @@ var KeyboardManager = class {
         let _layout, _variant;
         [found, , , _layout, _variant] = this._xkbInfo.get_layout_info(id);
         if (found)
-            return { layout: _layout, variant: _variant };
+            return {layout: _layout, variant: _variant};
         else
-            return { layout: DEFAULT_LAYOUT, variant: DEFAULT_VARIANT };
+            return {layout: DEFAULT_LAYOUT, variant: DEFAULT_VARIANT};
     }
 
     _buildGroupStrings(_group) {
@@ -160,4 +166,4 @@ var KeyboardManager = class {
     get currentLayout() {
         return this._current;
     }
-};
+}

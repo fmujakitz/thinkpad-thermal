@@ -1,17 +1,20 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported OsdWindowManager */
 
-const { Clutter, GLib, GObject, Meta, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
 
-const BarLevel = imports.ui.barLevel;
-const Layout = imports.ui.layout;
-const Main = imports.ui.main;
+import * as BarLevel from './barLevel.js';
+import * as Layout from './layout.js';
+import * as Main from './main.js';
 
-var HIDE_TIMEOUT = 1500;
-var FADE_TIME = 100;
-var LEVEL_ANIMATION_TIME = 100;
+const HIDE_TIMEOUT = 1500;
+const FADE_TIME = 100;
+const LEVEL_ANIMATION_TIME = 100;
 
-var OsdWindow = GObject.registerClass(
+export const OsdWindow = GObject.registerClass(
 class OsdWindow extends Clutter.Actor {
     _init(monitorIndex) {
         super._init({
@@ -22,7 +25,7 @@ class OsdWindow extends Clutter.Actor {
         });
 
         this._monitorIndex = monitorIndex;
-        let constraint = new Layout.MonitorConstraint({ index: monitorIndex });
+        let constraint = new Layout.MonitorConstraint({index: monitorIndex});
         this.add_constraint(constraint);
 
         this._hbox = new St.BoxLayout({
@@ -30,7 +33,7 @@ class OsdWindow extends Clutter.Actor {
         });
         this.add_actor(this._hbox);
 
-        this._icon = new St.Icon({ y_expand: true });
+        this._icon = new St.Icon({y_expand: true});
         this._hbox.add_child(this._icon);
 
         this._vbox = new St.BoxLayout({
@@ -62,15 +65,15 @@ class OsdWindow extends Clutter.Actor {
     }
 
     setLabel(label) {
-        this._label.visible = label != undefined;
-        if (label)
+        this._label.visible = label != null;
+        if (this._label.visible)
             this._label.text = label;
         this._updateBoxVisibility();
     }
 
     setLevel(value) {
-        this._level.visible = value != undefined;
-        if (value != undefined) {
+        this._level.visible = value != null;
+        if (this._level.visible) {
             if (this.visible) {
                 this._level.ease_property('value', value, {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -141,17 +144,17 @@ class OsdWindow extends Clutter.Actor {
     }
 });
 
-var OsdWindowManager = class {
+export class OsdWindowManager {
     constructor() {
         this._osdWindows = [];
         Main.layoutManager.connect('monitors-changed',
-                                   this._monitorsChanged.bind(this));
+            this._monitorsChanged.bind(this));
         this._monitorsChanged();
     }
 
     _monitorsChanged() {
         for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
-            if (this._osdWindows[i] == undefined)
+            if (this._osdWindows[i] === undefined)
                 this._osdWindows[i] = new OsdWindow(i);
         }
 
@@ -172,9 +175,9 @@ var OsdWindowManager = class {
     }
 
     show(monitorIndex, icon, label, level, maxLevel) {
-        if (monitorIndex != -1) {
+        if (monitorIndex !== -1) {
             for (let i = 0; i < this._osdWindows.length; i++) {
-                if (i == monitorIndex)
+                if (i === monitorIndex)
                     this._showOsdWindow(i, icon, label, level, maxLevel);
                 else
                     this._osdWindows[i].cancel();
@@ -189,4 +192,4 @@ var OsdWindowManager = class {
         for (let i = 0; i < this._osdWindows.length; i++)
             this._osdWindows[i].cancel();
     }
-};
+}

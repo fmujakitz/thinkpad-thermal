@@ -1,11 +1,13 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported ExtensionPrefsDialog */
 
-const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
+import Adw from 'gi://Adw?version=1';
+import Gdk from 'gi://Gdk?version=4.0';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Gtk from 'gi://Gtk?version=4.0';
 
-const ExtensionUtils = imports.misc.extensionUtils;
-
-var ExtensionPrefsDialog = GObject.registerClass({
+export const ExtensionPrefsDialog = GObject.registerClass({
     GTypeName: 'ExtensionPrefsDialog',
 }, class ExtensionPrefsDialog extends Adw.PreferencesWindow {
     _init(extension) {
@@ -14,29 +16,27 @@ var ExtensionPrefsDialog = GObject.registerClass({
             search_enabled: false,
         });
 
-        try {
-            ExtensionUtils.installImporter(extension);
+        this._extension = extension;
 
-            // give extension prefs access to their own extension object
-            ExtensionUtils.setCurrentExtension(extension);
-
-            const prefsModule = extension.imports.prefs;
-            prefsModule.init(extension.metadata);
-
-            if (prefsModule.fillPreferencesWindow) {
-                prefsModule.fillPreferencesWindow(this);
-
-                if (!this.visible_page)
-                    throw new Error('Extension did not provide any UI');
-            } else {
-                const widget = prefsModule.buildPrefsWidget();
-                const page = this._wrapWidget(widget);
-                this.add(page);
-            }
-        } catch (e) {
+        this._loadPrefs().catch(e => {
             this._showErrorPage(e);
             logError(e, 'Failed to open preferences');
-        }
+        });
+    }
+
+    async _loadPrefs() {
+        const {dir, path, metadata} = this._extension;
+
+        const prefsJs = dir.get_child('prefs.js');
+        const prefsModule = await import(prefsJs.get_uri());
+
+        const prefsObj = new prefsModule.default({...metadata, dir, path});
+        this._extension.stateObj = prefsObj;
+
+        prefsObj.fillPreferencesWindow(this);
+
+        if (!this.visible_page)
+            throw new Error('Extension did not provide any UI');
     }
 
     set titlebar(w) {
@@ -57,25 +57,7 @@ var ExtensionPrefsDialog = GObject.registerClass({
         while (this.visible_page)
             this.remove(this.visible_page);
 
-        const extension = ExtensionUtils.getCurrentExtension();
-        this.add(new ExtensionPrefsErrorPage(extension, e));
-    }
-
-    _wrapWidget(widget) {
-        if (widget instanceof Adw.PreferencesPage)
-            return widget;
-
-        const page = new Adw.PreferencesPage();
-        if (widget instanceof Adw.PreferencesGroup) {
-            page.add(widget);
-            return page;
-        }
-
-        const group = new Adw.PreferencesGroup();
-        group.add(widget);
-        page.add(group);
-
-        return page;
+        this.add(new ExtensionPrefsErrorPage(this._extension, e));
     }
 });
 

@@ -1,42 +1,48 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported WindowManager */
 
-const { Clutter, Gio, GLib, GObject, Meta, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Mtk from 'gi://Mtk';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const AltTab = imports.ui.altTab;
-const AppFavorites = imports.ui.appFavorites;
-const Dialog = imports.ui.dialog;
-const WorkspaceSwitcherPopup = imports.ui.workspaceSwitcherPopup;
-const InhibitShortcutsDialog = imports.ui.inhibitShortcutsDialog;
-const Main = imports.ui.main;
-const ModalDialog = imports.ui.modalDialog;
-const WindowMenu = imports.ui.windowMenu;
-const PadOsd = imports.ui.padOsd;
-const EdgeDragAction = imports.ui.edgeDragAction;
-const CloseDialog = imports.ui.closeDialog;
-const SwitchMonitor = imports.ui.switchMonitor;
-const IBusManager = imports.misc.ibusManager;
-const WorkspaceAnimation = imports.ui.workspaceAnimation;
+import * as AltTab from './altTab.js';
+import * as AppFavorites from './appFavorites.js';
+import * as Dialog from './dialog.js';
+import * as WorkspaceSwitcherPopup from './workspaceSwitcherPopup.js';
+import * as InhibitShortcutsDialog from './inhibitShortcutsDialog.js';
+import * as ModalDialog from './modalDialog.js';
+import * as WindowMenu from './windowMenu.js';
+import * as PadOsd from './padOsd.js';
+import * as EdgeDragAction from './edgeDragAction.js';
+import * as CloseDialog from './closeDialog.js';
+import * as SwitchMonitor from './switchMonitor.js';
+import * as IBusManager from '../misc/ibusManager.js';
+import * as WorkspaceAnimation from './workspaceAnimation.js';
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
+import {loadInterfaceXML} from '../misc/fileUtils.js';
+import * as Main from './main.js';
 
-var SHELL_KEYBINDINGS_SCHEMA = 'org.gnome.shell.keybindings';
-var MINIMIZE_WINDOW_ANIMATION_TIME = 400;
-var MINIMIZE_WINDOW_ANIMATION_MODE = Clutter.AnimationMode.EASE_OUT_EXPO;
-var SHOW_WINDOW_ANIMATION_TIME = 150;
-var DIALOG_SHOW_WINDOW_ANIMATION_TIME = 100;
-var DESTROY_WINDOW_ANIMATION_TIME = 150;
-var DIALOG_DESTROY_WINDOW_ANIMATION_TIME = 100;
-var WINDOW_ANIMATION_TIME = 250;
-var SCROLL_TIMEOUT_TIME = 150;
-var DIM_BRIGHTNESS = -0.3;
-var DIM_TIME = 500;
-var UNDIM_TIME = 250;
-var APP_MOTION_THRESHOLD = 30;
+export const SHELL_KEYBINDINGS_SCHEMA = 'org.gnome.shell.keybindings';
 
-var ONE_SECOND = 1000; // in ms
+const MINIMIZE_WINDOW_ANIMATION_TIME = 400;
+const MINIMIZE_WINDOW_ANIMATION_MODE = Clutter.AnimationMode.EASE_OUT_EXPO;
+const SHOW_WINDOW_ANIMATION_TIME = 150;
+const DIALOG_SHOW_WINDOW_ANIMATION_TIME = 100;
+const DESTROY_WINDOW_ANIMATION_TIME = 150;
+const DIALOG_DESTROY_WINDOW_ANIMATION_TIME = 100;
+const WINDOW_ANIMATION_TIME = 250;
+export const SCROLL_TIMEOUT_TIME = 150;
+const DIM_BRIGHTNESS = -0.3;
+const DIM_TIME = 500;
+const UNDIM_TIME = 250;
 
-var MIN_NUM_WORKSPACES = 2;
+const ONE_SECOND = 1000; // in ms
+
+const MIN_NUM_WORKSPACES = 2;
 
 const GSD_WACOM_BUS_NAME = 'org.gnome.SettingsDaemon.Wacom';
 const GSD_WACOM_OBJECT_PATH = '/org/gnome/SettingsDaemon/Wacom';
@@ -44,25 +50,26 @@ const GSD_WACOM_OBJECT_PATH = '/org/gnome/SettingsDaemon/Wacom';
 const GsdWacomIface = loadInterfaceXML('org.gnome.SettingsDaemon.Wacom');
 const GsdWacomProxy = Gio.DBusProxy.makeProxyWrapper(GsdWacomIface);
 
-const WINDOW_DIMMER_EFFECT_NAME = "gnome-shell-window-dimmer";
+const WINDOW_DIMMER_EFFECT_NAME = 'gnome-shell-window-dimmer';
 
 Gio._promisify(Shell, 'util_start_systemd_unit');
 Gio._promisify(Shell, 'util_stop_systemd_unit');
 
-var DisplayChangeDialog = GObject.registerClass(
+const DisplayChangeDialog = GObject.registerClass(
 class DisplayChangeDialog extends ModalDialog.ModalDialog {
     _init(wm) {
         super._init();
 
         this._wm = wm;
 
-        this._countDown = Meta.MonitorManager.get_display_configuration_timeout();
+        const monitorManager = global.backend.get_monitor_manager();
+        this._countDown = monitorManager.get_display_configuration_timeout();
 
         // Translators: This string should be shorter than 30 characters
         let title = _('Keep these display settings?');
         let description = this._formatCountDown();
 
-        this._content = new Dialog.MessageDialogContent({ title, description });
+        this._content = new Dialog.MessageDialogContent({title, description});
         this.contentLayout.add_child(this._content);
 
         /* Translators: this and the following message should be limited in length,
@@ -103,7 +110,7 @@ class DisplayChangeDialog extends ModalDialog.ModalDialog {
     _tick() {
         this._countDown--;
 
-        if (this._countDown == 0) {
+        if (this._countDown === 0) {
             /* mutter already takes care of failing at timeout */
             this._timeoutId = 0;
             this.close();
@@ -125,7 +132,7 @@ class DisplayChangeDialog extends ModalDialog.ModalDialog {
     }
 });
 
-var WindowDimmer = GObject.registerClass(
+export const WindowDimmer = GObject.registerClass(
 class WindowDimmer extends Clutter.BrightnessContrastEffect {
     _init() {
         super._init({
@@ -154,6 +161,9 @@ class WindowDimmer extends Clutter.BrightnessContrastEffect {
     }
 });
 
+/**
+ * @param {Meta.WindowActor} actor
+ */
 function getWindowDimmer(actor) {
     let effect = actor.get_effect(WINDOW_DIMMER_EFFECT_NAME);
 
@@ -170,9 +180,9 @@ function getWindowDimmer(actor) {
  * the main window of an application, and give the app a grace period
  * where it can map another window before we remove the workspace.
  */
-var LAST_WINDOW_GRACE_TIME = 1000;
+const LAST_WINDOW_GRACE_TIME = 1000;
 
-var WorkspaceTracker = class {
+class WorkspaceTracker {
     constructor(wm) {
         this._wm = wm;
 
@@ -186,19 +196,19 @@ var WorkspaceTracker = class {
 
         let workspaceManager = global.workspace_manager;
         workspaceManager.connect('notify::n-workspaces',
-                                 this._nWorkspacesChanged.bind(this));
+            this._nWorkspacesChanged.bind(this));
         workspaceManager.connect('workspaces-reordered', () => {
             this._workspaces.sort((a, b) => a.index() - b.index());
         });
         global.window_manager.connect('switch-workspace',
-                                      this._queueCheckWorkspaces.bind(this));
+            this._queueCheckWorkspaces.bind(this));
 
         global.display.connect('window-entered-monitor',
-                               this._windowEnteredMonitor.bind(this));
+            this._windowEnteredMonitor.bind(this));
         global.display.connect('window-left-monitor',
-                               this._windowLeftMonitor.bind(this));
+            this._windowLeftMonitor.bind(this));
 
-        this._workspaceSettings = new Gio.Settings({ schema_id: 'org.gnome.mutter' });
+        this._workspaceSettings = new Gio.Settings({schema_id: 'org.gnome.mutter'});
         this._workspaceSettings.connect('changed::dynamic-workspaces', this._queueCheckWorkspaces.bind(this));
 
         this._nWorkspacesChanged();
@@ -229,9 +239,9 @@ var WorkspaceTracker = class {
         for (i = 0; i < this._workspaces.length; i++) {
             let lastRemoved = this._workspaces[i]._lastRemovedWindow;
             if ((lastRemoved &&
-                 (lastRemoved.get_window_type() == Meta.WindowType.SPLASHSCREEN ||
-                  lastRemoved.get_window_type() == Meta.WindowType.DIALOG ||
-                  lastRemoved.get_window_type() == Meta.WindowType.MODAL_DIALOG)) ||
+                 (lastRemoved.get_window_type() === Meta.WindowType.SPLASHSCREEN ||
+                  lastRemoved.get_window_type() === Meta.WindowType.DIALOG ||
+                  lastRemoved.get_window_type() === Meta.WindowType.MODAL_DIALOG)) ||
                 this._workspaces[i]._keepAliveId)
                 emptyWorkspaces[i] = false;
             else
@@ -279,7 +289,7 @@ var WorkspaceTracker = class {
         for (i = lastIndex; i >= 0; i--) {
             if (workspaceManager.n_workspaces === MIN_NUM_WORKSPACES)
                 break;
-            if (emptyWorkspaces[i] && i != lastEmptyIndex)
+            if (emptyWorkspaces[i] && i !== lastEmptyIndex)
                 workspaceManager.remove_workspace(this._workspaces[i], global.get_current_time());
         }
 
@@ -303,7 +313,7 @@ var WorkspaceTracker = class {
         workspace._lastRemovedWindow = window;
         this._queueCheckWorkspaces();
         let id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, LAST_WINDOW_GRACE_TIME, () => {
-            if (workspace._lastRemovedWindow == window) {
+            if (workspace._lastRemovedWindow === window) {
                 workspace._lastRemovedWindow = null;
                 this._queueCheckWorkspaces();
             }
@@ -315,20 +325,23 @@ var WorkspaceTracker = class {
     _windowLeftMonitor(metaDisplay, monitorIndex, _metaWin) {
         // If the window left the primary monitor, that
         // might make that workspace empty
-        if (monitorIndex == Main.layoutManager.primaryIndex)
+        if (monitorIndex === Main.layoutManager.primaryIndex)
             this._queueCheckWorkspaces();
     }
 
     _windowEnteredMonitor(metaDisplay, monitorIndex, _metaWin) {
         // If the window entered the primary monitor, that
         // might make that workspace non-empty
-        if (monitorIndex == Main.layoutManager.primaryIndex)
+        if (monitorIndex === Main.layoutManager.primaryIndex)
             this._queueCheckWorkspaces();
     }
 
     _queueCheckWorkspaces() {
-        if (this._checkWorkspacesId == 0)
-            this._checkWorkspacesId = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, this._checkWorkspaces.bind(this));
+        if (this._checkWorkspacesId === 0) {
+            const laters = global.compositor.get_laters();
+            this._checkWorkspacesId =
+                laters.add(Meta.LaterType.BEFORE_REDRAW, this._checkWorkspaces.bind(this));
+        }
     }
 
     _nWorkspacesChanged() {
@@ -336,7 +349,7 @@ var WorkspaceTracker = class {
         let oldNumWorkspaces = this._workspaces.length;
         let newNumWorkspaces = workspaceManager.n_workspaces;
 
-        if (oldNumWorkspaces == newNumWorkspaces)
+        if (oldNumWorkspaces === newNumWorkspaces)
             return false;
 
         if (newNumWorkspaces > oldNumWorkspaces) {
@@ -358,7 +371,7 @@ var WorkspaceTracker = class {
             let removedNum = oldNumWorkspaces - newNumWorkspaces;
             for (let w = 0; w < oldNumWorkspaces; w++) {
                 let workspace = workspaceManager.get_workspace_by_index(w);
-                if (this._workspaces[w] != workspace) {
+                if (this._workspaces[w] !== workspace) {
                     removedIndex = w;
                     break;
                 }
@@ -372,9 +385,9 @@ var WorkspaceTracker = class {
 
         return false;
     }
-};
+}
 
-var TilePreview = GObject.registerClass(
+export const TilePreview = GObject.registerClass(
 class TilePreview extends St.Widget {
     _init() {
         super._init();
@@ -394,8 +407,8 @@ class TilePreview extends St.Widget {
         if (this._rect && this._rect.equal(tileRect))
             return;
 
-        let changeMonitor = this._monitorIndex == -1 ||
-                             this._monitorIndex != monitorIndex;
+        let changeMonitor = this._monitorIndex === -1 ||
+                             this._monitorIndex !== monitorIndex;
 
         this._monitorIndex = monitorIndex;
         this._rect = tileRect;
@@ -405,7 +418,7 @@ class TilePreview extends St.Widget {
         this._updateStyle(monitor);
 
         if (!this._showing || changeMonitor) {
-            const monitorRect = new Meta.Rectangle({
+            const monitorRect = new Mtk.Rectangle({
                 x: monitor.x,
                 y: monitor.y,
                 width: monitor.width,
@@ -451,82 +464,21 @@ class TilePreview extends St.Widget {
 
     _updateStyle(monitor) {
         let styles = ['tile-preview'];
-        if (this._monitorIndex == Main.layoutManager.primaryIndex)
+        if (this._monitorIndex === Main.layoutManager.primaryIndex)
             styles.push('on-primary');
-        if (this._rect.x == monitor.x)
+        if (this._rect.x === monitor.x)
             styles.push('tile-preview-left');
-        if (this._rect.x + this._rect.width == monitor.x + monitor.width)
+        if (this._rect.x + this._rect.width === monitor.x + monitor.width)
             styles.push('tile-preview-right');
 
         this.style_class = styles.join(' ');
     }
 });
 
-var AppSwitchAction = GObject.registerClass({
-    Signals: { 'activated': {} },
-}, class AppSwitchAction extends Clutter.GestureAction {
-    _init() {
-        super._init();
-        this.set_n_touch_points(3);
-
-        global.display.connect('grab-op-begin', () => {
-            this.cancel();
-        });
-    }
-
-    vfunc_gesture_prepare(_actor) {
-        if (Main.actionMode != Shell.ActionMode.NORMAL) {
-            this.cancel();
-            return false;
-        }
-
-        return this.get_n_current_points() <= 4;
-    }
-
-    vfunc_gesture_begin(_actor) {
-        // in milliseconds
-        const LONG_PRESS_TIMEOUT = 250;
-
-        let nPoints = this.get_n_current_points();
-        let event = this.get_last_event(nPoints - 1);
-
-        if (nPoints == 3) {
-            this._longPressStartTime = event.get_time();
-        } else if (nPoints == 4) {
-            // Check whether the 4th finger press happens after a 3-finger long press,
-            // this only needs to be checked on the first 4th finger press
-            if (this._longPressStartTime != null &&
-                event.get_time() < this._longPressStartTime + LONG_PRESS_TIMEOUT) {
-                this.cancel();
-            } else {
-                this._longPressStartTime = null;
-                this.emit('activated');
-            }
-        }
-
-        return this.get_n_current_points() <= 4;
-    }
-
-    vfunc_gesture_progress(_actor) {
-        if (this.get_n_current_points() == 3) {
-            for (let i = 0; i < this.get_n_current_points(); i++) {
-                let [startX, startY] = this.get_press_coords(i);
-                let [x, y] = this.get_motion_coords(i);
-
-                if (Math.abs(x - startX) > APP_MOTION_THRESHOLD ||
-                    Math.abs(y - startY) > APP_MOTION_THRESHOLD)
-                    return false;
-            }
-        }
-
-        return true;
-    }
-});
-
-var ResizePopup = GObject.registerClass(
+const ResizePopup = GObject.registerClass(
 class ResizePopup extends St.Widget {
     _init() {
-        super._init({ layout_manager: new Clutter.BinLayout() });
+        super._init({layout_manager: new Clutter.BinLayout()});
         this._label = new St.Label({
             style_class: 'resize-popup',
             x_align: Clutter.ActorAlign.CENTER,
@@ -541,7 +493,7 @@ class ResizePopup extends St.Widget {
     set(rect, displayW, displayH) {
         /* Translators: This represents the size of a window. The first number is
          * the width of the window and the second is the height. */
-        let text = _("%d × %d").format(displayW, displayH);
+        let text = _('%d × %d').format(displayW, displayH);
         this._label.set_text(text);
 
         this.set_position(rect.x, rect.y);
@@ -549,7 +501,7 @@ class ResizePopup extends St.Widget {
     }
 });
 
-var WindowManager = class {
+export class WindowManager {
     constructor() {
         this._shellwm =  global.window_manager;
 
@@ -608,254 +560,264 @@ var WindowManager = class {
         this.allowKeybinding('switch-to-session-12', Shell.ActionMode.ALL);
 
         this.setCustomKeybindingHandler('switch-to-workspace-left',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-right',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-up',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-down',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-last',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-left',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-right',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-up',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-down',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-1',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-2',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-3',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-4',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-5',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-6',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-7',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-8',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-9',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-10',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-11',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-to-workspace-12',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-1',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-2',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-3',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-4',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-5',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-6',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-7',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-8',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-9',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-10',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-11',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-12',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('move-to-workspace-last',
-                                        Shell.ActionMode.NORMAL,
-                                        this._showWorkspaceSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-applications',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-group',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-applications-backward',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-group-backward',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-windows',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-windows-backward',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('cycle-windows',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('cycle-windows-backward',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('cycle-group',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('cycle-group-backward',
-                                        Shell.ActionMode.NORMAL,
-                                        this._startSwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-panels',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW |
-                                        Shell.ActionMode.LOCK_SCREEN |
-                                        Shell.ActionMode.UNLOCK_SCREEN |
-                                        Shell.ActionMode.LOGIN_SCREEN,
-                                        this._startA11ySwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-panels-backward',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW |
-                                        Shell.ActionMode.LOCK_SCREEN |
-                                        Shell.ActionMode.UNLOCK_SCREEN |
-                                        Shell.ActionMode.LOGIN_SCREEN,
-                                        this._startA11ySwitcher.bind(this));
-        this.setCustomKeybindingHandler('switch-monitor',
-                                        Shell.ActionMode.NORMAL |
-                                        Shell.ActionMode.OVERVIEW,
-                                        this._startSwitcher.bind(this));
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
 
-        this.addKeybinding('open-application-menu',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.POPUP,
-                           this._toggleAppMenu.bind(this));
+        this.setCustomKeybindingHandler('switch-to-workspace-right',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-up',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-down',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-last',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-left',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-right',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-up',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-down',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-1',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-2',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-3',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-4',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-5',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-6',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-7',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-8',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-9',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-10',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-11',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-to-workspace-12',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-1',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-2',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-3',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-4',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-5',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-6',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-7',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-8',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-9',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-10',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-11',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-12',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('move-to-workspace-last',
+            Shell.ActionMode.NORMAL,
+            this._showWorkspaceSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-applications',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-group',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-applications-backward',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-group-backward',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-windows',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-windows-backward',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('cycle-windows',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('cycle-windows-backward',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('cycle-group',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('cycle-group-backward',
+            Shell.ActionMode.NORMAL,
+            this._startSwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-panels',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
+            Shell.ActionMode.LOCK_SCREEN | Shell.ActionMode.UNLOCK_SCREEN |
+            Shell.ActionMode.LOGIN_SCREEN,
+            this._startA11ySwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-panels-backward',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
+            Shell.ActionMode.LOCK_SCREEN | Shell.ActionMode.UNLOCK_SCREEN |
+            Shell.ActionMode.LOGIN_SCREEN,
+            this._startA11ySwitcher.bind(this));
+
+        this.setCustomKeybindingHandler('switch-monitor',
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._startSwitcher.bind(this));
 
         this.addKeybinding('toggle-message-tray',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW |
-                           Shell.ActionMode.POPUP,
-                           this._toggleCalendar.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
+            Shell.ActionMode.POPUP,
+            this._toggleCalendar.bind(this));
+
+        this.addKeybinding('toggle-quick-settings',
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
+            Shell.ActionMode.POPUP,
+            this._toggleQuickSettings.bind(this));
 
         this.addKeybinding('switch-to-application-1',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-2',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-3',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-4',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-5',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-6',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-7',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-8',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         this.addKeybinding('switch-to-application-9',
-                           new Gio.Settings({ schema_id: SHELL_KEYBINDINGS_SCHEMA }),
-                           Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                           Shell.ActionMode.NORMAL |
-                           Shell.ActionMode.OVERVIEW,
-                           this._switchToApplication.bind(this));
+            new Gio.Settings({schema_id: SHELL_KEYBINDINGS_SCHEMA}),
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            this._switchToApplication.bind(this));
 
         global.stage.connect('scroll-event', (stage, event) => {
             const allowedModes = Shell.ActionMode.NORMAL;
@@ -878,12 +840,12 @@ var WindowManager = class {
             Main.osdWindowManager.show(monitorIndex, icon, label, null);
         });
 
-        this._gsdWacomProxy = new GsdWacomProxy(Gio.DBus.session, GSD_WACOM_BUS_NAME,
-                                                GSD_WACOM_OBJECT_PATH,
-                                                (proxy, error) => {
-                                                    if (error)
-                                                        log(error.message);
-                                                });
+        this._gsdWacomProxy = new GsdWacomProxy(Gio.DBus.session,
+            GSD_WACOM_BUS_NAME, GSD_WACOM_OBJECT_PATH,
+            (proxy, error) => {
+                if (error)
+                    log(error.message);
+            });
 
         global.display.connect('pad-mode-switch', (display, pad, _group, _mode) => {
             let labels = [];
@@ -927,10 +889,6 @@ var WindowManager = class {
 
         if (Main.sessionMode.hasWorkspaces)
             this._workspaceTracker = new WorkspaceTracker(this);
-
-        let appSwitchAction = new AppSwitchAction();
-        appSwitchAction.connect('activated', this._switchApp.bind(this));
-        global.stage.add_action_full('app-switch', Clutter.EventPhase.CAPTURE, appSwitchAction);
 
         let mode = Shell.ActionMode.NORMAL;
         let topDragAction = new EdgeDragAction.EdgeDragAction(St.Side.TOP, mode);
@@ -1002,7 +960,7 @@ var WindowManager = class {
 
     _lookupIndex(windows, metaWindow) {
         for (let i = 0; i < windows.length; i++) {
-            if (windows[i].metaWindow == metaWindow)
+            if (windows[i].metaWindow === metaWindow)
                 return i;
         }
         return -1;
@@ -1017,7 +975,7 @@ var WindowManager = class {
                     win.located_on_workspace(activeWorkspace);
         });
 
-        if (windows.length == 0)
+        if (windows.length === 0)
             return;
 
         let focusWindow = global.display.focus_window;
@@ -1098,7 +1056,7 @@ var WindowManager = class {
 
     addKeybinding(name, settings, flags, modes, handler) {
         let action = global.display.add_keybinding(name, settings, flags, handler);
-        if (action != Meta.KeyBindingAction.NONE)
+        if (action !== Meta.KeyBindingAction.NONE)
             this.allowKeybinding(name, modes);
         return action;
     }
@@ -1169,7 +1127,7 @@ var WindowManager = class {
                 }
                 xDest = monitor.x;
                 yDest = monitor.y;
-                if (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL)
+                if (Clutter.get_default_text_direction() === Clutter.TextDirection.RTL)
                     xDest += monitor.width;
                 xScale = 0;
                 yScale = 0;
@@ -1224,8 +1182,9 @@ var WindowManager = class {
             let [success, geom] = actor.meta_window.get_icon_geometry();
             if (success) {
                 actor.set_position(geom.x, geom.y);
-                actor.set_scale(geom.width / actor.width,
-                                geom.height / actor.height);
+                actor.set_scale(
+                    geom.width / actor.width,
+                    geom.height / actor.height);
             } else {
                 let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
                 if (!monitor) {
@@ -1234,7 +1193,7 @@ var WindowManager = class {
                     return;
                 }
                 actor.set_position(monitor.x, monitor.y);
-                if (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL)
+                if (Clutter.get_default_text_direction() === Clutter.TextDirection.RTL)
                     actor.x += monitor.width;
                 actor.set_scale(0, 0);
             }
@@ -1283,7 +1242,7 @@ var WindowManager = class {
         // Position a clone of the window on top of the old position,
         // while actor updates are frozen.
         let actorContent = actor.paint_to_content(oldFrameRect);
-        let actorClone = new St.Widget({ content: actorContent });
+        let actorClone = new St.Widget({content: actorContent});
         actorClone.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
         actorClone.set_position(oldFrameRect.x, oldFrameRect.y);
         actorClone.set_size(oldFrameRect.width, oldFrameRect.height);
@@ -1403,7 +1362,7 @@ var WindowManager = class {
         } else if (!shouldDim && window._dimmed) {
             window._dimmed = false;
             this._dimmedWindows =
-                this._dimmedWindows.filter(win => win != window);
+                this._dimmedWindows.filter(win => win !== window);
             this._undimWindow(window);
         }
     }
@@ -1534,7 +1493,7 @@ var WindowManager = class {
         window.disconnectObject(actor);
         if (window._dimmed) {
             this._dimmedWindows =
-                this._dimmedWindows.filter(win => win != window);
+                this._dimmedWindows.filter(win => win !== window);
         }
 
         if (window.is_attached_dialog())
@@ -1598,14 +1557,14 @@ var WindowManager = class {
     }
 
     _filterKeybinding(shellwm, binding) {
-        if (Main.actionMode == Shell.ActionMode.NONE)
+        if (Main.actionMode === Shell.ActionMode.NONE)
             return true;
 
         // There's little sense in implementing a keybinding in mutter and
         // not having it work in NORMAL mode; handle this case generically
         // so we don't have to explicitly allow all builtin keybindings in
         // NORMAL mode.
-        if (Main.actionMode == Shell.ActionMode.NORMAL &&
+        if (Main.actionMode === Shell.ActionMode.NORMAL &&
             binding.is_builtin())
             return false;
 
@@ -1710,12 +1669,12 @@ var WindowManager = class {
         }
     }
 
-    _toggleAppMenu() {
-        Main.panel.toggleAppMenu();
-    }
-
     _toggleCalendar() {
         Main.panel.toggleCalendar();
+    }
+
+    _toggleQuickSettings() {
+        Main.panel.toggleQuickSettings();
     }
 
     _showWorkspaceSwitcher(display, window, binding) {
@@ -1724,26 +1683,26 @@ var WindowManager = class {
         if (!Main.sessionMode.hasWorkspaces)
             return;
 
-        if (workspaceManager.n_workspaces == 1)
+        if (workspaceManager.n_workspaces === 1)
             return;
 
         let [action,,, target] = binding.get_name().split('-');
         let newWs;
         let direction;
-        let vertical = workspaceManager.layout_rows == -1;
-        let rtl = Clutter.get_default_text_direction() == Clutter.TextDirection.RTL;
+        let vertical = workspaceManager.layout_rows === -1;
+        let rtl = Clutter.get_default_text_direction() === Clutter.TextDirection.RTL;
 
-        if (action == 'move') {
+        if (action === 'move') {
             // "Moving" a window to another workspace doesn't make sense when
             // it cannot be unstuck, and is potentially confusing if a new
             // workspaces is added at the start/end
             if (window.is_always_on_all_workspaces() ||
                 (Meta.prefs_get_workspaces_only_on_primary() &&
-                 window.get_monitor() != Main.layoutManager.primaryIndex))
+                 window.get_monitor() !== Main.layoutManager.primaryIndex))
                 return;
         }
 
-        if (target == 'last') {
+        if (target === 'last') {
             if (vertical)
                 direction = Meta.MotionDirection.DOWN;
             else if (rtl)
@@ -1773,7 +1732,7 @@ var WindowManager = class {
             target--;
             newWs = workspaceManager.get_workspace_by_index(target);
 
-            if (workspaceManager.get_active_workspace().index() > target) {
+            if (workspaceManager.get_active_workspace_index() > target) {
                 if (vertical)
                     direction = Meta.MotionDirection.UP;
                 else if (rtl)
@@ -1790,17 +1749,17 @@ var WindowManager = class {
             }
         }
 
-        if (workspaceManager.layout_rows == -1 &&
-            direction != Meta.MotionDirection.UP &&
-            direction != Meta.MotionDirection.DOWN)
+        if (workspaceManager.layout_rows === -1 &&
+            direction !== Meta.MotionDirection.UP &&
+            direction !== Meta.MotionDirection.DOWN)
             return;
 
-        if (workspaceManager.layout_columns == -1 &&
-            direction != Meta.MotionDirection.LEFT &&
-            direction != Meta.MotionDirection.RIGHT)
+        if (workspaceManager.layout_columns === -1 &&
+            direction !== Meta.MotionDirection.LEFT &&
+            direction !== Meta.MotionDirection.RIGHT)
             return;
 
-        if (action == 'switch')
+        if (action === 'switch')
             this.actionMoveWorkspace(newWs);
         else
             this.actionMoveWindow(window, newWs);
@@ -1924,4 +1883,4 @@ var WindowManager = class {
             this._resizePopup = null;
         }
     }
-};
+}

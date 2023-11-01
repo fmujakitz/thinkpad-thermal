@@ -1,18 +1,20 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported PageIndicators */
 
-const { Clutter, Graphene, GObject, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Graphene from 'gi://Graphene';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
 
 const INDICATOR_INACTIVE_OPACITY = 128;
 const INDICATOR_INACTIVE_OPACITY_HOVER = 255;
 const INDICATOR_INACTIVE_SCALE = 2 / 3;
 const INDICATOR_INACTIVE_SCALE_PRESSED = 0.5;
 
-var PageIndicators = GObject.registerClass({
-    Signals: { 'page-activated': { param_types: [GObject.TYPE_INT] } },
+export const PageIndicators = GObject.registerClass({
+    Signals: {'page-activated': {param_types: [GObject.TYPE_INT]}},
 }, class PageIndicators extends St.BoxLayout {
     _init(orientation = Clutter.Orientation.VERTICAL) {
-        let vertical = orientation == Clutter.Orientation.VERTICAL;
+        let vertical = orientation === Clutter.Orientation.VERTICAL;
         super._init({
             style_class: 'page-indicators',
             vertical,
@@ -47,7 +49,7 @@ var PageIndicators = GObject.registerClass({
     }
 
     setNPages(nPages) {
-        if (this._nPages == nPages)
+        if (this._nPages === nPages)
             return;
 
         let diff = nPages - this._nPages;
@@ -63,7 +65,7 @@ var PageIndicators = GObject.registerClass({
                 });
                 indicator.child = new St.Widget({
                     style_class: 'page-indicator-icon',
-                    pivot_point: new Graphene.Point({ x: 0.5, y: 0.5 }),
+                    pivot_point: new Graphene.Point({x: 0.5, y: 0.5}),
                 });
                 indicator.connect('clicked', () => {
                     this.emit('page-activated', pageIndex);

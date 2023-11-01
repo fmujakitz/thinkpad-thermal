@@ -1,13 +1,15 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Lightbox */
 
-const { Clutter, GObject, Shell, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-const Params = imports.misc.params;
+import * as Params from '../misc/params.js';
 
-var DEFAULT_FADE_FACTOR = 0.4;
-var VIGNETTE_BRIGHTNESS = 0.5;
-var VIGNETTE_SHARPNESS = 0.7;
+export const DEFAULT_FADE_FACTOR = 0.4;
+export const VIGNETTE_BRIGHTNESS = 0.5;
+export const VIGNETTE_SHARPNESS = 0.7;
 
 const VIGNETTE_DECLARATIONS = '                                              \
 uniform float brightness;                                                  \n\
@@ -26,7 +28,7 @@ cogl_color_out.a *= 1.0 - pixel_brightness * brightness;                   \n\
 cogl_color_out.a += (rand(position) - 0.5) / 100.0;                        \n';
 
 
-var RadialShaderEffect = GObject.registerClass({
+const RadialShaderEffect = GObject.registerClass({
     Properties: {
         'brightness': GObject.ParamSpec.float(
             'brightness', 'brightness', 'brightness',
@@ -53,7 +55,7 @@ var RadialShaderEffect = GObject.registerClass({
 
     vfunc_build_pipeline() {
         this.add_glsl_snippet(Shell.SnippetHook.FRAGMENT,
-                              VIGNETTE_DECLARATIONS, VIGNETTE_CODE, true);
+            VIGNETTE_DECLARATIONS, VIGNETTE_CODE, true);
     }
 
     get brightness() {
@@ -85,34 +87,36 @@ var RadialShaderEffect = GObject.registerClass({
 
 /**
  * Lightbox:
- * @container: parent Clutter.Container
- * @params: (optional) additional parameters:
- *           - inhibitEvents: whether to inhibit events for @container
- *           - width: shade actor width
- *           - height: shade actor height
- *           - fadeFactor: fading opacity factor
- *           - radialEffect: whether to enable the GLSL radial effect
- *
- * Lightbox creates a dark translucent "shade" actor to hide the
- * contents of @container, and allows you to specify particular actors
- * in @container to highlight by bringing them above the shade. It
- * tracks added and removed actors in @container while the lightboxing
- * is active, and ensures that all actors are returned to their
- * original stacking order when the lightboxing is removed. (However,
- * if actors are restacked by outside code while the lightboxing is
- * active, the lightbox may later revert them back to their original
- * order.)
- *
- * By default, the shade window will have the height and width of
- * @container and will track any changes in its size. You can override
- * this by passing an explicit width and height in @params.
  */
-var Lightbox = GObject.registerClass({
+export const Lightbox = GObject.registerClass({
     Properties: {
         'active': GObject.ParamSpec.boolean(
             'active', 'active', 'active', GObject.ParamFlags.READABLE, false),
     },
 }, class Lightbox extends St.Bin {
+    /**
+     * Lightbox creates a dark translucent "shade" actor to hide the
+     * contents of `container`, and allows you to specify particular actors
+     * in `container` to highlight by bringing them above the shade. It
+     * tracks added and removed actors in `container` while the lightboxing
+     * is active, and ensures that all actors are returned to their
+     * original stacking order when the lightboxing is removed. (However,
+     * if actors are restacked by outside code while the lightboxing is
+     * active, the lightbox may later revert them back to their original
+     * order.)
+     *
+     * By default, the shade window will have the height and width of
+     * `container` and will track any changes in its size. You can override
+     * this by passing an explicit width and height in `params`.
+     *
+     * @param {Clutter.Container} container parent Clutter.Container
+     * @param {object} [params] additional parameters:
+     * @param {boolean=} params.inhibitEvents: whether to inhibit events for `container`
+     * @param {number=} params.width: shade actor width
+     * @param {number=} params.height: shade actor height
+     * @param {number=} params.fadeFactor: fading opacity factor
+     * @param {boolean=} params.radialEffect: whether to enable the GLSL radial effect
+     */
     _init(container, params) {
         params = Params.parse(params, {
             inhibitEvents: false,
@@ -136,9 +140,9 @@ var Lightbox = GObject.registerClass({
         this._radialEffect = params.radialEffect;
 
         if (this._radialEffect)
-            this.add_effect(new RadialShaderEffect({ name: 'radial' }));
+            this.add_effect(new RadialShaderEffect({name: 'radial'}));
         else
-            this.set({ opacity: 0, style_class: 'lightbox' });
+            this.set({opacity: 0, style_class: 'lightbox'});
 
         container.add_actor(this);
         container.set_child_above_sibling(this, null);
@@ -174,13 +178,13 @@ var Lightbox = GObject.registerClass({
             // and add it to this._children as the new topmost actor.
             this._container.set_child_above_sibling(this, newChild);
             this._children.push(newChild);
-        } else if (newChildIndex == 0) {
+        } else if (newChildIndex === 0) {
             // Bottom of stack
             this._children.unshift(newChild);
         } else {
             // Somewhere else; insert it into the correct spot
             let prevChild = this._children.indexOf(children[newChildIndex - 1]);
-            if (prevChild != -1) // paranoia
+            if (prevChild !== -1) // paranoia
                 this._children.splice(prevChild + 1, 0, newChild);
         }
     }
@@ -205,7 +209,7 @@ var Lightbox = GObject.registerClass({
                 '@effects.radial.brightness', VIGNETTE_BRIGHTNESS, easeProps);
             this.ease_property(
                 '@effects.radial.sharpness', VIGNETTE_SHARPNESS,
-                Object.assign({ onComplete }, easeProps));
+                Object.assign({onComplete}, easeProps));
         } else {
             this.ease(Object.assign(easeProps, {
                 opacity: 255 * this._fadeFactor,
@@ -231,31 +235,32 @@ var Lightbox = GObject.registerClass({
             this.ease_property(
                 '@effects.radial.brightness', 1.0, easeProps);
             this.ease_property(
-                '@effects.radial.sharpness', 0.0, Object.assign({ onComplete }, easeProps));
+                '@effects.radial.sharpness', 0.0, Object.assign({onComplete}, easeProps));
         } else {
-            this.ease(Object.assign(easeProps, { opacity: 0, onComplete }));
+            this.ease(Object.assign(easeProps, {opacity: 0, onComplete}));
         }
     }
 
     _actorRemoved(container, child) {
         let index = this._children.indexOf(child);
-        if (index != -1) // paranoia
+        if (index !== -1) // paranoia
             this._children.splice(index, 1);
 
-        if (child == this._highlighted)
+        if (child === this._highlighted)
             this._highlighted = null;
     }
 
     /**
      * highlight:
-     * @param {Clutter.Actor=} window: actor to highlight
      *
      * Highlights the indicated actor and unhighlights any other
      * currently-highlighted actor. With no arguments or a false/null
      * argument, all actors will be unhighlighted.
+     *
+     * @param {Clutter.Actor=} window actor to highlight
      */
     highlight(window) {
-        if (this._highlighted == window)
+        if (this._highlighted === window)
             return;
 
         // Walk this._children raising and lowering actors as needed.
@@ -266,9 +271,9 @@ var Lightbox = GObject.registerClass({
 
         let below = this;
         for (let i = this._children.length - 1; i >= 0; i--) {
-            if (this._children[i] == window)
+            if (this._children[i] === window)
                 this._container.set_child_above_sibling(this._children[i], null);
-            else if (this._children[i] == this._highlighted)
+            else if (this._children[i] === this._highlighted)
                 this._container.set_child_below_sibling(this._children[i], below);
             else
                 below = this._children[i];

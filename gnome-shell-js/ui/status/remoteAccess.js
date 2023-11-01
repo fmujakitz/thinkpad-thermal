@@ -1,16 +1,20 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported RemoteAccessApplet, ScreenRecordingIndicator, ScreenSharingIndicator */
 
-const { Atk, Clutter, GLib, GObject, Meta, St } = imports.gi;
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
 
-const Main = imports.ui.main;
-const PanelMenu = imports.ui.panelMenu;
-const {SystemIndicator} = imports.ui.quickSettings;
+import * as Main from '../main.js';
+import * as PanelMenu from '../panelMenu.js';
+import {SystemIndicator} from '../quickSettings.js';
 
 // Minimum amount of time the shared indicator is visible (in micro seconds)
 const MIN_SHARED_INDICATOR_VISIBLE_TIME_US = 5 * GLib.TIME_SPAN_SECOND;
 
-var RemoteAccessApplet = GObject.registerClass(
+export const RemoteAccessApplet = GObject.registerClass(
 class RemoteAccessApplet extends SystemIndicator {
     _init() {
         super._init();
@@ -23,10 +27,8 @@ class RemoteAccessApplet extends SystemIndicator {
         this._handles = new Set();
 
         this._indicator = this._addIndicator();
-        this._indicator.set({
-            style_class: 'screencast-indicator',
-            icon_name: 'media-record-symbolic',
-        });
+        this._indicator.icon_name = 'media-record-symbolic';
+        this._indicator.add_style_class_name('privacy-indicator');
 
         controller.connect('new-handle', (o, handle) => {
             this._onNewHandle(handle);
@@ -63,8 +65,8 @@ class RemoteAccessApplet extends SystemIndicator {
     }
 });
 
-var ScreenRecordingIndicator = GObject.registerClass({
-    Signals: { 'menu-set': {} },
+export const ScreenRecordingIndicator = GObject.registerClass({
+    Signals: {'menu-set': {}},
 }, class ScreenRecordingIndicator extends PanelMenu.ButtonBox {
     _init() {
         super._init({
@@ -85,7 +87,7 @@ var ScreenRecordingIndicator = GObject.registerClass({
         });
         this._box.add_child(this._label);
 
-        this._icon = new St.Icon({ icon_name: 'stop-symbolic' });
+        this._icon = new St.Icon({icon_name: 'screencast-stop-symbolic'});
         this._box.add_child(this._icon);
 
         this.hide();
@@ -133,7 +135,7 @@ var ScreenRecordingIndicator = GObject.registerClass({
     }
 });
 
-var ScreenSharingIndicator = GObject.registerClass({
+export const ScreenSharingIndicator = GObject.registerClass({
     Signals: {'menu-set': {}},
 }, class ScreenSharingIndicator extends PanelMenu.ButtonBox {
     _init() {
@@ -152,7 +154,7 @@ var ScreenSharingIndicator = GObject.registerClass({
         let icon = new St.Icon({icon_name: 'screen-shared-symbolic'});
         this._box.add_child(icon);
 
-        icon = new St.Icon({icon_name: 'window-close-symbolic'});
+        icon = new St.Icon({icon_name: 'screencast-stop-symbolic'});
         this._box.add_child(icon);
 
         this._controller = global.backend.get_remote_access_controller();

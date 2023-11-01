@@ -1,4 +1,4 @@
-import ConsoleUtil from './Console';
+import ConsoleUtil from "./Console.js"
 
 class LsnvmeUtil extends ConsoleUtil {
   private _data: {
@@ -71,7 +71,7 @@ export default class LsblkUtil extends ConsoleUtil {
 
       if (tran === 'nvme') {
         this._hasNvme = true
-        const key = this._lsnvme.name(name)
+        const key = this._lsnvme.name(name) as string
         acc[key] = model
         console.log(acc)
         return acc
@@ -91,5 +91,8 @@ export default class LsblkUtil extends ConsoleUtil {
 
   name(key: string) {
     return this._data[key]
+  }
+  hasNvme() {
+    return this._hasNvme
   }
 }

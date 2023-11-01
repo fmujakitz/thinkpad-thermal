@@ -1,13 +1,18 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported AppMenu */
-const { Clutter, Gio, GLib, Meta, Shell, St } = imports.gi;
 
-const AppFavorites = imports.ui.appFavorites;
-const Main = imports.ui.main;
-const ParentalControlsManager = imports.misc.parentalControlsManager;
-const PopupMenu = imports.ui.popupMenu;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
-var AppMenu = class AppMenu extends PopupMenu.PopupMenu {
+import * as AppFavorites from './appFavorites.js';
+import * as Main from './main.js';
+import * as ParentalControlsManager from '../misc/parentalControlsManager.js';
+import * as PopupMenu from './popupMenu.js';
+
+export class AppMenu extends PopupMenu.PopupMenu {
     /**
      * @param {Clutter.Actor} sourceActor - actor the menu is attached to
      * @param {St.Side} side - arrow side
@@ -78,7 +83,7 @@ var AppMenu = class AppMenu extends PopupMenu.PopupMenu {
 
         this.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-        this._detailsItem = this.addAction(_('Show Details'), async () => {
+        this._detailsItem = this.addAction(_('App Details'), async () => {
             const id = this._app.get_id();
             const args = GLib.Variant.new('(ss)', [id, '']);
             const bus = await Gio.DBus.get(Gio.BusType.SESSION, null);
@@ -152,7 +157,7 @@ var AppMenu = class AppMenu extends PopupMenu.PopupMenu {
         if (!canFavorite)
             return;
 
-        const { id } = this._app;
+        const {id} = this._app;
         this._toggleFavoriteItem.label.text = this._appFavorites.isFavorite(id)
             ? _('Unpin')
             : _('Pin to Dash');
@@ -249,7 +254,8 @@ var AppMenu = class AppMenu extends PopupMenu.PopupMenu {
         if (this._updateWindowsLaterId)
             return;
 
-        this._updateWindowsLaterId = Meta.later_add(
+        const laters = global.compositor.get_laters();
+        this._updateWindowsLaterId = laters.add(
             Meta.LaterType.BEFORE_REDRAW, () => {
                 this._updateWindowsSection();
                 return GLib.SOURCE_REMOVE;
@@ -257,8 +263,10 @@ var AppMenu = class AppMenu extends PopupMenu.PopupMenu {
     }
 
     _updateWindowsSection() {
-        if (this._updateWindowsLaterId)
-            Meta.later_remove(this._updateWindowsLaterId);
+        if (this._updateWindowsLaterId) {
+            const laters = global.compositor.get_laters();
+            laters.remove(this._updateWindowsLaterId);
+        }
         this._updateWindowsLaterId = 0;
 
         this._windowSection.removeAll();
@@ -284,4 +292,4 @@ var AppMenu = class AppMenu extends PopupMenu.PopupMenu {
             }, item);
         });
     }
-};
+}

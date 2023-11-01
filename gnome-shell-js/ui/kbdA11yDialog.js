@@ -1,23 +1,25 @@
-/* exported KbdA11yDialog */
-const { Clutter, Gio, GObject, Meta } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
 
-const Dialog = imports.ui.dialog;
-const ModalDialog = imports.ui.modalDialog;
+import * as Dialog from './dialog.js';
+import * as ModalDialog from './modalDialog.js';
 
 const KEYBOARD_A11Y_SCHEMA    = 'org.gnome.desktop.a11y.keyboard';
 const KEY_STICKY_KEYS_ENABLED = 'stickykeys-enable';
 const KEY_SLOW_KEYS_ENABLED   = 'slowkeys-enable';
 
-var KbdA11yDialog = GObject.registerClass(
+export const KbdA11yDialog = GObject.registerClass(
 class KbdA11yDialog extends GObject.Object {
     _init() {
         super._init();
 
-        this._a11ySettings = new Gio.Settings({ schema_id: KEYBOARD_A11Y_SCHEMA });
+        this._a11ySettings = new Gio.Settings({schema_id: KEYBOARD_A11Y_SCHEMA});
 
         let seat = Clutter.get_default_backend().get_default_seat();
         seat.connect('kbd-a11y-flags-changed',
-                     this._showKbdA11yDialog.bind(this));
+            this._showKbdA11yDialog.bind(this));
     }
 
     _showKbdA11yDialog(seat, newFlags, whatChanged) {
@@ -29,26 +31,26 @@ class KbdA11yDialog extends GObject.Object {
             key = KEY_SLOW_KEYS_ENABLED;
             enabled = (newFlags & Meta.KeyboardA11yFlags.SLOW_KEYS_ENABLED) > 0;
             title = enabled
-                ? _("Slow Keys Turned On")
-                : _("Slow Keys Turned Off");
+                ? _('Slow Keys Turned On')
+                : _('Slow Keys Turned Off');
             description = _('You just held down the Shift key for 8 seconds. This is the shortcut ' +
                             'for the Slow Keys feature, which affects the way your keyboard works.');
         } else if (whatChanged & Meta.KeyboardA11yFlags.STICKY_KEYS_ENABLED) {
             key = KEY_STICKY_KEYS_ENABLED;
             enabled = (newFlags & Meta.KeyboardA11yFlags.STICKY_KEYS_ENABLED) > 0;
             title = enabled
-                ? _("Sticky Keys Turned On")
-                : _("Sticky Keys Turned Off");
+                ? _('Sticky Keys Turned On')
+                : _('Sticky Keys Turned Off');
             description = enabled
-                ? _("You just pressed the Shift key 5 times in a row. This is the shortcut " +
-                  "for the Sticky Keys feature, which affects the way your keyboard works.")
-                : _("You just pressed two keys at once, or pressed the Shift key 5 times in a row. " +
-                  "This turns off the Sticky Keys feature, which affects the way your keyboard works.");
+                ? _('You just pressed the Shift key 5 times in a row. This is the shortcut ' +
+                  'for the Sticky Keys feature, which affects the way your keyboard works.')
+                : _('You just pressed two keys at once, or pressed the Shift key 5 times in a row. ' +
+                  'This turns off the Sticky Keys feature, which affects the way your keyboard works.');
         } else {
             return;
         }
 
-        let content = new Dialog.MessageDialogContent({ title, description });
+        let content = new Dialog.MessageDialogContent({title, description});
         dialog.contentLayout.add_child(content);
 
         dialog.addButton({

@@ -1,15 +1,17 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Component */
 
-const { Clutter, Gio, GObject, St } = imports.gi;
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
 
-const GnomeSession = imports.misc.gnomeSession;
-const Main = imports.ui.main;
-const MessageTray = imports.ui.messageTray;
+import * as GnomeSession from '../../misc/gnomeSession.js';
+import * as Main from '../main.js';
+import * as MessageTray from '../messageTray.js';
 
 Gio._promisify(Gio.Mount.prototype, 'guess_content_type');
 
-const { loadInterfaceXML } = imports.misc.fileUtils;
+import {loadInterfaceXML} from '../../misc/fileUtils.js';
 
 // GSettings keys
 const SETTINGS_SCHEMA = 'org.gnome.desktop.media-handling';
@@ -18,7 +20,8 @@ const SETTING_START_APP = 'autorun-x-content-start-app';
 const SETTING_IGNORE = 'autorun-x-content-ignore';
 const SETTING_OPEN_FOLDER = 'autorun-x-content-open-folder';
 
-var AutorunSetting = {
+/** @enum {number} */
+const AutorunSetting = {
     RUN: 0,
     IGNORE: 1,
     FILES: 2,
@@ -54,7 +57,7 @@ function isMountNonLocal(mount) {
     if (volume == null)
         return true;
 
-    return volume.get_identifier("class") == "network";
+    return volume.get_identifier('class') === 'network';
 }
 
 function startAppForMount(app, mount) {
@@ -66,9 +69,9 @@ function startAppForMount(app, mount) {
 
     try {
         retval = app.launch(files,
-                            global.create_app_launch_context(0, -1));
+            global.create_app_launch_context(0, -1));
     } catch (e) {
-        log(`Unable to launch the application ${app.get_name()}: ${e}`);
+        log(`Unable to launch the app ${app.get_name()}: ${e}`);
     }
 
     return retval;
@@ -78,13 +81,13 @@ const HotplugSnifferIface = loadInterfaceXML('org.gnome.Shell.HotplugSniffer');
 const HotplugSnifferProxy = Gio.DBusProxy.makeProxyWrapper(HotplugSnifferIface);
 function HotplugSniffer() {
     return new HotplugSnifferProxy(Gio.DBus.session,
-                                   'org.gnome.Shell.HotplugSniffer',
-                                   '/org/gnome/Shell/HotplugSniffer');
+        'org.gnome.Shell.HotplugSniffer',
+        '/org/gnome/Shell/HotplugSniffer');
 }
 
-var ContentTypeDiscoverer = class {
+class ContentTypeDiscoverer {
     constructor() {
-        this._settings = new Gio.Settings({ schema_id: SETTINGS_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: SETTINGS_SCHEMA});
     }
 
     async guessContentTypes(mount) {
@@ -102,7 +105,7 @@ var ContentTypeDiscoverer = class {
             if (contentTypes.length === 0) {
                 const root = mount.get_root();
                 const hotplugSniffer = new HotplugSniffer();
-                [contentTypes] = hotplugSniffer.SniffURIAsync(root.get_uri());
+                [contentTypes] = await hotplugSniffer.SniffURIAsync(root.get_uri());
             }
         }
 
@@ -123,9 +126,9 @@ var ContentTypeDiscoverer = class {
 
         return [apps, contentTypes];
     }
-};
+}
 
-var AutorunManager = class {
+class AutorunManager {
     constructor() {
         this._session = new GnomeSession.SessionManager();
         this._volumeMonitor = Gio.VolumeMonitor.get();
@@ -157,13 +160,13 @@ var AutorunManager = class {
     _onMountRemoved(monitor, mount) {
         this._dispatcher.removeMount(mount);
     }
-};
+}
 
-var AutorunDispatcher = class {
+class AutorunDispatcher {
     constructor(manager) {
         this._manager = manager;
         this._sources = [];
-        this._settings = new Gio.Settings({ schema_id: SETTINGS_SCHEMA });
+        this._settings = new Gio.Settings({schema_id: SETTINGS_SCHEMA});
     }
 
     _getAutorunSettingForType(contentType) {
@@ -183,12 +186,12 @@ var AutorunDispatcher = class {
     }
 
     _getSourceForMount(mount) {
-        let filtered = this._sources.filter(source => source.mount == mount);
+        let filtered = this._sources.filter(source => source.mount === mount);
 
         // we always make sure not to add two sources for the same
         // mount in addMount(), so it's safe to assume filtered.length
         // is always either 1 or 0.
-        if (filtered.length == 1)
+        if (filtered.length === 1)
             return filtered[0];
 
         return null;
@@ -221,15 +224,15 @@ var AutorunDispatcher = class {
 
         // check at the settings for the first content type
         // to see whether we should ask
-        if (setting == AutorunSetting.IGNORE)
+        if (setting === AutorunSetting.IGNORE)
             return; // return right away
 
         let success = false;
         let app = null;
 
-        if (setting == AutorunSetting.RUN)
+        if (setting === AutorunSetting.RUN)
             app = Gio.app_info_get_default_for_type(contentTypes[0], false);
-        else if (setting == AutorunSetting.FILES)
+        else if (setting === AutorunSetting.FILES)
             app = Gio.app_info_get_default_for_type('inode/directory', false);
 
         if (app)
@@ -251,9 +254,9 @@ var AutorunDispatcher = class {
         // destroy the notification source
         source.destroy();
     }
-};
+}
 
-var AutorunSource = GObject.registerClass(
+const AutorunSource = GObject.registerClass(
 class AutorunSource extends MessageTray.Source {
     _init(manager, mount, apps) {
         super._init(mount.get_name());
@@ -278,7 +281,7 @@ class AutorunSource extends MessageTray.Source {
     }
 });
 
-var AutorunNotification = GObject.registerClass(
+const AutorunNotification = GObject.registerClass(
 class AutorunNotification extends MessageTray.Notification {
     _init(manager, source) {
         super._init(source, source.title);
@@ -313,7 +316,7 @@ class AutorunNotification extends MessageTray.Notification {
 
         let label = new St.Bin({
             child: new St.Label({
-                text: _("Open with %s").format(app.get_name()),
+                text: _('Open with %s').format(app.get_name()),
                 y_align: Clutter.ActorAlign.CENTER,
             }),
         });
@@ -342,4 +345,4 @@ class AutorunNotification extends MessageTray.Notification {
     }
 });
 
-var Component = AutorunManager;
+export {AutorunManager as Component};
