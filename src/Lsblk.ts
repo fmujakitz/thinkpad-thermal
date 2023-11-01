@@ -38,6 +38,7 @@ class LsnvmeUtil extends ConsoleUtil {
   }
 
   name(key: string) {
+    if (!this._data) return 'Nvme'
     return this._data[key]
   }
 }
@@ -71,9 +72,13 @@ export default class LsblkUtil extends ConsoleUtil {
 
       if (tran === 'nvme') {
         this._hasNvme = true
-        const key = this._lsnvme.name(name) as string
-        acc[key] = model
-        console.log(acc)
+        const key = this._lsnvme.name(name)
+        if (key) {
+          acc[key] = model
+        } else {
+          console.log("nvme key not found!!!")
+          console.log({ key, model, hctl, tran, name })
+        }
         return acc
       }
 
@@ -90,6 +95,7 @@ export default class LsblkUtil extends ConsoleUtil {
   }
 
   name(key: string) {
+    if (!this._data) return 'Disk'
     return this._data[key]
   }
   hasNvme() {

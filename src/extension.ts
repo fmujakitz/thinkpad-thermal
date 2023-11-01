@@ -17,6 +17,8 @@ import SensorsUtil from './Sensors.js';
 //
 //
 
+const UPDATE_INTERVAL = 2000
+
 const _ = (text: string) => text
 
 const UNIT = {
@@ -27,7 +29,7 @@ const UNIT = {
 
 type ThermalTitle = {
   constructor: (title: string) => ThermalTitle
-} & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
+} & Clutter.Actor
 const ThermalTitle = GObject.registerClass(
   class ThermalTitle extends PopupMenu.PopupBaseMenuItem {
     _title: St.Label
@@ -52,39 +54,36 @@ const ThermalTitle = GObject.registerClass(
 
 
 type ThermalItemProps = {
-  unit?: string,
-  icon?: IconType,
+  value: string
+  label: string
+  unit?: string
+  icon?: IconType
   hideOrnament?: boolean
 }
 type ThermalItem = {
-  update: (value: string, unit?: string, label?: string) => void
-} & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
+  update: (props: ThermalItemProps) => void
+} & Clutter.Actor
 const ThermalItem = GObject.registerClass(
   class ThermalItem extends PopupMenu.PopupBaseMenuItem {
-    _updater: UpdaterFn
     _label: St.Label
     _value: St.Label
     _unit: St.Label
 
     constructor(
       style_class: string,
-      updater: UpdaterFn,
-      label: string,
-      props?: ThermalItemProps
+      { value, label, unit, icon, hideOrnament }: ThermalItemProps,
     ) {
       super({ style_class, reactive: false })
 
-      this._updater = updater
-
-      if (props?.icon || props?.hideOrnament) {
+      if (icon || hideOrnament) {
         this.setOrnament(PopupMenu.Ornament.HIDDEN)
       }
 
-      if (props?.icon) {
+      if (icon) {
         this.add_child(new St.Icon({
           style_class: 'popup-menu-ornament',
           icon_size: 14,
-          gicon: props?.icon?.gicon,
+          gicon: icon?.gicon,
           y_align: Clutter.ActorAlign.CENTER
         }))
       }
@@ -96,8 +95,6 @@ const ThermalItem = GObject.registerClass(
         x_expand: true
       })
 
-      const value = updater()
-
       this._value = new St.Label({
         style_class: 'value',
         text: typeof value === 'string' ? value : 'N/A'
@@ -105,20 +102,18 @@ const ThermalItem = GObject.registerClass(
 
       const els = [this._label, this._value]
 
-      if (props?.unit) {
+      if (unit) {
         this._unit = new St.Label({
           style_class: 'unit',
-          text: props.unit
+          text: unit
         })
         els.push(this._unit)
       }
 
       els.forEach(el => this.add_child(el))
-
     }
 
-    update(unit?: string, label?: string) {
-      const value = this._updater()
+    update({ value, label, unit }) {
       this._value.set_text(value)
 
       if (unit) this._unit.set_text(unit)
@@ -128,68 +123,85 @@ const ThermalItem = GObject.registerClass(
   }
 )
 
-type ChildrenUpdaterFn = () => object
 type ThermalGroupChild = {
   key: string
   element: any
 }
 type ThermalGroupProps = {
-  icon: IconType,
-  unit?: string,
+  values: {
+    [key: string]: string
+  }
+  icon: IconType
+  unit?: string
+  label: string
+  hasOrnament: boolean
 }
+type ThermalGroup = {
+  update: (props: ThermalGroupProps) => void
+} & Clutter.Actor
 const ThermalGroup = GObject.registerClass(
   class ThermalGroup extends PopupMenu.PopupSubMenuMenuItem {
     _children: ThermalGroupChild[] = []
 
     constructor(
       style_class: string,
-      updater: ChildrenUpdaterFn,
-      label: string,
-      props?: ThermalGroupProps
+      { values, label, icon, unit }: ThermalGroupProps,
     ) {
       super(label, true)
       this.add_style_class_name(style_class)
       this.setOrnament(PopupMenu.Ornament.HIDDEN)
 
-      if (props?.icon) {
+
+      if (icon) {
         // @ts-expect-error
-        this.icon.gicon = props?.icon.gicon
+        this.icon.gicon = icon.gicon
       }
 
-      const data = updater()
-
-      this._children = Object.keys(data).map(key => ({
+      this._children = Object.keys(values).map(key => ({
         key,
-        // @ts-expect-error
-        element: new ThermalItem("tpt-popup-submenu-item", () => updater()[key], key, { ...props, icon: false, hideOrnament: true })
+        element: new ThermalItem("tpt-popup-submenu-item", {
+          value: values[key],
+          unit,
+          label: key,
+          hideOrnament: true
+        } as ThermalItemProps)
       }))
 
       this._children.forEach(({ element }) => this.menu.addMenuItem(element, undefined))
 
     }
 
-    update() {
-      this._children.forEach(({ element }) => element.update())
+    update({ values }) {
+      this._children.forEach(({ key, element }) => element.update({ value: values[key] }))
     }
   }
 )
-
+type ThermalDropDownProps = {
+  value: string
+  label: string
+  items: any
+  onClick: (id: string) => any
+}
+type ThermalDropDown = {
+  update: (props: ThermalDropDownProps) => void
+} & Clutter.Actor
 const ThermalDropDown = GObject.registerClass(
   class ThermalDropDown extends PopupMenu.PopupSubMenuMenuItem {
     _value: St.Label
-    _updater: () => string
     _children
 
-    constructor(style_class: string, updater: () => string, label: string, items: string[], action: (id) => void) {
+    constructor(
+      style_class: string,
+      { value, label, items, onClick }: ThermalDropDownProps
+    ) {
       super(label, false)
+
       this.add_style_class_name(style_class)
       this.setOrnament(PopupMenu.Ornament.HIDDEN)
 
-      this._updater = updater
-
       this._value = new St.Label({
         style_class: 'value',
-        text: updater(),
+        text: value,
         x_align: Clutter.ActorAlign.END,
         x_expand: false
       })
@@ -206,7 +218,7 @@ const ThermalDropDown = GObject.registerClass(
           x_align: Clutter.ActorAlign.END,
           x_expand: true
         }))
-        element.connect("activate", () => action(key))
+        element.connect("activate", () => onClick(key))
 
         return ({ key, element })
       })
@@ -214,19 +226,22 @@ const ThermalDropDown = GObject.registerClass(
       this._children.forEach(({ element }) => this.menu.addMenuItem(element, undefined))
     }
 
-    update() {
-      this._value.set_text(this._updater())
+    update({ value }) {
+      this._value.set_text(value)
     }
   }
 )
 
-type UpdaterFn = () => string
+type IndicatorItemProps = {
+  value: string
+  icon: IconType
+  unit: string
+}
 type IndicatorItem = {
-  update: (value: string, unit?: string) => void
-} & Clutter.Actor //<Clutter.LayoutManager, Clutter.Content>
+  update: (props: IndicatorItemProps) => void
+} & Clutter.Actor
 const IndicatorItem = GObject.registerClass(
   class IndicatorItem extends St.BoxLayout {
-    _updater: UpdaterFn
     _icon: St.Icon
     _value: St.Label
     _unit: St.Label
@@ -234,13 +249,9 @@ const IndicatorItem = GObject.registerClass(
 
     constructor(
       style_class: string,
-      updater: UpdaterFn,
-      icon: IconType,
-      unit: string
+      { icon, value, unit }: IndicatorItemProps,
     ) {
       super({ style_class })
-
-      this._updater = updater
 
       this._icon = new St.Icon({
         gicon: icon.gicon,
@@ -250,7 +261,7 @@ const IndicatorItem = GObject.registerClass(
       })
 
       this._value = new St.Label({
-        text: updater(),
+        text: value,
         style_class: 'value',
         y_align: Clutter.ActorAlign.CENTER
       })
@@ -272,7 +283,7 @@ const IndicatorItem = GObject.registerClass(
 
       if (this._off) this.add_child(this._off)
 
-      this.update()
+      this.off(value === "0")
     }
 
     private off(hide) {
@@ -283,13 +294,12 @@ const IndicatorItem = GObject.registerClass(
       this._value.visible = !hide
     }
 
-    update(unit?: string) {
-      const v = this._updater()
-      this._value.set_text(v)
+    update({ value, unit }) {
+      this._value.set_text(value)
 
       if (unit) this._unit.set_text(unit)
 
-      this.off(v === "0")
+      this.off(value === "0")
     }
   }
 )
@@ -301,6 +311,7 @@ type BindingType = "tpt-button" | "tpt-popup-title" | "tpt-popup-item" | "tpt-po
 type Binding = {
   type: BindingType
   element: any
+  updater: () => void
 }
 
 const Indicator = GObject.registerClass(
@@ -373,7 +384,7 @@ const Indicator = GObject.registerClass(
       this.add_actor(this._buttonLayout)
 
       if (this._tpAcpi.available) {
-        this._updateInterval = setInterval(this._update.bind(this), 5000)
+        this._updateInterval = setInterval(this._update.bind(this), UPDATE_INTERVAL)
         this.connect("destroy", this._destroy.bind(this))
       }
     }
@@ -402,9 +413,10 @@ const Indicator = GObject.registerClass(
 
       // update values for non static bound elements
       this._bindings
-        .filter(({ type }) => !['separator', 'tpt-popup-title'].includes(type))
-        .forEach(({ element }) => {
-          if (typeof element.update === 'function') element.update()
+        .filter(({ type, updater }) => typeof updater === 'function' && !['separator', 'tpt-popup-title'].includes(type))
+        .forEach(({ element, updater }) => {
+          const props = updater()
+          element.update(props)
         })
     }
     // create and attach element to bindings
@@ -413,9 +425,15 @@ const Indicator = GObject.registerClass(
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(''))
         return
       }
+      const [updater, ...rest] = args
+      if (typeof updater === 'function') {
+        const props = updater()
+        args = [props, ...rest]
+      }
 
       const element = new Element(type, ...args)
-      this._bindings.push({ type, element })
+
+      this._bindings.push({ type, element, updater })
 
       if (['tpt-button'].includes(type))
         this._buttonLayout.add_child(element)
@@ -437,9 +455,23 @@ const Indicator = GObject.registerClass(
 
     appendButton() {
       // attach cpu, gpu, speed indicator
-      if (this.element('cpu')) this._attach(IndicatorItem, "tpt-button", () => this._convert(this._tpAcpi.cpu), this._i.cpu, this._temp)
-      if (this.element('gpu')) this._attach(IndicatorItem, "tpt-button", () => this._convert(this._tpAcpi.gpu), this._i.gpu, this._temp)
-      if (this.element('speed')) this._attach(IndicatorItem, "tpt-button", () => this._tpAcpi.speed, this._i.fan, UNIT.rpm)
+      if (this.element('cpu')) this._attach(IndicatorItem, "tpt-button", () => ({
+        value: this._convert(this._tpAcpi.cpu),
+        icon: this._i.cpu,
+        unit: this._temp
+      }))
+
+      if (this.element('gpu')) this._attach(IndicatorItem, "tpt-button", () => ({
+        value: this._convert(this._tpAcpi.gpu),
+        icon: this._i.gpu,
+        unit: this._temp
+      }))
+
+      if (this.element('speed')) this._attach(IndicatorItem, "tpt-button", () => ({
+        value: this._tpAcpi.speed,
+        icon: this._i.fan,
+        unit: UNIT.rpm
+      }))
     }
 
     appendPopupMenu() {
@@ -447,13 +479,33 @@ const Indicator = GObject.registerClass(
       if (this._sensors.available) {
         // attach submenu for every cpu
         if (this._sensors.cpu) Object.keys(this._sensors.cpu)
-          .forEach(k => this._attach(ThermalGroup, "tpt-popup-submenu", () => this._convert(this._sensors.cpu[k]), k, { icon: this._i.cpu, unit: this._temp }))
+          .forEach(k => this._attach(ThermalGroup, "tpt-popup-submenu", () => ({
+            values: this._convert(this._sensors.cpu[k]),
+            label: k,
+            icon: this._i.cpu,
+            unit: this._temp
+          })))
         // attach submenu for disks
-        if (this._sensors.hdd) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._convert(this._sensors.hdd), "Disks", { icon: this._i.hdd, unit: this._temp })
+        if (this._sensors.hdd) this._attach(ThermalGroup, "tpt-popup-submenu", () => ({
+          values: this._convert(this._sensors.hdd),
+          label: "Disks",
+          icon: this._i.hdd,
+          unit: this._temp
+        }))
         // attach submenu for other thermal sensors
-        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._convert(this._sensors.other), "Thermal", { icon: this._i.sensor, unit: this._temp })
+        if (this._sensors.other) this._attach(ThermalGroup, "tpt-popup-submenu", () => ({
+          values: this._convert(this._sensors.other),
+          label: "Thermal",
+          icon: this._i.sensor,
+          unit: this._temp
+        }))
         // attach submenu for fans
-        if (this._sensors.fan) this._attach(ThermalGroup, "tpt-popup-submenu", () => this._sensors.fan, "Cooling", { icon: this._i.fan, unit: UNIT.rpm })
+        if (this._sensors.fan) this._attach(ThermalGroup, "tpt-popup-submenu", () => ({
+          values: this._sensors.fan,
+          label: "Cooling",
+          icon: this._i.fan,
+          unit: UNIT.rpm
+        }))
 
       }
 
@@ -462,22 +514,50 @@ const Indicator = GObject.registerClass(
         // add ACPI items to popup
         this._attach(ThermalTitle, "tpt-popup-title", "ACPI")
         if (this.element('cpu')) {
-          this._attach(ThermalItem, "tpt-popup-item", () => this._convert(this._tpAcpi.cpu), "CPU", { unit: this._temp, icon: this._i.cpu })
+          this._attach(ThermalItem, "tpt-popup-item", () => ({
+            value: this._convert(this._tpAcpi.cpu),
+            label: "CPU",
+            unit: this._temp,
+            icon: this._i.cpu
+          }))
         }
         if (this.element('gpu')) {
-          this._attach(ThermalItem, "tpt-popup-item", () => this._convert(this._tpAcpi.gpu), "GPU", { unit: this._temp, icon: this._i.gpu })
+          this._attach(ThermalItem, "tpt-popup-item", () => ({
+            value: this._convert(this._tpAcpi.gpu),
+            label: "GPU",
+            unit: this._temp,
+            icon: this._i.gpu
+          }))
         }
 
         // add Fan control items to popup
         this._attach(ThermalTitle, "tpt-popup-title", "Fan control")
-        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.status, "Status", { hideOrnament: true })
-        this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.speed, "Speed", { unit: UNIT.rpm, hideOrnament: true })
+        this._attach(ThermalItem, "tpt-popup-item", () => ({
+          value: this._tpAcpi.status,
+          label: "Status",
+          hideOrnament: true
+        }))
+        this._attach(ThermalItem, "tpt-popup-item", () => ({
+          value: this._tpAcpi.speed,
+          label: "Speed",
+          unit: UNIT.rpm,
+          hideOrnament: true
+        }))
 
         // show dropdown if fan control is enabled
         if (this._tpAcpi.status === 'enabled' && this._tpAcpi.levels.length) {
-          this._attach(ThermalDropDown, "tpt-popup-dropdown", () => this._tpAcpi.level, "Levels", this._tpAcpi.levels, a => this._tpAcpi.setLevel(a))
+          this._attach(ThermalDropDown, "tpt-popup-dropdown", () => ({
+            value: this._tpAcpi.level,
+            label: "Levels",
+            items: this._tpAcpi.levels,
+            onClick: a => this._tpAcpi.setLevel(a)
+          }))
         } else {
-          this._attach(ThermalItem, "tpt-popup-item", () => this._tpAcpi.level, "Level", { hideOrnament: true })
+          this._attach(ThermalItem, "tpt-popup-item", () => ({
+            value: this._tpAcpi.level,
+            label: "Level",
+            hideOrnament: true
+          }))
         }
       }
     }
