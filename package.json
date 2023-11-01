@@ -9,7 +9,7 @@
   "scripts": {
     "build": "rm -rf ./dist && rollup -c && yarn package",
     "copy:dist": "cp -a dist/. ~/.local/share/gnome-shell/extensions/thinkpadthermal@moonlight.drive.vk.gmail.com",
-    "dev": "yarn ts:compile && copy:dist",
+    "dev": "yarn ts:compile && yarn copy:dist",
     "package": "cd ./dist && zip -qr 'thinkpadthermal@moonlight.drive.vk.gmail.com.zip' . && cd ..",
     "ts:compile": "tsc --build tsconfig.json && cp -a resources/. dist",
     "types:generate": "ts-for-gir generate"

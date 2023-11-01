@@ -51,15 +51,13 @@ export default class SensorsUtil extends ConsoleUtil {
     const batteries = new RegExp(/^bat/i)
     const tpisa = new RegExp(/^thinkpad-isa/i)
     const temp = new RegExp(/^temp/i)
+    const nvme = new RegExp(/^nvme/i)
 
     return Object.keys(data).reduce((acc, key) => {
       let value = data[key]
 
       if (Object.keys(value).length === 1) {
         value = Object.values(value)[0]
-        if (typeof value === 'number') {
-          value = value.toString()
-        }
       }
 
       if (cores.test(key)) {
@@ -68,13 +66,27 @@ export default class SensorsUtil extends ConsoleUtil {
       }
 
       if (drives.test(key)) {
-        acc.hdd[this._lsblk.name(key) as string] = value
+        acc.hdd[this._lsblk.name(key) as string] = value.toString()
+        return acc
+      }
+
+      if (nvme.test(key)) {
+        const sensors = Object.keys(value)
+          .filter(v => v.match(/sensor/i))
+
+        value = sensors
+          .map(v => parseFloat(value[v]))
+          .reduce((acc, curr) => acc + curr, 0)
+
+        value /= sensors.length
+
+        acc.hdd[this._lsblk.name(key) as string] = value.toString()
         return acc
       }
 
       if (batteries.test(key)) {
-        const k = key.split('-')[0] as string
-        acc.bat[k] = value
+        const k = key.split('-')[0]
+        acc.bat[k as string] = value.toString()
         return acc
       }
 
@@ -95,13 +107,13 @@ export default class SensorsUtil extends ConsoleUtil {
           .filter(k => temp.test(k))
           .map(k => {
             const subkey = [key, k].join('-')
-            acc.other[subkey] = value[k]
+            acc.other[subkey] = value[k].toString()
           })
 
         return acc
       }
 
-      acc.other[key] = value
+      acc.other[key] = value.toString()
 
       return acc
     }, { cpu: {}, hdd: {}, bat: {}, fan: {}, other: {} })

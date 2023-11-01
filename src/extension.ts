@@ -387,6 +387,7 @@ const Indicator = GObject.registerClass(
         Object.keys(o).forEach(k => {
           o[k] = this._toFahrenheit(o[k])
         })
+        return o
       }
       return t
     }

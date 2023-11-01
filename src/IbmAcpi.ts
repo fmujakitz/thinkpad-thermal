@@ -21,6 +21,8 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     levels: []
   }
 
+  private _hasDedicatedGpu: Boolean = false
+
   constructor() {
     super([
       '/proc/acpi/ibm/thermal',
@@ -39,36 +41,58 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   // commands: enable, disable
   // commands: watchdog<timeout>(<timeout>is 0(off), 1 - 120(seconds))
   private parse(str: string) {
-    const getVal = (str: string) => str
-      .replace(/\t+/, " ")
-      .split(': ')[1] as string
 
-    const row: any[] = str.split(/\n/)
+    const toInt = s => parseInt(s)
 
-    const [cpu, gpu] = getVal(row[0] as string).split(' ') as any[]
+    let [temps, status, speed, level, cmd1]: (string | number)[] = str
+      .split(/\n/)
+      .map(r => r.slice(r.lastIndexOf('\t') + 1)) as [string, string, string, string, string]
+
+    let [cpu, gpu]: number[] = temps
+      .split(' ')
+      .map(toInt) as [number, number]
+
+    speed = parseInt(speed)
 
     let levels: string[] = []
 
-    if (row[4]) {
-      const [mm, ...rest] = row[4]
-        .split('(<level> is')[1]
-        .replace(/ +/im, '')
-        .replace(/\)$/im, '')
-        .split(', ')
-        .filter(e => e !== 'disengaged')
+    const controllable = Boolean(cmd1 && status === 'enabled')
 
-      const max = parseInt(mm.split('-')[1])
-      const nums = Array.from(Array(max), (_, i) => (i + 1).toString())
+    if (controllable) {
+      const [range, ...rest] = cmd1
+        .slice(cmd1.indexOf('> is ') + 5, -1)
+        .split(', ')
+
+      const [, to] = (range as string)
+        .split('-')
+        .map(toInt) as [number, number]
+
+      const nums = Array.from(Array(to + 1), (_, i) => i)
+      const disabled = [0, 'disengaged']
+
       levels = [...nums, ...rest]
+        .filter(l => !disabled.includes(l))
+        .map(l => l.toString())
     }
 
+    if (level === 'disengaged' && Boolean(speed)) {
+      level = 'full-speed'
+    }
+
+    if (!this._hasDedicatedGpu && gpu > 0) {
+      this._hasDedicatedGpu = true
+    }
+
+    if (this._hasDedicatedGpu && gpu <= 0 && this._data.gpu) {
+      gpu = this._data.gpu
+    }
 
     this._data = {
-      cpu: parseInt(cpu),
-      gpu: parseInt(gpu),
-      status: getVal(row[1]),
-      speed: parseInt(getVal(row[2])),
-      level: getVal(row[3]),
+      cpu,
+      gpu,
+      status,
+      speed,
+      level,
       levels
     }
   }
@@ -127,5 +151,8 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   }
   get levels() {
     return this._data.levels
+  }
+  get dGpu() {
+    return this._hasDedicatedGpu
   }
 }
