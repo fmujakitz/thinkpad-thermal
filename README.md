@@ -35,3 +35,4 @@ You can clone this repo and build the extension manually with <code>yarn build:p
   - [x] Fan speed control
   - [x] Gnome 44
   - [ ] Multilang
+  - [x] Gnome 45

@@ -7,7 +7,7 @@ type IbmAcpiData = {
   cpu: number
   gpu: number
   status: string
-  speed: number
+  speed: string
   level: string
   levels: string[]
 }
@@ -16,7 +16,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     cpu: 0,
     gpu: 0,
     status: '...',
-    speed: 0,
+    speed: '0',
     level: '...',
     levels: []
   }
@@ -42,30 +42,28 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   // commands: watchdog<timeout>(<timeout>is 0(off), 1 - 120(seconds))
   private parse(str: string) {
 
-    const toInt = s => parseInt(s)
+    const toInt = (s: string) => parseInt(s)
 
-    let [temps, status, speed, level, cmd1]: (string | number)[] = str
+    let [temps, status, speed, level, cmd1] = str
       .split(/\n/)
       .map(r => r.slice(r.lastIndexOf('\t') + 1)) as [string, string, string, string, string]
 
-    let [cpu, gpu]: number[] = temps
+    let [cpu, gpu] = temps
       .split(' ')
       .map(toInt) as [number, number]
-
-    speed = parseInt(speed)
 
     let levels: string[] = []
 
     const controllable = Boolean(cmd1 && status === 'enabled')
 
-    if (controllable) {
+    if (controllable && !this._data.levels.length) {
       const [range, ...rest] = cmd1
         .slice(cmd1.indexOf('> is ') + 5, -1)
         .split(', ')
 
       const [, to] = (range as string)
         .split('-')
-        .map(toInt) as [number, number]
+        .map(toInt) as [any, number]
 
       const nums = Array.from(Array(to + 1), (_, i) => i)
       const disabled = [0, 'disengaged']
@@ -75,7 +73,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
         .map(l => l.toString())
     }
 
-    if (level === 'disengaged' && Boolean(speed)) {
+    if (level === 'disengaged' && Boolean(parseInt(speed!))) {
       level = 'full-speed'
     }
 

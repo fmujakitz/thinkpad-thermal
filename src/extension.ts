@@ -425,6 +425,7 @@ const Indicator = GObject.registerClass(
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(''))
         return
       }
+
       const [updater, ...rest] = args
       if (typeof updater === 'function') {
         const props = updater()
