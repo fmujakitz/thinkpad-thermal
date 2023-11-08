@@ -52,7 +52,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
       .split(' ')
       .map(toInt) as [number, number]
 
-    let levels: string[] = []
+    let levels: string[] = this._data.levels
 
     const controllable = Boolean(cmd1 && status === 'enabled')
 
