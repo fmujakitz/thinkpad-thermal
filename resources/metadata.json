@@ -3,8 +3,8 @@
   "description": "ThinkPad thermal monitor, display ThinkPad thermal and fan status using /proc/acpi/ibm/thermal and /proc/acpi/ibm/fan.",
   "uuid": "thinkpadthermal@moonlight.drive.vk.gmail.com",
   "url": "https://github.com/fmujakitz/thinkpad-thermal",
-  "version": 26,
+  "version": 27,
   "shell-version": [
-    "45"
+    "46"
   ]
 }

@@ -381,7 +381,7 @@ const Indicator = GObject.registerClass(
         this._buttonLayout.add_child(new St.Label({ text: "ThinkPad ACPI is not available" }))
       }
 
-      this.add_actor(this._buttonLayout)
+      this.add_child(this._buttonLayout)
 
       if (this._tpAcpi.available) {
         this._updateInterval = setInterval(this._update.bind(this), UPDATE_INTERVAL)
