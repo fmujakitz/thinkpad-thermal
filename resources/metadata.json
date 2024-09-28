@@ -5,6 +5,7 @@
   "url": "https://github.com/fmujakitz/thinkpad-thermal",
   "version": 27,
   "shell-version": [
-    "46"
+    "46",
+    "47"
   ]
 }
