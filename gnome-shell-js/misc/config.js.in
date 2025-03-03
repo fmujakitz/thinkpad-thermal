@@ -1,0 +1,21 @@
+// -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+const pkg = imports.package;
+
+/* The name of this package (not localized) */
+export const PACKAGE_NAME = '@PACKAGE_NAME@';
+/* The version of this package */
+export const PACKAGE_VERSION = '@PACKAGE_VERSION@';
+/* 1 if networkmanager is available, 0 otherwise */
+export const HAVE_NETWORKMANAGER = @HAVE_NETWORKMANAGER@;
+/* gettext package */
+export const GETTEXT_PACKAGE = '@GETTEXT_PACKAGE@';
+/* locale dir */
+export const LOCALEDIR = '@datadir@/locale';
+/* other standard directories */
+export const LIBEXECDIR = '@libexecdir@';
+export const PKGDATADIR = '@datadir@/@PACKAGE_NAME@';
+/* g-i package versions */
+export const LIBMUTTER_API_VERSION = '@LIBMUTTER_API_VERSION@';
+
+export const HAVE_BLUETOOTH = pkg.checkSymbol('GnomeBluetooth', '3.0',
+    'Client.default_adapter_state')

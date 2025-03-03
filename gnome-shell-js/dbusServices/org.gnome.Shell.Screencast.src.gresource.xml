@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/gnome/Shell/Screencast/js">
+    <file>main.js</file>
+    <file>screencastService.js</file>
+    <file>dbusService.js</file>
+
+    <file>misc/config.js</file>
+    <file>misc/dbusUtils.js</file>
+    <file>misc/signals.js</file>
+    <file>misc/signalTracker.js</file>
+  </gresource>
+</gresources>
