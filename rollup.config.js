@@ -1,63 +1,46 @@
-import commonjs from '@rollup/plugin-commonjs';
-import { nodeResolve } from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
-import cleanup from 'rollup-plugin-cleanup';
 import copy from 'rollup-plugin-copy';
-import styles from 'rollup-plugin-styles';
-import { visualizer } from 'rollup-plugin-visualizer';
 
-const buildPath = 'dist'
+const dest = 'dist'
+
+const external = id =>
+  ['gettext', 'system', 'cairo'].includes(id) ||
+  ['gi://', 'resource://'].some(p => id.startsWith(p))
 
 export default [
   {
     input: 'src/extension.ts',
-    treeshake: {
-      moduleSideEffects: 'no-external',
-    },
     output: {
-      file: `${buildPath}/extension.js`,
-      format: 'es',
-      exports: 'default',
-      globals: {},
-      assetFileNames: '[name][extname]',
-      interop: 'esModule'
+      file: `${dest}/extension.js`,
+      format: 'esm',
     },
-    external: [
-      'gi://Clutter',
-      'gi://Gio',
-      'gi://GLib',
-      'gi://GObject',
-      'gi://St',
-      'resource:///org/gnome/shell/ui/panelMenu.js',
-      'resource:///org/gnome/shell/ui/popupMenu.js',
-      'resource:///org/gnome/shell/ui/main.js',
-      'resource:///org/gnome/shell/extensions/extension.js'
-    ],
+    external,
     plugins: [
-      commonjs(),
-      nodeResolve({
-        preferBuiltins: false,
-      }),
       typescript({
-        tsconfig: './tsconfig.json',
+        tsconfig: 'tsconfig.json',
+        rootDir: 'src',
+        baseUrl: '.',
+        paths: {
+          'gi://Adw':     ['@girs/adw-1'],
+          'gi://Clutter': ['@girs/clutter-15'],
+          'gi://Gio':     ['@girs/gio-2.0'],
+          'gi://GLib':    ['@girs/glib-2.0'],
+          'gi://GObject': ['@girs/gobject-2.0'],
+          'gi://Gtk':     ['@girs/gtk-4.0'],
+          'gi://St':      ['@girs/st-15'],
+          'resource:///org/gnome/shell/*': ['./node_modules/@girs/gnome-shell/dist/*']
+        }
       }),
-      // styles({
-      //   mode: ['extract', 'stylesheet.css'],
-      // }),
       copy({
         targets: [
-          { src: './resources/icons', dest: `${buildPath}` },
-          { src: './resources/metadata.json', dest: `${buildPath}` },
-          { src: './resources/stylesheet.css', dest: `${buildPath}` },
-          // { src: './resources/images', dest: `${buildPath}` },
-          // { src: './resources/schemas', dest: `${buildPath}` },
-          // { src: './resources/dbus', dest: `${buildPath}` },
+          { src: './resources/icons', dest },
+          { src: './resources/metadata.json', dest },
+          { src: './resources/stylesheet.css', dest },
+          // { src: './resources/images', dest },
+          // { src: './resources/schemas', dest },
+          // { src: './resources/dbus', dest },
         ],
-      }),
-      cleanup({
-        comments: 'none',
-      }),
-      visualizer(),
+      })
     ],
   },
   // {
