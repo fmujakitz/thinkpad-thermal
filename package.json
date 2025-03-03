@@ -7,24 +7,20 @@
   "author": "Faris Mujakic <faris.mujakic@gmail.com>",
   "type": "module",
   "scripts": {
-    "build": "rm -rf ./dist && rollup -c && yarn package",
+    "clean": "rm -rf ./dist",
+    "build": "yarn clean && rollup -c && yarn package",
     "copy:dist": "cp -a dist/. ~/.local/share/gnome-shell/extensions/thinkpadthermal@moonlight.drive.vk.gmail.com",
-    "dev": "yarn ts:compile && yarn copy:dist",
+    "dev": "yarn clean && yarn ts:compile && yarn copy:dist",
     "package": "cd ./dist && zip -qr 'thinkpadthermal@moonlight.drive.vk.gmail.com.zip' . && cd ..",
-    "ts:compile": "tsc --build tsconfig.json && cp -a resources/. dist",
-    "types:generate": "ts-for-gir generate"
+    "ts:compile": "tsc --build tsconfig.json && cp -a resources/. dist"
   },
   "devDependencies": {
     "@girs/gjs": "^4.0.0-beta.21",
     "@girs/gnome-shell": "^47.0.2",
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",
     "rollup": "^4.2.0",
-    "rollup-plugin-cleanup": "^3.2.1",
     "rollup-plugin-copy": "^3.5.0",
-    "rollup-plugin-styles": "^4.0.0",
-    "rollup-plugin-visualizer": "^5.9.2",
+    "tslib": "^2.8.1",
     "typescript": "^5.2.2"
   },
   "url": "https://github.com/fmujakitz/thinkpad-thermal"
