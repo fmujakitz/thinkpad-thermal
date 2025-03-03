@@ -83,7 +83,7 @@ const ThermalItem = GObject.registerClass(
         this.add_child(new St.Icon({
           style_class: 'popup-menu-ornament',
           icon_size: 14,
-          gicon: icon?.gicon,
+          gicon: icon.gicon,
           y_align: Clutter.ActorAlign.CENTER
         }))
       }
@@ -304,7 +304,7 @@ const IndicatorItem = GObject.registerClass(
   }
 )
 type IconType = {
-  gicon: Gio.Icon | null,
+  gicon: Gio.Icon,
   size: number
 }
 type BindingType = "tpt-button" | "tpt-popup-title" | "tpt-popup-item" | "tpt-popup-submenu" | "separator" | "tpt-popup-dropdown"
@@ -330,6 +330,8 @@ const Indicator = GObject.registerClass(
     _elements: string[] = ['cpu', 'gpu', 'speed']
     _updateInterval: GLib.Source | any
     _temp: string = UNIT.celsius
+
+    declare menu: PopupMenu.PopupMenu
 
     constructor(
       ext: Extension,
@@ -566,7 +568,7 @@ const Indicator = GObject.registerClass(
 )
 
 export default class ThinkPadThermal extends Extension {
-  _indicator: any
+  _indicator: PanelMenu.Button | null
 
   constructor(meta) {
     super(meta)
@@ -578,7 +580,7 @@ export default class ThinkPadThermal extends Extension {
   }
 
   override disable() {
-    this._indicator.destroy()
+    this._indicator?.destroy()
     this._indicator = null
   }
 }
