@@ -1,150 +1,182 @@
-import ConsoleUtil from "./Console.js"
-import LsblkUtil from "./Lsblk.js"
-import LscpuUtil from "./Lscpu.js"
+import GObject from 'gi://GObject'
 
-type SensorsData = {
-  cpu: object,
-  hdd: object,
-  bat: object,
-  fan: object,
-  other: object
-}
+import ConsoleUtil from './Console.js'
+import LsblkUtil from './Lsblk.js'
+import LscpuUtil from './Lscpu.js'
+
+const INPUT = new RegExp(/_input$/)
+const FANS = new RegExp(/^fan/i)
+
+const CPU = new RegExp(/^coretemp/i)
+const DRIVETEMP = new RegExp(/^drivetemp/i)
+const NVME = new RegExp(/^nvme/i)
+const TPISA = new RegExp(/^thinkpad-isa/i)
+const BATTERIES = new RegExp(/^bat/i)
+const POWER = new RegExp(/_psy_/i)
+
 export default class SensorsUtil extends ConsoleUtil {
+  static {
+    GObject.registerClass(
+      {
+        Signals: {
+          updated: {
+            param_types: [GObject.TYPE_JSOBJECT],
+          },
+        },
+      },
+      SensorsUtil
+    )
+  }
+  private static NOTIFY = ['cpu', 'hdd', 'fan', 'other']
+
   private _lscpu: LscpuUtil
   private _lsblk: LsblkUtil
-  private _data: SensorsData
+  private data: object = {}
+  private config: ThinkPadThermal.Config
 
-  constructor() {
+  constructor(config?: ThinkPadThermal.Config) {
     super('sensors', '-A', '-j')
 
     if (this.available) {
       this._lscpu = new LscpuUtil()
       this._lsblk = new LsblkUtil()
-      this.update()
+      this.update(config)
     }
   }
 
-  private simplify(obj) {
-    const input = new RegExp(/input$/)
-    const fans = new RegExp(/^fan/i)
+  private parse(str: string | object) {
+    const obj = typeof str === 'string' ? JSON.parse(str) : str
+    const keys = Object.keys(obj)
 
-    return Object.keys(obj).reduce((acc, key) => {
-      const inner = Object.keys(obj[key]).find(k => input.test(k))
+    if (keys.length > 1) {
+      return keys.reduce((acc, key) => {
+        const value = obj[key]
 
-      if (inner) {
-        let value = obj[key][inner]
-        if (value > 0 || fans.test(key)) {
-          if (typeof value === 'number') value = value.toString()
-          acc[key] = value
-        }
-      } else {
-        acc[key] = this.simplify(obj[key])
-      }
+        const input = Object.keys(value).find((key) => INPUT.test(key))
 
-      return acc
-    }, {})
+        acc[key] = input ? value[input] : this.parse(value)
+
+        return acc
+      }, {})
+    }
+
+    if (keys.length === 1) {
+      const value = obj[keys[0] as string]
+
+      return typeof value === 'object' ? this.parse(value) : value
+    }
+
+    return -256
   }
 
-  private organize(data: object) {
-    const cores = new RegExp(/^coretemp/i)
-    const drives = new RegExp(/^drivetemp/i)
-    const batteries = new RegExp(/^bat/i)
-    const tpisa = new RegExp(/^thinkpad-isa/i)
-    const temp = new RegExp(/^temp/i)
-    const nvme = new RegExp(/^nvme/i)
-
-    return Object.keys(data).reduce((acc, key) => {
-      let value = data[key]
-
-      if (Object.keys(value).length === 1) {
-        value = Object.values(value)[0]
+  async update(config?: ThinkPadThermal.Config) {
+    if (config) {
+      this.config = {
+        ...(this.config || {}),
+        ...config,
       }
-
-      if (cores.test(key)) {
-        acc.cpu[this._lscpu.name] = value
+    }
+    try {
+      this.data = await super.execute(this.parse.bind(this))
+      const obj = SensorsUtil.NOTIFY.reduce((acc, key) => {
+        acc[key] = this[key]
         return acc
-      }
+      }, {})
 
-      if (drives.test(key)) {
-        acc.hdd[this._lsblk.name(key) as string] = value.toString()
-        return acc
-      }
-
-      if (nvme.test(key)) {
-        const sensors = Object.keys(value)
-          .filter(v => v.match(/sensor/i))
-
-        value = sensors
-          .map(v => parseFloat(value[v]))
-          .reduce((acc, curr) => acc + curr, 0)
-
-        value /= sensors.length
-
-        acc.hdd[this._lsblk.name(key) as string] = value.toString()
-        return acc
-      }
-
-      if (batteries.test(key)) {
-        const k = key.split('-')[0]
-        acc.bat[k as string] = value.toString()
-        return acc
-      }
-
-      if (tpisa.test(key)) {
-        const fans = new RegExp(/^fan/i)
-        acc.fan = Object.keys(value)
-          .filter(k => fans.test(k))
-          .reduce((acc, k) => {
-            acc[k] = value[k].toString()
-            return acc
-          }, {})
-
-        return acc
-      }
-
-      if (typeof value === 'object') {
-        Object.keys(value)
-          .filter(k => temp.test(k))
-          .map(k => {
-            const subkey = [key, k].join('-')
-            acc.other[subkey] = value[k].toString()
-          })
-
-        return acc
-      }
-
-      acc.other[key] = value.toString()
-
-      return acc
-    }, { cpu: {}, hdd: {}, bat: {}, fan: {}, other: {} })
+      this.emit('updated', obj)
+    } catch (error) {
+      logError(error)
+    }
   }
 
-  private parse(str: string) {
-    this._data = this.organize(this.simplify(JSON.parse(str)))
-  }
-
-  update() {
-    return super.execute(this.parse.bind(this))
-  }
-
-  private verify(obj) {
-    return Object.keys(obj).length ? obj : false
+  private select(
+    f: FilterFn<string>,
+    r: ReduceFn<string, object>,
+    key?: string
+  ) {
+    return Object.keys(key ? this.data[key] : this.data)
+      .filter(f) //
+      .reduce(r, {})
   }
 
   get cpu() {
-    return this.verify(this._data.cpu)
-  }
-  get hdd() {
-    return this.verify(this._data.hdd)
-  }
-  get bat() {
-    return this.verify(this._data.bat)
-  }
-  get fan() {
-    return this.verify(this._data.fan)
-  }
-  get other() {
-    return this.verify(this._data.other)
+    return this.select(
+      (k) => CPU.test(k),
+      (acc, k) => {
+        const value = { ...this.data[k] }
+
+        for (const key of Object.keys(value)) {
+          value[key] = ConsoleUtil.temperature(
+            value[key],
+            this.config.temperatureUnit
+          )
+        }
+
+        acc[this.cpuName(k)] = value
+
+        return acc
+      }
+    )
   }
 
+  get hdd() {
+    return this.select(
+      (k) => DRIVETEMP.test(k) || NVME.test(k),
+      (acc, k) => {
+        const value = Math.max(...(Object.values(this.data[k]) as number[]))
+
+        acc[this.diskName(k)] = ConsoleUtil.temperature(
+          value,
+          this.config.temperatureUnit
+        )
+
+        return acc
+      }
+    )
+  }
+
+  get bat() {
+    return this.select(
+      (k) => BATTERIES.test(k),
+      (acc, k) => {
+        acc[k] = this.data[k]
+        return acc
+      }
+    )
+  }
+
+  get fan() {
+    const key = Object.keys(this.data).find((k) => TPISA.test(k)) as string
+
+    return this.select(
+      (k) => FANS.test(k),
+      (acc, k) => {
+        acc[k] = ConsoleUtil.revs(this.data[key][k])
+        return acc
+      },
+      key
+    )
+  }
+
+  get other() {
+    return this.select(
+      (k) =>
+        [CPU, DRIVETEMP, NVME, BATTERIES, TPISA, POWER].every(
+          (check) => !check.test(k)
+        ),
+      (acc, k) => {
+        const value = this.data[k]
+        acc[k] = ConsoleUtil.temperature(value, this.config.temperatureUnit)
+        return acc
+      }
+    )
+  }
+
+  cpuName(key: string) {
+    return this._lscpu.name(key)
+  }
+
+  diskName(key: string) {
+    return this._lsblk.name(key)
+  }
 }

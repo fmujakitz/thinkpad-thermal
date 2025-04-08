@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.thinkpadthermal" path="/org/gnome/shell/extensions/thinkpadthermal/">
+
+    <key name="check-interval" type="i">
+      <range min="1" max="60"/>
+      <default>5</default>
+      <summary>Check interval (seconds)</summary>
+      <description>Interval in seconds between temperature checks</description>
+    </key>
+
+    <key name="temperature-unit" type="s">
+      <choices>
+        <choice value="celsius"/>
+        <choice value="fahrenheit"/>
+      </choices>
+      <aliases>
+        <alias target="celsius" value="°C"/>
+        <alias target="fahrenheit" value="°F"/>
+      </aliases>
+      <default>'celsius'</default>
+      <summary>Temperature unit</summary>
+      <description>The unit of measurement</description>
+    </key>
+
+    <key name="show-indicator-unit" type="b">
+      <default>true</default>
+      <summary>Show indicator unit</summary>
+      <description>Show the unit of measurement on the panel temperature indicator</description>
+    </key>
+
+    <key name="position-enable" type="b">
+      <default>false</default>
+      <summary>Reposition the indicator</summary>
+      <description>Should the panel indicator be repositioned?</description>
+    </key>
+
+    <key name="position-area" type="s">
+      <choices>
+        <choice value="left"/>
+        <choice value="center"/>
+        <choice value="right"/>
+      </choices>
+      <default>'right'</default>
+      <summary>Panel area </summary>
+      <description>Where will the panel indicator be placed</description>
+    </key>
+
+    <key name="position-index" type="i">
+      <range min="0" max="99"/>
+      <default>0</default>
+      <summary>Position</summary>
+      <description>At which position will the panel indicator be placed</description>
+    </key>
+
+</schema>
+</schemalist>
