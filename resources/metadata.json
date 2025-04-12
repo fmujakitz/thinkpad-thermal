@@ -1,11 +1,12 @@
 {
-	"name": "ThinkPad Thermal",
-	"description": "ThinkPad thermal monitor, display ThinkPad thermal and fan status using /proc/acpi/ibm/thermal and /proc/acpi/ibm/fan.",
-	"donations": {
-		"kofi": "fmujakitz"
-	},
-	"uuid": "thinkpadthermal@moonlight.drive.vk.gmail.com",
-	"url": "https://github.com/fmujakitz/thinkpad-thermal",
-	"version": 31,
-	"shell-version": ["46", "47", "48"]
+  "name": "ThinkPad Thermal",
+  "description": "ThinkPad thermal monitor, display ThinkPad thermal and fan status using /proc/acpi/ibm/thermal and /proc/acpi/ibm/fan.",
+  "donations": {
+    "kofi": "fmujakitz"
+  },
+  "uuid": "thinkpadthermal@moonlight.drive.vk.gmail.com",
+  "url": "https://github.com/fmujakitz/thinkpad-thermal",
+  "settings-schema": "org.gnome.shell.extensions.thinkpadthermal",
+  "version": 32,
+  "shell-version": ["46", "47", "48"]
 }

@@ -1,57 +1,43 @@
 /* Add your custom extension styling here */
 
-.tpt-button-layout {}
-
-.tpt-button {
-  margin-left: 3px;
-  margin-right: 3px;
+.tpt-button,
+.tpt-button .layout {
+  padding: 0;
+  margin: 0;
 }
-
-.tpt-button:first-child {
-  margin-left: 7px;
-}
-
-.tpt-button:last-child {
+.tpt-button .section {
   margin-right: 7px;
 }
-
-.tpt-button .icon {
-  margin-right: 3px;
-}
-
-.tpt-button .value {
+.tpt-button .section > * {
   margin-right: 2px;
 }
+.tpt-button .section > *:first-child {
+  margin-right: 3px;
+}
+.tpt-button .section:last-child,
+.tpt-button .section > *:last-child {
+  margin-right: 0px;
+}
 
+.tpt-button .text-only .value,
 .tpt-button .unit {
   font-size: 80%;
 }
 
-.tpt-popup-title,
-.tpt-popup-item {
+.tpt-popup .title,
+.tpt-popup .item {
   margin: 0px;
   color: inherit;
 }
-
-.tpt-popup-title {
+.tpt-popup .title {
   font-weight: bold;
 }
 
-.tpt-popup-item {}
-
-.tpt-popup-item,
-.tpt-popup-submenu,
-.tpt-popup-submenu-item,
-.tpt-popup-dropdown,
-.tpt-popup-dropdown-item {
-  padding-left: 16px;
+.tpt-popup .item,
+.tpt-popup .submenu,
+.tpt-popup .dropdown-button {
+  /* padding-left: 16px; */
 }
-
-.tpt-popup-item .value,
-.tpt-popup-item .unit {
+.tpt-popup .value {
   color: inherit;
-}
-
-.tpt-popup-item .label {
-  opacity: 0.5;
 }

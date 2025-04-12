@@ -1,0 +1,177 @@
+<?xml version="1.0"?>
+<interface domain="thinkpadthermal">
+
+<object class="GtkAdjustment" id="Adjustment_Interval">
+    <property name="lower">1</property>
+    <property name="upper">60</property>
+    <property name="step_increment">1</property>
+    <property name="value">5</property>
+</object>
+<object class="GtkAdjustment" id="Adjustment_Position">
+    <property name="lower">0</property>
+    <property name="upper">99</property>
+    <property name="step_increment">1</property>
+</object>
+
+<object class="AdwPreferencesPage" id="page_prefs">
+  <property name="title" translatable="yes">Settings</property>
+  <property name="icon-name">preferences-system-symbolic</property>
+
+  <child>
+    <object class="AdwPreferencesGroup">
+      <property name="title" translatable="yes">Checking for changes</property>
+
+      <!-- Check Interval Setting -->
+      <child>
+        <object class="AdwActionRow">
+          <property name="title" translatable="yes">Check interval</property>
+          <property name="subtitle" translatable="yes">Duration between temperature checks in seconds</property>
+          <property name="activatable-widget">field_interval</property>
+          <child>
+              <object class="GtkSpinButton" id="field_interval">
+                  <property name="valign">center</property>
+                  <property name="adjustment">Adjustment_Interval</property>
+              </object>
+          </child>
+        </object>
+      </child>
+    </object>
+  </child>
+
+  <child>
+    <object class="AdwPreferencesGroup">
+      <property name="title" translatable="yes">Units</property>
+      <!-- Temperature Unit Setting -->
+      <child>
+        <object class="AdwActionRow">
+            <property name="title" translatable="yes">Temperature</property>
+            <!-- <property name="subtitle" translatable="yes">The unit of measurement</property> -->
+            <property name="activatable-widget">field_unit</property>
+            <child>
+                <object class="GtkComboBoxText" id="field_unit">
+                    <property name="valign">center</property>
+                    <items>
+                        <item id="celsius">°C</item>
+                        <item id="fahrenheit">°F</item>
+                    </items>
+                </object>
+            </child>
+        </object>
+      </child>
+    </object>
+  </child>
+
+  <child>
+    <object class="AdwPreferencesGroup">
+      <property name="title" translatable="yes">Panel button</property>
+
+      <!-- Show Indicator Unit Setting -->
+      <child>
+        <object class="AdwActionRow">
+            <property name="title" translatable="yes">Show unit</property>
+            <property name="subtitle" translatable="yes">Show the unit of measurement on the indicator</property>
+            <property name="activatable-widget">field_indicator_show_unit</property>
+            <child>
+                <object class="GtkSwitch" id="field_indicator_show_unit">
+                    <property name="valign">center</property>
+                    <property name="active">true</property>
+                </object>
+            </child>
+        </object>
+      </child>
+
+      <!-- Panel Position -->
+      <child>
+        <object class="AdwActionRow">
+          <property name="title" translatable="yes">Position the button</property>
+          <property name="activatable-widget">field_indicator_position_enable</property>
+					<child type="prefix">
+						<object class="GtkSwitch" id="field_indicator_position_enable">
+							<property name="valign">3</property>
+							<property name="active">false</property>
+						</object>
+					</child>
+					<child>
+						<object class="GtkBox" id="box_position">
+							<property name="spacing">12</property>
+							<property name="margin-start">12</property>
+							<property name="hexpand">false</property>
+							<property name="sensitive">false</property>
+							<!-->
+							<child>
+								<object class="GtkComboBoxText" id="field_indicator_position_area">
+									<property name="valign">3</property>
+									<items>
+										<item translatable="yes" id="left">Left</item>
+										<item translatable="yes" id="center">Center</item>
+										<item translatable="yes" id="right">Right</item>
+									</items>
+								</object>
+							</child>
+							-->
+							<child>
+								<object class="GtkSpinButton" id="field_indicator_position_index">
+									<property name="valign">3</property>
+									<property name="adjustment">Adjustment_Position</property>
+								</object>
+							</child>
+						</object>
+					</child>
+        </object>
+      </child>
+
+    </object>
+  </child>
+
+</object>
+
+<!-- About Page -->
+<object class="AdwPreferencesPage" id="page_about">
+    <property name="title" translatable="yes">About</property>
+    <property name="icon-name">help-about-symbolic</property>
+
+    <child>
+        <object class="AdwPreferencesGroup">
+            <child>
+                <object class="GtkBox">
+                    <property name="orientation">vertical</property>
+                    <property name="margin-top">12</property>
+                    <property name="margin-bottom">12</property>
+                    <property name="spacing">32</property>
+                    <child>
+                        <object class="GtkImage" id="about_logo">
+                            <property name="height-request">256</property>
+                        </object>
+                    </child>
+                    <child>
+                        <object class="GtkBox">
+                            <property name="orientation">horizontal</property>
+                            <property name="halign">center</property>
+                            <property name="spacing">12</property>
+                            <child>
+                                <object class="GtkLabel" id="about_name">
+                                </object>
+                            </child>
+                            <child>
+                                <object class="GtkLabel" id="about_version">
+                                </object>
+                            </child>
+                        </object>
+                    </child>
+                    <child>
+                        <object class="GtkLabel" id="about_description">
+                            <property name="wrap">true</property>
+                            <property name="justify">center</property>
+                        </object>
+                    </child>
+                    <child>
+                        <object class="GtkLabel" id="about_url">
+                        </object>
+                    </child>
+                </object>
+            </child>
+        </object>
+    </child>
+</object>
+
+</interface>

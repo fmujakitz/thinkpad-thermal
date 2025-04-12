@@ -8,13 +8,16 @@
   "type": "module",
   "scripts": {
     "clean": "rm -rf ./dist",
-    "build": "yarn clean && rollup -c && yarn package",
+    "build:package": "yarn clean && rollup -c && yarn package",
     "copy:dist": "cp -a dist/. ~/.local/share/gnome-shell/extensions/thinkpadthermal@moonlight.drive.vk.gmail.com",
     "dev": "yarn clean && yarn ts:compile && yarn copy:dist",
     "package": "cd ./dist && zip -qr 'thinkpadthermal@moonlight.drive.vk.gmail.com.zip' . && cd ..",
+    "schema:compile": "glib-compile-schemas resources/schemas/",
     "ts:compile": "tsc --build tsconfig.json && cp -a resources/. dist"
   },
+  "dependencies": {},
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@girs/gjs": "^4.0.0-beta.21",
     "@girs/gnome-shell": "^47.0.2",
     "@rollup/plugin-typescript": "^11.1.5",
