@@ -4,16 +4,6 @@ import ConsoleUtil, { assert } from './Console.js'
 import LsblkUtil from './Lsblk.js'
 import LscpuUtil from './Lscpu.js'
 
-const INPUT = new RegExp(/_input$/)
-const FANS = new RegExp(/^fan/i)
-
-const CPU = new RegExp(/^coretemp/i)
-const DRIVETEMP = new RegExp(/^drivetemp/i)
-const NVME = new RegExp(/^nvme/i)
-const TPISA = new RegExp(/^thinkpad-isa/i)
-const BATTERIES = new RegExp(/^bat/i)
-const POWER = new RegExp(/_psy_/i)
-
 export default class SensorsUtil extends ConsoleUtil {
   static {
     GObject.registerClass(
@@ -28,6 +18,16 @@ export default class SensorsUtil extends ConsoleUtil {
     )
   }
   private static NOTIFY = ['cpu', 'hdd', 'fan', 'other']
+  private static IS = {
+    INPUT: /_input$/,
+    FANS: /^fan/i,
+    CPU: /^coretemp/i,
+    DRIVETEMP: /^drivetemp/i,
+    NVME: /^nvme/i,
+    TPISA: /^thinkpad-isa/i,
+    BATTERIES: /^bat/i,
+    POWER: /_psy_/i,
+  }
 
   private _lscpu: LscpuUtil
   private _lsblk: LsblkUtil
@@ -52,7 +52,9 @@ export default class SensorsUtil extends ConsoleUtil {
       return keys.reduce((acc, key) => {
         const value = obj[key]
 
-        const input = Object.keys(value).find((key) => INPUT.test(key))
+        const input = Object.keys(value).find((key) =>
+          SensorsUtil.IS.INPUT.test(key)
+        )
 
         acc[key] = input ? value[input] : this.parse(value)
 
@@ -100,7 +102,7 @@ export default class SensorsUtil extends ConsoleUtil {
 
   get cpu() {
     return this.select(
-      (k) => CPU.test(k),
+      (k) => SensorsUtil.IS.CPU.test(k),
       (acc, k) => {
         const name = this._lscpu.name(k)
         const value = { ...this.data[k] }
@@ -121,7 +123,7 @@ export default class SensorsUtil extends ConsoleUtil {
 
   get hdd() {
     return this.select(
-      (k) => DRIVETEMP.test(k) || NVME.test(k),
+      (k) => SensorsUtil.IS.DRIVETEMP.test(k) || SensorsUtil.IS.NVME.test(k),
       (acc, k) => {
         const name = this._lsblk.name(k)
         const value = Math.max(...(Object.values(this.data[k]) as number[]))
@@ -135,7 +137,7 @@ export default class SensorsUtil extends ConsoleUtil {
 
   get bat() {
     return this.select(
-      (k) => BATTERIES.test(k),
+      (k) => SensorsUtil.IS.BATTERIES.test(k),
       (acc, k) => {
         acc[k] = this.data[k]
         return acc
@@ -144,10 +146,12 @@ export default class SensorsUtil extends ConsoleUtil {
   }
 
   get fan() {
-    const key = Object.keys(this.data).find((k) => TPISA.test(k)) as string
+    const key = Object.keys(this.data).find((k) =>
+      SensorsUtil.IS.TPISA.test(k)
+    ) as string
 
     return this.select(
-      (k) => FANS.test(k),
+      (k) => SensorsUtil.IS.FANS.test(k),
       (acc, k) => {
         acc[k] = ConsoleUtil.revs(this.data[key][k])
         return acc
@@ -159,8 +163,8 @@ export default class SensorsUtil extends ConsoleUtil {
   get other() {
     return this.select(
       (k) =>
-        [CPU, DRIVETEMP, NVME, BATTERIES, TPISA, POWER].every(
-          (check) => !check.test(k)
+        Object.keys(SensorsUtil.IS).every(
+          (check) => !SensorsUtil.IS[check].test(k)
         ),
       (acc, k) => {
         const value = this.data[k]

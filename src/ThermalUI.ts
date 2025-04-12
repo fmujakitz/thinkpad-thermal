@@ -3,7 +3,7 @@ import Gio from 'gi://Gio'
 import GObject from 'gi://GObject'
 import Pango from 'gi://Pango'
 import St from 'gi://St'
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js'
+
 import {
   PopupBaseMenuItem,
   PopupMenuSection,
@@ -82,9 +82,10 @@ export class Icon extends St.Icon {
   }
 
   static to_gicon(filename: string) {
-    const ext = Extension.lookupByURL(import.meta.url) as Extension
-    const file = ext.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`)
-    return new Gio.FileIcon({ file })
+    return new Gio.FileIcon({
+      // @ts-expect-error
+      file: ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`),
+    })
   }
 }
 

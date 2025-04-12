@@ -14,6 +14,9 @@ export default class ThinkPadThermal extends Extension {
   _menu: ThermalPopup
 
   override enable() {
+    // @ts-expect-error
+    ME = this
+
     this._settings = this.getSettings()
     this._data = new ThermalData(this._settings)
 
@@ -65,5 +68,8 @@ export default class ThinkPadThermal extends Extension {
     this._menu = null as unknown as ThermalPopup
     this._indicator = null as unknown as ThermalButton
     this._data = null as unknown as ThermalData
+
+    // @ts-expect-error
+    ME = null
   }
 }

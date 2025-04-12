@@ -1,21 +1,6 @@
 import GObject from 'gi://GObject'
 import ConsoleUtil from './Console.js'
 
-const TAGS = [
-  'bios_date',
-  'bios_release',
-  'bios_version',
-  'ec_firmware_release',
-  'product_name',
-  'product_version',
-  'sys_vendor',
-] as const
-
-type Tags = (typeof TAGS)[number]
-type DmiData = {
-  [K in Tags]: string
-}
-
 export default class DmiUtil extends ConsoleUtil {
   static {
     GObject.registerClass(
@@ -30,21 +15,36 @@ export default class DmiUtil extends ConsoleUtil {
     )
   }
   constructor() {
-    super('cat', ...TAGS.map((tag) => `/sys/devices/virtual/dmi/id/${tag}`))
+    super(
+      'cat',
+      ...DmiUtil.TAGS.map((tag) => `/sys/devices/virtual/dmi/id/${tag}`)
+    )
   }
 
-  private data: DmiData
+  private static TAGS = [
+    'bios_date',
+    'bios_release',
+    'bios_version',
+    'ec_firmware_release',
+    'product_name',
+    'product_version',
+    'sys_vendor',
+  ] as const
+
+  private data: {
+    [K in (typeof DmiUtil.TAGS)[number]]: string
+  }
 
   private parse(str: string) {
     const values = str.split('\n')
 
-    this.data = TAGS.reduce((acc, curr, i) => {
+    this.data = DmiUtil.TAGS.reduce((acc, curr, i) => {
       acc[curr] = (values[i] ?? '')
         .replace(/\(\s+/g, '(')
         .replace(/\s+\)/g, ')')
         .trim()
       return acc
-    }, {} as DmiData)
+    }, {}) as typeof this.data
 
     this.emit('updated', this.dmi)
   }

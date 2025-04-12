@@ -1,9 +1,6 @@
 import GObject from 'gi://GObject'
 import ConsoleUtil from './Console.js'
 
-const NVME = new RegExp(/nvme/i)
-const PART = new RegExp(/part/i)
-
 class LsnvmeUtil extends ConsoleUtil {
   static {
     GObject.registerClass(LsnvmeUtil)
@@ -17,11 +14,16 @@ class LsnvmeUtil extends ConsoleUtil {
     super('ls', '-l', '/dev/disk/by-path')
   }
 
+  private static IS = {
+    NVME: /^nvme/i,
+    PART: /^part/i,
+  }
+
   private parse(str: string) {
     this.data = str
       .split('\n')
-      .filter((l) => !PART.test(l))
-      .filter((l) => NVME.test(l))
+      .filter((l) => !LsnvmeUtil.IS.PART.test(l))
+      .filter((l) => LsnvmeUtil.IS.NVME.test(l))
       .map((l) => l.slice(l.indexOf('pci-')))
       .map((l) => l.replace(/(\.\.\/)/gim, '').split('->') as [string, string])
       .map(([a, b]): [string, string] => [
