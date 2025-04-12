@@ -2,6 +2,13 @@ import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import GObject from 'gi://GObject'
 
+type Assert = (condition: boolean, errorMessage: string) => asserts condition
+export const assert: Assert = (condition, errorMessage) => {
+  if (condition) return
+  logError(errorMessage)
+  throw new Error(errorMessage)
+}
+
 export default class ConsoleUtil extends GObject.Object {
   static {
     GObject.registerClass(ConsoleUtil)
@@ -9,41 +16,47 @@ export default class ConsoleUtil extends GObject.Object {
 
   private _command: string
 
-  constructor(program: string | string[], ...args: string[]) {
+  constructor(program: string, ...args: string[]) {
     super()
-    if (typeof program === 'string' && ConsoleUtil.exists(program)) {
-      this._command = [program, ...args].join(' ')
-    } else {
-      logError(`${program} is not available.`)
+    assert(typeof program === 'string', 'Program must be a string')
+    assert(ConsoleUtil.exists(program), 'Program not found')
+    this._command = [program, ...args].join(' ')
+
+    if (
+      this.available &&
+      'update' in this &&
+      typeof this.update === 'function'
+    ) {
+      this.update()
     }
+  }
+
+  run(command: string, errorMessage?: string) {
+    const [ok, argv] = GLib.shell_parse_argv(command)
+    assert(ok && !!argv, errorMessage ?? 'Unable to parse util arguments')
+
+    return new Promise((resolve, reject) => {
+      const proc = Gio.Subprocess.new(
+        argv,
+        Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+      )
+      proc.communicate_utf8_async(null, null, (proc, res) => {
+        try {
+          if (!proc) throw new Error('Util subprocess error')
+          const [, stdout, stderr] = proc.communicate_utf8_finish(res)
+          if (!proc.get_successful()) throw new Error(stderr as string)
+          resolve(stdout)
+        } catch (e) {
+          reject(e)
+        }
+      })
+    })
   }
 
   async execute(callback) {
     try {
-      if (!this.available) throw new Error('Util not available')
-
-      const [ok, argv] = GLib.shell_parse_argv(this._command)
-
-      if (!ok || !argv) throw new Error('Unable to parse util arguments')
-
-      const p = new Promise((resolve, reject) => {
-        const proc = Gio.Subprocess.new(
-          argv,
-          Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-        )
-        proc.communicate_utf8_async(null, null, (proc, res) => {
-          try {
-            if (!proc) throw new Error('Util subprocess error')
-            const [, stdout, stderr] = proc.communicate_utf8_finish(res)
-            if (!proc.get_successful()) throw new Error(stderr as string)
-            resolve(stdout)
-          } catch (e) {
-            reject(e)
-          }
-        })
-      })
-
-      return callback(await p)
+      assert(this.available, 'Util not available')
+      return callback(await this.run(this._command))
     } catch (e) {
       logError(e)
     }

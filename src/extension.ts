@@ -1,7 +1,6 @@
 import type Gio from 'gi://Gio'
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js'
-import { PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 
 import ThermalData from './ThermalData.js'
@@ -26,7 +25,7 @@ export default class ThinkPadThermal extends Extension {
     )
 
     this._menu = new ThermalPopup(0.5, this._indicator, this._data)
-    this._menu.addMenuItem(new PopupSeparatorMenuItem())
+
     this._menu.addAction(
       'Settings',
       () => this.openPreferences(),

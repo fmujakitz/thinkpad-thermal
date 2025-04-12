@@ -1,8 +1,6 @@
-import Gio from 'gi://Gio'
-import GLib from 'gi://GLib'
 import GObject from 'gi://GObject'
 
-import ConsoleUtil from './Console.js'
+import ConsoleUtil, { assert } from './Console.js'
 import microdiff, { type DifferenceChange } from './vendor/microdiff.js'
 
 export default class IbmAcpiUtil extends ConsoleUtil {
@@ -49,14 +47,6 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     )
   }
 
-  private static NOTIFY = ['cpu', 'gpu', 'speed', 'status']
-  private static isNotifiable = (key: string): boolean =>
-    IbmAcpiUtil.NOTIFY.includes(key)
-
-  private static CHECKS = [-128, 0]
-  private static isValidSensor = (v: number): boolean =>
-    IbmAcpiUtil.CHECKS.every((check) => check !== v)
-
   private data: ThinkPadThermal.IbmAcpiData = {
     cpu: 0,
     gpu: 0,
@@ -70,9 +60,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
 
   constructor(config: ThinkPadThermal.Config) {
     super('cat', '/proc/acpi/ibm/thermal', '/proc/acpi/ibm/fan')
-
-    // immediately get initial values
-    if (this.available) this.update(config)
+    this.update(config)
   }
 
   // temperatures: 43 50 0 0 0 0 0 0
@@ -83,36 +71,16 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   // commands: enable, disable
   // commands: watchdog<timeout>(<timeout>is 0(off), 1 - 120(seconds))
   private parse(str: string) {
-    const toInt = (s: string) => Number.parseInt(s)
-
-    let [temps, status, speed, level, cmd1] = str
-      .split(/\n/)
+    //
+    const [temps, status, speed, level, cmd1] = str
+      .split('\n')
       .map((r) => r.slice(r.lastIndexOf('\t') + 1)) as SizedArray<string, 5>
 
     let [cpu, gpu] = temps
       .split(' ') //
       .map((s) => Number.parseInt(s)) as SizedArray<number, 2>
 
-    let levels: string[] = this.data.levels
-
-    const controllable = Boolean(cmd1 && status === 'enabled')
-
-    if (controllable && !this.data.levels.length) {
-      const [range, ...rest] = cmd1
-        .slice(cmd1.indexOf('> is ') + 5, -1)
-        .split(', ')
-
-      const [, to] = (range as string)
-        .split('-') //
-        .map(toInt) as SizedArray<number, 2>
-
-      const nums = Array.from(Array(to + 1), (_, i) => i)
-
-      levels = [rest[0] as string, ...nums, ...rest.slice(1)]
-        .filter((l) => ![0, 'disengaged'].includes(l))
-        .map((l) => l.toString())
-    }
-
+    // GPU Fallback
     if (gpu <= 0 && 'gpu' in this.prev && this.prev.gpu > 0) {
       // log({
       //   message: 'GPU sensor appears to be offline',
@@ -122,13 +90,32 @@ export default class IbmAcpiUtil extends ConsoleUtil {
       gpu = this.prev.gpu
     }
 
-    speed = Number.parseInt(speed) as unknown as string
+    let levels = this.data.levels
+    if (
+      status === 'enabled' &&
+      cmd1.includes('<level>') &&
+      levels?.length === 0
+    ) {
+      const [range, ...rest] = cmd1
+        .slice(cmd1.indexOf('> is ') + 5, -1)
+        .split(', ')
+
+      const [, to] = (range as string)
+        .split('-') //
+        .map((s) => Number.parseInt(s)) as SizedArray<number, 2>
+
+      const nums = Array.from(Array(to + 1), (_, i) => i)
+
+      levels = [rest[0] as string, ...nums, ...rest.slice(1)]
+        .filter((l) => !IbmAcpiUtil.DISABLED_LEVELS.includes(l))
+        .map(String)
+    }
 
     return {
       cpu,
       gpu,
       status,
-      speed,
+      speed: Number.parseInt(speed),
       level,
       levels,
     }
@@ -176,36 +163,25 @@ export default class IbmAcpiUtil extends ConsoleUtil {
       logError(e as Error)
     }
   }
-  public setLevel(next: string) {
+
+  public setLevel(next: (typeof this.data.levels)[number]) {
+    assert(
+      this.data.levels.includes(next),
+      `Invalid level: ${next}. Available levels: ${this.data.levels.join(', ')}`
+    )
     const cmd = `pkexec sh -c "echo level ${next} | tee /proc/acpi/ibm/fan"`
-    const [ok, argv] = GLib.shell_parse_argv(cmd)
-
-    if (!ok || !argv || argv.length === 0) {
-      logError('Unable to set fan level')
-      return
-    }
-
-    try {
-      log(`Setting fan level to ${next}`)
-      const proc = Gio.Subprocess.new(
-        argv,
-        Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-      )
-      proc.communicate_utf8_async(null, null, (proc, res) => {
-        if (proc) {
-          try {
-            const [, , stderr] = proc.communicate_utf8_finish(res)
-            if (!proc.get_successful()) throw new Error(stderr as string)
-            log(`Fan level set to ${next}`)
-          } catch (e) {
-            logError(e as Error)
-          }
-        }
-      })
-    } catch (e) {
-      logError(e as Error)
-    }
+    this.run(cmd, 'Unable to set fan level')
   }
+
+  private static NOTIFY = ['cpu', 'gpu', 'speed', 'status']
+  private static CHECKS = [-128, 0]
+  private static DISABLED_LEVELS = [0, 'disengaged']
+
+  private static isNotifiable = (key: string): boolean =>
+    IbmAcpiUtil.NOTIFY.includes(key)
+
+  private static isValidSensor = (v: number): boolean =>
+    IbmAcpiUtil.CHECKS.every((check) => check !== v)
 
   get cpu() {
     return ConsoleUtil.temperature(
@@ -236,12 +212,10 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   get levels() {
     return this.data.levels
   }
-
   get hasDedicatedGpu(): boolean {
     return IbmAcpiUtil.isValidSensor(this.data.gpu)
   }
-
   get isControllable(): boolean {
-    return this.status === 'enabled' && this.levels.length > 0
+    return this.data.status === 'enabled' && this.data.levels.length > 0
   }
 }

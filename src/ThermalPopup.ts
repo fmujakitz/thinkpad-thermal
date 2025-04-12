@@ -11,7 +11,6 @@ import { PopupSection, Item, DropDown, Group, Groups } from './ThermalUI.js'
 class Dmi extends PopupSection {
   constructor(data: DmiUtil) {
     super('Device info', data, false)
-
     this.addMenuItem(new Groups('dmi', 'thinkpad'))
   }
 }
@@ -19,7 +18,6 @@ class Dmi extends PopupSection {
 class Sensors extends PopupSection {
   constructor(data: SensorsUtil) {
     super('Sensors', data, false)
-
     this.addMenuItem(new Groups('cpu'))
     this.addMenuItem(new Group('hdd', 'Disks', data.hdd))
     this.addMenuItem(new Group('other', 'Thermal', data.other, 'sensor'))
@@ -53,19 +51,18 @@ class FanControl extends PopupSection {
 
     data.connect('notify::status', (data: IbmAcpiUtil) => {
       this.item('level')?.destroy()
-      if (data.isControllable) {
-        this.addMenuItem(
-          new DropDown(
-            'level',
-            'Level',
-            data.level,
-            data.levels,
-            (next) => data.setLevel(next) //
-          )
-        )
-      } else {
-        this.addMenuItem(new Item('level', 'Level', data.level))
-      }
+
+      this.addMenuItem(
+        data.isControllable
+          ? new DropDown(
+              'level',
+              'Level',
+              data.level,
+              data.levels,
+              (next) => data.setLevel(next) //
+            )
+          : new Item('level', 'Level', data.level)
+      )
     })
   }
 }

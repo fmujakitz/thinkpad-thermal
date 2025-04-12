@@ -4,20 +4,9 @@ import ConsoleUtil from './Console.js'
 const TAGS = [
   'bios_date',
   'bios_release',
-  'bios_vendor',
   'bios_version',
-  'board_asset_tag',
-  'board_name',
-  'board_vendor',
-  'board_version',
-  'chassis_asset_tag',
-  'chassis_type',
-  'chassis_vendor',
-  'chassis_version',
   'ec_firmware_release',
-  'product_family',
   'product_name',
-  'product_sku',
   'product_version',
   'sys_vendor',
 ] as const
@@ -42,8 +31,6 @@ export default class DmiUtil extends ConsoleUtil {
   }
   constructor() {
     super('cat', ...TAGS.map((tag) => `/sys/devices/virtual/dmi/id/${tag}`))
-
-    if (this.available) this.update()
   }
 
   private data: DmiData

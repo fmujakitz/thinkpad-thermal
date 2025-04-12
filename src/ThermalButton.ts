@@ -35,11 +35,6 @@ class ThermalButton extends PanelMenu.Button {
         el.update(next.gpu)
       } else {
         el.hide()
-        // log({
-        //   message: 'GPU indicator hidden',
-        //   hasDedicatedGpu: next.hasDedicatedGpu,
-        //   gpu: next.gpu,
-        // })
       }
     })
 

@@ -9,6 +9,10 @@ type TupleOf<T, N extends number, R extends T[] = []> = R['length'] extends N
   : TupleOf<T, N, [T, ...R]>
 
 declare global {
+  type FilterFn<T> = (value: T, index: number, array: T[]) => boolean
+  type ReduceFn<T, U> = (accumulator: U, value: T) => U
+  type SizedArray<T, N extends number> = TupleOf<T, N>
+
   namespace ThinkPadThermal {
     type IndicatorKeys = 'cpu' | 'gpu' | 'speed'
 
@@ -43,10 +47,4 @@ declare global {
     type Element = Item | DropDown | Group
     type PrevElement = Element & { prev: unknown }
   }
-
-  type FilterFn<T> = (value: T, index: number, array: T[]) => boolean
-  type ReduceFn<T, U> = (accumulator: U, value: T) => U
-  type SizedArray<T, N extends number> = TupleOf<T, N>
 }
-
-export {}

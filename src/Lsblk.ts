@@ -15,8 +15,6 @@ class LsnvmeUtil extends ConsoleUtil {
 
   constructor() {
     super('ls', '-l', '/dev/disk/by-path')
-
-    if (this.available) this.update()
   }
 
   private parse(str: string) {
@@ -58,10 +56,6 @@ export default class LsblkUtil extends ConsoleUtil {
 
   constructor() {
     super('lsblk', '-o', 'HCTL,MODEL,NAME,TRAN', '-dnJ')
-
-    if (this.available) {
-      this.update()
-    }
   }
 
   private parse(str: string) {
@@ -69,8 +63,11 @@ export default class LsblkUtil extends ConsoleUtil {
     this.data = blockdevices.reduce(
       (acc: object, { hctl, model, name, tran }) => {
         if (hctl) {
-          const [a, b] = hctl.split(':')
-          const key = ['drivetemp', 'scsi', a, b].join('-')
+          const key = [
+            'drivetemp',
+            'scsi',
+            ...hctl.split(':').slice(0, 2),
+          ].join('-')
           acc[key] = model
           return acc
         }

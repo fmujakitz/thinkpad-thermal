@@ -1,6 +1,6 @@
 import GObject from 'gi://GObject'
 
-import ConsoleUtil from './Console.js'
+import ConsoleUtil, { assert } from './Console.js'
 import LsblkUtil from './Lsblk.js'
 import LscpuUtil from './Lscpu.js'
 
@@ -37,11 +37,11 @@ export default class SensorsUtil extends ConsoleUtil {
   constructor(config?: ThinkPadThermal.Config) {
     super('sensors', '-A', '-j')
 
-    if (this.available) {
-      this._lscpu = new LscpuUtil()
-      this._lsblk = new LsblkUtil()
-      this.update(config)
-    }
+    assert(this.available, 'Lm-sensors not found')
+
+    this._lscpu = new LscpuUtil()
+    this._lsblk = new LsblkUtil()
+    this.update(config)
   }
 
   private parse(str: string | object) {
@@ -66,16 +66,15 @@ export default class SensorsUtil extends ConsoleUtil {
       return typeof value === 'object' ? this.parse(value) : value
     }
 
-    return -256
+    return -128
   }
 
   async update(config?: ThinkPadThermal.Config) {
-    if (config) {
-      this.config = {
-        ...(this.config || {}),
-        ...config,
-      }
+    this.config = {
+      ...this.config,
+      ...config,
     }
+
     try {
       this.data = await super.execute(this.parse.bind(this))
       const obj = SensorsUtil.NOTIFY.reduce((acc, key) => {
@@ -103,6 +102,7 @@ export default class SensorsUtil extends ConsoleUtil {
     return this.select(
       (k) => CPU.test(k),
       (acc, k) => {
+        const name = this._lscpu.name(k)
         const value = { ...this.data[k] }
 
         for (const key of Object.keys(value)) {
@@ -112,7 +112,7 @@ export default class SensorsUtil extends ConsoleUtil {
           )
         }
 
-        acc[this.cpuName(k)] = value
+        acc[name] = value
 
         return acc
       }
@@ -123,12 +123,10 @@ export default class SensorsUtil extends ConsoleUtil {
     return this.select(
       (k) => DRIVETEMP.test(k) || NVME.test(k),
       (acc, k) => {
+        const name = this._lsblk.name(k)
         const value = Math.max(...(Object.values(this.data[k]) as number[]))
 
-        acc[this.diskName(k)] = ConsoleUtil.temperature(
-          value,
-          this.config.temperatureUnit
-        )
+        acc[name] = ConsoleUtil.temperature(value, this.config.temperatureUnit)
 
         return acc
       }
@@ -170,13 +168,5 @@ export default class SensorsUtil extends ConsoleUtil {
         return acc
       }
     )
-  }
-
-  cpuName(key: string) {
-    return this._lscpu.name(key)
-  }
-
-  diskName(key: string) {
-    return this._lsblk.name(key)
   }
 }

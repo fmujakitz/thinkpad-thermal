@@ -9,26 +9,30 @@ export default class LscpuUtil extends ConsoleUtil {
 
   constructor() {
     super('lscpu', '-e=MODELNAME,SOCKET', '-J')
-
-    if (this.available) this.update()
   }
 
   private extractModel(modelName: string): string {
     if (modelName.toLowerCase().includes('intel')) {
-      return modelName
-        .split('@')[0]!
-        .replace('CPU', '') //
-        .replace(/\(R\)/g, '®')
-        .replace(/\(TM\)/g, '™')
-        .trim()
+      return (
+        // @ts-ignore
+        modelName
+          .split('@')[0]
+          .replace('CPU', '')
+          .replace(/\(R\)/g, '®')
+          .replace(/\(TM\)/g, '™')
+          .trim() || 'Intel CPU'
+      )
     }
 
     if (modelName.toLowerCase().includes('amd')) {
-      return modelName
-        .split('with')[0]!
-        .split(/\s+\d+-Core/)[0]!
-        .split(/\s+[A-Za-z]+-Core/)[0]!
-        .trim()
+      return (
+        // @ts-ignore
+        modelName
+          .split('with')[0]
+          .split(/\s+\d+-Core/)[0]
+          .split(/\s+[A-Za-z]+-Core/)[0]
+          .trim() || 'AMD CPU'
+      )
     }
 
     return 'Processor'
