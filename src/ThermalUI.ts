@@ -83,7 +83,6 @@ export class Icon extends St.Icon {
 
   static to_gicon(filename: string) {
     return new Gio.FileIcon({
-      // @ts-expect-error
       file: ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`),
     })
   }
