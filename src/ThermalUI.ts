@@ -1,5 +1,4 @@
 import Clutter from 'gi://Clutter'
-import Gio from 'gi://Gio'
 import GObject from 'gi://GObject'
 import Pango from 'gi://Pango'
 import St from 'gi://St'
@@ -12,6 +11,7 @@ import {
 } from 'resource:///org/gnome/shell/ui/popupMenu.js'
 
 import microdiff from './vendor/microdiff.js'
+import { createIcon } from './extension.js'
 
 export class ButtonSection extends St.BoxLayout {
   static {
@@ -78,13 +78,7 @@ export class Icon extends St.Icon {
       y_align: Clutter.ActorAlign.CENTER,
     })
 
-    this.set_gicon(Icon.to_gicon(filename))
-  }
-
-  static to_gicon(filename: string) {
-    return new Gio.FileIcon({
-      file: ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`),
-    })
+    this.set_gicon(createIcon(filename))
   }
 }
 
@@ -235,7 +229,7 @@ export class Group extends PopupSubMenuMenuItem {
 
     if ('icon' in this) {
       const i = this.icon as St.Icon
-      i.set_gicon(Icon.to_gicon(icon ?? key))
+      i.set_gicon(createIcon(icon ?? key))
     }
 
     if (typeof rename === 'function') this.rename = rename

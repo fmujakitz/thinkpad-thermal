@@ -1,4 +1,4 @@
-import type Gio from 'gi://Gio'
+import Gio from 'gi://Gio'
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
@@ -6,6 +6,15 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import ThermalData from './ThermalData.js'
 import ThermalButton from './ThermalButton.js'
 import ThermalPopup from './ThermalPopup.js'
+
+let ME: ThinkPadThermal | null
+
+export function createIcon(filename: string) {
+  if (!ME) return null
+  return new Gio.FileIcon({
+    file: ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`),
+  })
+}
 
 export default class ThinkPadThermal extends Extension {
   _settings: Gio.Settings
