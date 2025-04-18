@@ -9,7 +9,12 @@ import {
   PopupMenuSection,
   PopupSubMenuMenuItem,
   Ornament,
+  PopupSeparatorMenuItem,
 } from 'resource:///org/gnome/shell/ui/popupMenu.js'
+import {
+  QuickMenuToggle,
+  SystemIndicator,
+} from 'resource:///org/gnome/shell/ui/quickSettings.js'
 
 import microdiff from './vendor/microdiff.js'
 import { ME } from './extension.js'
@@ -375,6 +380,61 @@ export class PopupSection extends PopupMenuSection {
 
       el.prev = value
       el.value = value
+    }
+  }
+}
+
+export class QuickDropdown extends SystemIndicator {
+  static {
+    GObject.registerClass(QuickDropdown)
+  }
+
+  private _quick: QuickMenuToggle
+  private _icon: Gio.Icon
+
+  constructor(
+    title: string,
+    icon_name: string,
+    items: string[],
+    current: string,
+    onClick: (next: string) => void
+  ) {
+    super()
+
+    this._icon = Icon.createIcon(icon_name) as Gio.Icon
+
+    this._quick = new QuickMenuToggle({
+      title,
+      subtitle: current ?? '...',
+      gicon: this._icon,
+      toggleMode: false,
+    })
+
+    this._quick.menu.setHeader(this._icon, title, current ?? '...')
+
+    for (const s of items) {
+      this._quick.menu.addAction(s, () => onClick(s))
+    }
+
+    this._quick.menu.addMenuItem(new PopupSeparatorMenuItem())
+    this._quick.menu.addAction(
+      'Settings',
+      () => ME?.openPreferences(),
+      'org.gnome.Settings-symbolic' as unknown as Gio.Icon
+    )
+
+    this.quickSettingsItems.push(this._quick)
+  }
+
+  status(current: string, header: string, subtitle: string) {
+    this._quick.subtitle = current
+    this._quick.menu.setHeader(this._icon, header, subtitle)
+
+    for (const item of this._quick.menu._getMenuItems() as PopupBaseMenuItem[]) {
+      item.setOrnament(Ornament.HIDDEN)
+      if ((item.labelActor as St.Label).text === current) {
+        item.setOrnament(Ornament.CHECK)
+      }
     }
   }
 }

@@ -5,8 +5,15 @@ import type SensorsUtil from './Sensors.js'
 
 import St from 'gi://St'
 import { PopupMenu } from 'resource:///org/gnome/shell/ui/popupMenu.js'
+import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 
-import { PopupSection, Item, DropDown, Group, Groups } from './ThermalUI.js'
+import {
+  PopupSection,
+  Item,
+  Group,
+  Groups,
+  QuickDropdown,
+} from './ThermalUI.js'
 
 class Dmi extends PopupSection {
   constructor(data: DmiUtil) {
@@ -43,25 +50,36 @@ class Acpi extends PopupSection {
 }
 
 class FanControl extends PopupSection {
+  private _dropdown: QuickDropdown
+
   constructor(data: IbmAcpiUtil) {
     super('Fan control', data)
 
     this.addMenuItem(new Item('status', 'Status', data.status))
     this.addMenuItem(new Item('speed', 'Speed', data.speed))
+    this.addMenuItem(new Item('level', 'Level', data.level))
 
     data.connect('notify::status', (data: IbmAcpiUtil) => {
-      this.item('level')?.destroy()
+      this._dropdown?.destroy()
 
-      this.addMenuItem(
-        data.isControllable
-          ? new DropDown(
-              'level',
-              'Level',
-              data.level,
-              data.levels,
-              (next) => data.setLevel(next) //
-            )
-          : new Item('level', 'Level', data.level)
+      if (data.isControllable) {
+        this._dropdown = new QuickDropdown(
+          'Fan Level',
+          'fan',
+          data.levels,
+          data.level,
+          (next) => data.setLevel(next)
+        )
+
+        Main.panel.statusArea.quickSettings.addExternalIndicator(this._dropdown)
+      }
+    })
+
+    data.connect('notify::level', () => {
+      this._dropdown?.status(
+        data.level,
+        'ThinkPad Fan Control',
+        `Current level is: ${data.level}`
       )
     })
   }

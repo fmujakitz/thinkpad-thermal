@@ -36,6 +36,13 @@ export default class IbmAcpiUtil extends ConsoleUtil {
             GObject.ParamFlags.READABLE,
             '...'
           ),
+          level: GObject.ParamSpec.string(
+            'level',
+            'Fan level',
+            'Current fan level',
+            GObject.ParamFlags.READABLE,
+            '...'
+          ),
         },
         Signals: {
           updated: {
@@ -173,7 +180,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     this.run(cmd, 'Unable to set fan level')
   }
 
-  private static NOTIFY = ['cpu', 'gpu', 'speed', 'status']
+  private static NOTIFY = ['cpu', 'gpu', 'speed', 'level', 'status']
   private static CHECKS = [-128, 0]
   private static DISABLED_LEVELS = [0, 'disengaged']
 

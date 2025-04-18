@@ -28,15 +28,7 @@ export default class ThinkPadThermal extends Extension {
       this._data.acpi,
       this._settings
     )
-
     this._menu = new ThermalPopup(0.5, this._indicator, this._data)
-
-    this._menu.addAction(
-      'Settings',
-      () => this.openPreferences(),
-      'org.gnome.Settings-symbolic' as unknown as Gio.Icon
-    )
-
     this._indicator.setMenu(this._menu)
 
     Main.panel.addToStatusArea(this.uuid, this._indicator, this._position)

@@ -15,8 +15,8 @@ class LsnvmeUtil extends ConsoleUtil {
   }
 
   private static IS = {
-    NVME: /^nvme/i,
-    PART: /^part/i,
+    NVME: /nvme/i,
+    PART: /part/i,
   }
 
   private parse(str: string) {
