@@ -6,6 +6,7 @@
   "license": "MIT",
   "author": "Faris Mujakic <faris.mujakic@gmail.com>",
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "clean": "rm -rf ./dist",
     "build:package": "yarn clean && rollup -c && yarn package",

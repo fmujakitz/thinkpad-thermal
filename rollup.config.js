@@ -11,19 +11,6 @@ const tsconfig = {
   tsconfig: 'tsconfig.json',
   rootDir: 'src',
   baseUrl: '.',
-  paths: {
-    'gi://Adw': ['@girs/adw-1'],
-    'gi://Clutter': ['@girs/clutter-15'],
-    'gi://Gio': ['@girs/gio-2.0'],
-    'gi://GLib': ['@girs/glib-2.0'],
-    'gi://GObject': ['@girs/gobject-2.0'],
-    'gi://Gtk': ['@girs/gtk-4.0'],
-    'gi://Pango': ['@girs/pango-1.0'],
-    'gi://St': ['@girs/st-15'],
-    'resource:///org/gnome/shell/*': [
-      './node_modules/@girs/gnome-shell/dist/*',
-    ],
-  },
 }
 
 const toDest = (src) => ({ src, dest })
