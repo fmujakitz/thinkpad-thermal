@@ -168,7 +168,9 @@ export default class SensorsUtil extends ConsoleUtil {
         ),
       (acc, k) => {
         const value = this.data[k]
-        acc[k] = ConsoleUtil.temperature(value, this.config.temperatureUnit)
+        if (typeof value === 'number' && !isNaN(value)) {
+          acc[k] = ConsoleUtil.temperature(value, this.config.temperatureUnit);
+        }
         return acc
       }
     )
