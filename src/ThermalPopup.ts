@@ -50,42 +50,18 @@ class Acpi extends PopupSection {
 }
 
 class FanControl extends PopupSection {
-  private _dropdown: QuickDropdown
-
   constructor(data: IbmAcpiUtil) {
     super('Fan control', data)
 
     this.addMenuItem(new Item('status', 'Status', data.status))
     this.addMenuItem(new Item('speed', 'Speed', data.speed))
     this.addMenuItem(new Item('level', 'Level', data.level))
-
-    data.connect('notify::status', (data: IbmAcpiUtil) => {
-      this._dropdown?.destroy()
-
-      if (data.isControllable) {
-        this._dropdown = new QuickDropdown(
-          'Fan Level',
-          'fan',
-          data.levels,
-          data.level,
-          (next) => data.setLevel(next)
-        )
-
-        Main.panel.statusArea.quickSettings.addExternalIndicator(this._dropdown)
-      }
-    })
-
-    data.connect('notify::level', () => {
-      this._dropdown?.status(
-        data.level,
-        'ThinkPad Fan Control',
-        `Current level is: ${data.level}`
-      )
-    })
   }
 }
 
 export default class ThermalPopup extends PopupMenu {
+  _dd: QuickDropdown
+
   constructor(
     align: number,
     actor: St.Widget,
@@ -99,5 +75,36 @@ export default class ThermalPopup extends PopupMenu {
     this.addMenuItem(new Sensors(sensors))
     this.addMenuItem(new Acpi(acpi))
     this.addMenuItem(new FanControl(acpi))
+
+    acpi.connect('notify::status', (data: IbmAcpiUtil) => {
+      //
+      if (!data.isControllable) return this._dd?.destroy()
+
+      if (this._dd) return
+
+      this._dd = new QuickDropdown(
+        'Fan Level',
+        'fan',
+        data.levels,
+        data.level,
+        (next) => data.setLevel(next)
+      )
+
+      Main.panel.statusArea.quickSettings //
+        .addExternalIndicator(this._dd)
+    })
+
+    acpi.connect('notify::level', (data: IbmAcpiUtil) => {
+      this._dd?.status(
+        data.level,
+        'ThinkPad Fan Control',
+        `Current level is: ${data.level}`
+      )
+    })
+  }
+
+  override destroy(): void {
+    this._dd?.destroy()
+    super.destroy()
   }
 }

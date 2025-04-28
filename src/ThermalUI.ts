@@ -170,54 +170,54 @@ export class Item extends PopupBaseMenuItem {
   }
 }
 
-export class DropDown extends PopupSubMenuMenuItem {
-  static {
-    GObject.registerClass(DropDown)
-  }
-  key: string
-  private _value: St.Label
+// export class DropDown extends PopupSubMenuMenuItem {
+//   static {
+//     GObject.registerClass(DropDown)
+//   }
+//   key: string
+//   private _value: St.Label
 
-  constructor(
-    key: string,
-    label: string,
-    value: string,
-    items: string[],
-    onClick: (key: string) => void
-  ) {
-    super(label, false)
-    this.key = key
+//   constructor(
+//     key: string,
+//     label: string,
+//     value: string,
+//     items: string[],
+//     onClick: (key: string) => void
+//   ) {
+//     super(label, false)
+//     this.key = key
 
-    this.menu.actor.add_style_class_name('dropdown-menu')
-    this.add_style_class_name('dropdown-button')
-    this.setOrnament(Ornament.HIDDEN)
+//     this.menu.actor.add_style_class_name('dropdown-menu')
+//     this.add_style_class_name('dropdown-button')
+//     this.setOrnament(Ornament.HIDDEN)
 
-    this.label.add_style_class_name('label')
-    this.label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE)
+//     this.label.add_style_class_name('label')
+//     this.label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE)
 
-    this._value = new St.Label({
-      style_class: 'value',
-      text: value,
-      x_align: Clutter.ActorAlign.END,
-      y_align: Clutter.ActorAlign.CENTER,
-      x_expand: true,
-    })
-    this._value.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE)
+//     this._value = new St.Label({
+//       style_class: 'value',
+//       text: value,
+//       x_align: Clutter.ActorAlign.END,
+//       y_align: Clutter.ActorAlign.CENTER,
+//       x_expand: true,
+//     })
+//     this._value.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE)
 
-    const expander = this.get_child_at_index(2) as Clutter.Actor
-    this.replace_child(expander, this._value)
+//     const expander = this.get_child_at_index(2) as Clutter.Actor
+//     this.replace_child(expander, this._value)
 
-    for (const key of items) {
-      this.menu.addAction(key, () => onClick(key))
-      const item = this.menu.actor.lastChild.lastChild
-      item.lastChild.x_expand = true
-      item.lastChild.x_align = Clutter.ActorAlign.END
-    }
-  }
+//     for (const key of items) {
+//       this.menu.addAction(key, () => onClick(key))
+//       const item = this.menu.actor.lastChild.lastChild
+//       item.lastChild.x_expand = true
+//       item.lastChild.x_align = Clutter.ActorAlign.END
+//     }
+//   }
 
-  set value(value: string) {
-    this._value.set_text(value)
-  }
-}
+//   set value(value: string) {
+//     this._value.set_text(value)
+//   }
+// }
 
 export class Group extends PopupSubMenuMenuItem {
   static {
@@ -426,12 +426,19 @@ export class QuickDropdown extends SystemIndicator {
     this.quickSettingsItems.push(this._quick)
   }
 
+  override destroy(): void {
+    this._quick.destroy()
+    super.destroy()
+  }
+
   status(current: string, header: string, subtitle: string) {
     this._quick.subtitle = current
     this._quick.menu.setHeader(this._icon, header, subtitle)
 
     for (const item of this._quick.menu._getMenuItems() as PopupBaseMenuItem[]) {
-      item.setOrnament(Ornament.HIDDEN)
+      if (item instanceof PopupSeparatorMenuItem) break
+
+      item.setOrnament(Ornament.NONE)
       if ((item.labelActor as St.Label).text === current) {
         item.setOrnament(Ornament.CHECK)
       }

@@ -7,14 +7,12 @@ import ThermalButton from './ThermalButton.js'
 import ThermalPopup from './ThermalPopup.js'
 
 let ME: ThinkPadThermal | null
-
 export { ME }
 
 export default class ThinkPadThermal extends Extension {
   _settings: Gio.Settings
   _data: ThermalData
   _indicator: ThermalButton
-  _menu: ThermalPopup
 
   override enable() {
     ME = this
@@ -28,8 +26,7 @@ export default class ThinkPadThermal extends Extension {
       this._data.acpi,
       this._settings
     )
-    this._menu = new ThermalPopup(0.5, this._indicator, this._data)
-    this._indicator.setMenu(this._menu)
+    this._indicator.setMenu(new ThermalPopup(0.5, this._indicator, this._data))
 
     Main.panel.addToStatusArea(this.uuid, this._indicator, this._position)
 
@@ -56,10 +53,8 @@ export default class ThinkPadThermal extends Extension {
 
   override disable() {
     this._indicator?.destroy()
-    this._menu?.destroy()
     this._data?.destroy()
 
-    this._menu = null as unknown as ThermalPopup
     this._indicator = null as unknown as ThermalButton
     this._data = null as unknown as ThermalData
 
