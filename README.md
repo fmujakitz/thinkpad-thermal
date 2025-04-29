@@ -27,8 +27,8 @@ You can clone this repo and build the extension manually with `yarn build:packag
 ## Troubleshooting
 
 - Make sure you have the required dependencies installed and configured
-- Run `./run-log.sh` and check the generated logs `hw.log, err.log` which contain the hardware info that is being used by the extension and any errors that may occur
-- Clone the repo, install dependencies, build the development version with `yarn dev` and `./run-nested-shell.sh`
+- Run `./run-log.sh` and check the generated logs `hw.log, err.log`
+- Clone the repo, install dependencies, `yarn dev` and `./run-nested-shell.sh`
 
 
 ## Todo
