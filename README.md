@@ -18,21 +18,24 @@ This extension is available on [GNOME Extensions Website](https://extensions.gno
 
 [![ThinkPad Thermal on extensions.gnome.org](images/ego.svg)](https://extensions.gnome.org/extension/986/thinkpad-thermal/)
 
+
 ### Manually
 
-You can clone this repo and build the extension manually with <code>yarn build:package</code>, and extract the generated archive from <code>dist</code> to your extensions path, ie. <code>~/.local/share/gnome-shell/extensions/</code>.
+You can clone this repo and build the extension manually with `yarn build:package`, and extract the generated archive from `dist` to your extensions path, ie. `~/.local/share/gnome-shell/extensions/`.
 
+
+## Troubleshooting
+
+- Make sure you have the required dependencies installed and configured
+- Run `./run-log.sh` and check the generated logs `hw.log, err.log` which contain the hardware info that is being used by the extension and any errors that may occur
+- Clone the repo, install dependencies, build the development version with `yarn dev` and `./run-nested-shell.sh`
 
 
 ## Todo
-  - [x] Gnome 42
   - [x] thinkpad-acpi
   - [x] lm-sensors
   - [x] lscpu
   - [x] lsblk
-  - [ ] Settings dialog
-  - [x] Gnome 43
   - [x] Fan speed control
-  - [x] Gnome 44
+  - [x] Settings dialog
   - [ ] Multilang
-  - [x] Gnome 45
