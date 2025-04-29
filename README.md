@@ -9,6 +9,8 @@
 - `lscpu`
 - `lsblk`
 
+![Panel indicator, Dropdown menu, Quick settings fan control](images/screens.png)
+
 
 ## Install
 
