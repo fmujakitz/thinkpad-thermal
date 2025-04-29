@@ -1,4 +1,5 @@
 ![ThinkPad Thermal GNOME Shell Extension](images/screen.png)
+![Panel indicator, Dropdown menu, Quick settings fan control](images/screens.png)
 
 # ThinkPad Thermal GNOME Shell Extension
 <b>Extension that displays thermal and fan status on ThinkPads</b>
@@ -8,8 +9,6 @@
 - [lm-sensors](https://github.com/lm-sensors/lm-sensors), make sure to run `sensors-detect`
 - `lscpu`
 - `lsblk`
-
-![Panel indicator, Dropdown menu, Quick settings fan control](images/screens.png)
 
 
 ## Install
