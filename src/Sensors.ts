@@ -48,27 +48,18 @@ export default class SensorsUtil extends ConsoleUtil {
     const obj = typeof str === 'string' ? JSON.parse(str) : str
     const keys = Object.keys(obj)
 
-    if (keys.length > 1) {
-      return keys.reduce((acc, key) => {
-        const value = obj[key]
+    if (keys.length === 0) return obj
 
-        const input = Object.keys(value).find((key) =>
-          SensorsUtil.IS.INPUT.test(key)
-        )
+    if (keys.length === 1)
+      return this.parse(Object.values(obj)[0] as string | object)
 
-        acc[key] = input ? value[input] : this.parse(value)
+    const input = keys.find((k) => SensorsUtil.IS.INPUT.test(k))
+    if (input) return this.parse(obj[input])
 
-        return acc
-      }, {})
-    }
-
-    if (keys.length === 1) {
-      const value = obj[keys[0] as string]
-
-      return typeof value === 'object' ? this.parse(value) : value
-    }
-
-    return -128
+    return keys.reduce((acc, key) => {
+      acc[key] = this.parse(obj[key])
+      return acc
+    }, {})
   }
 
   async update(config?: ThinkPadThermal.Config) {
@@ -126,7 +117,11 @@ export default class SensorsUtil extends ConsoleUtil {
       (k) => SensorsUtil.IS.DRIVETEMP.test(k) || SensorsUtil.IS.NVME.test(k),
       (acc, k) => {
         const name = this._lsblk.name(k)
-        const value = Math.max(...(Object.values(this.data[k]) as number[]))
+        let value = this.data[k]
+
+        if (typeof value === 'object') {
+          value = Math.max(...(Object.values(value) as number[]))
+        }
 
         acc[name] = ConsoleUtil.temperature(value, this.config.temperatureUnit)
 
