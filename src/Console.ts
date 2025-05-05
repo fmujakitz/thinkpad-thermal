@@ -14,13 +14,15 @@ export default class ConsoleUtil extends GObject.Object {
     GObject.registerClass(ConsoleUtil)
   }
 
-  private _command: string
+  private _command: string[]
 
-  constructor(program: string, ...args: string[]) {
+  constructor(...args: string[]) {
     super()
-    assert(typeof program === 'string', 'Program must be a string')
-    assert(ConsoleUtil.exists(program), 'Program not found')
-    this._command = [program, ...args].join(' ')
+
+    assert(!!args[0], 'Util not defined')
+    assert(!!GLib.find_program_in_path(args[0]), `Util ${args[0]} not found`)
+
+    this._command = ConsoleUtil.args(args.join(' '))
 
     if (
       this.available &&
@@ -31,9 +33,8 @@ export default class ConsoleUtil extends GObject.Object {
     }
   }
 
-  run(command: string, errorMessage?: string) {
-    const [ok, argv] = GLib.shell_parse_argv(command)
-    assert(ok && !!argv, errorMessage ?? 'Unable to parse util arguments')
+  run(argv: string[], condition: boolean, errorMessage: string) {
+    assert(condition, errorMessage)
 
     return new Promise((resolve, reject) => {
       const proc = Gio.Subprocess.new(
@@ -55,19 +56,27 @@ export default class ConsoleUtil extends GObject.Object {
 
   async execute(callback) {
     try {
-      assert(this.available, 'Util not available')
-      return callback(await this.run(this._command))
+      return callback(
+        await this.run(
+          this._command,
+          this.available,
+          `Util ${this._command[0]} not available`
+        )
+      )
     } catch (e) {
       logError(e)
     }
   }
 
   get available() {
-    return typeof this._command === 'string' && this._command.length > 0
+    return this._command.length > 0
   }
 
-  static exists(prog: string): boolean {
-    return typeof prog === 'string' && Boolean(GLib.find_program_in_path(prog))
+  static args(cmd: string | string[]) {
+    if (typeof cmd !== 'string') return cmd
+    const [ok, argv] = GLib.shell_parse_argv(cmd)
+    assert(ok && !!argv, `Unable to parse ${cmd} as argument vector`)
+    return argv
   }
 
   static celsius(c: number, round?: boolean) {
