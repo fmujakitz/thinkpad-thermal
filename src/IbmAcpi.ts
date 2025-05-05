@@ -1,6 +1,6 @@
 import GObject from 'gi://GObject'
 
-import ConsoleUtil, { assert } from './Console.js'
+import ConsoleUtil from './Console.js'
 import microdiff, { type DifferenceChange } from './vendor/microdiff.js'
 
 export default class IbmAcpiUtil extends ConsoleUtil {
@@ -172,12 +172,13 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   }
 
   public setLevel(next: (typeof this.data.levels)[number]) {
-    assert(
+    this.run(
+      ConsoleUtil.args(
+        `pkexec sh -c "echo level ${next} | tee /proc/acpi/ibm/fan"`
+      ),
       this.data.levels.includes(next),
       `Invalid level: ${next}. Available levels: ${this.data.levels.join(', ')}`
     )
-    const cmd = `pkexec sh -c "echo level ${next} | tee /proc/acpi/ibm/fan"`
-    this.run(cmd, 'Unable to set fan level')
   }
 
   private static NOTIFY = ['cpu', 'gpu', 'speed', 'level', 'status']

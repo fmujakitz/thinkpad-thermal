@@ -1,6 +1,6 @@
 import GObject from 'gi://GObject'
 
-import ConsoleUtil, { assert } from './Console.js'
+import ConsoleUtil from './Console.js'
 import LsblkUtil from './Lsblk.js'
 import LscpuUtil from './Lscpu.js'
 
@@ -37,10 +37,9 @@ export default class SensorsUtil extends ConsoleUtil {
   constructor(config?: ThinkPadThermal.Config) {
     super('sensors', '-A', '-j')
 
-    assert(this.available, 'Lm-sensors not found')
-
     this._lscpu = new LscpuUtil()
     this._lsblk = new LsblkUtil()
+
     this.update(config)
   }
 
