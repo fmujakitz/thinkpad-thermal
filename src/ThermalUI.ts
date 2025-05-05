@@ -389,7 +389,7 @@ export class QuickDropdown extends SystemIndicator {
     GObject.registerClass(QuickDropdown)
   }
 
-  private _quick: QuickMenuToggle
+  private _quick: QuickMenuToggle | null
   private _icon: Gio.Icon
 
   constructor(
@@ -427,11 +427,14 @@ export class QuickDropdown extends SystemIndicator {
   }
 
   override destroy(): void {
-    this._quick.destroy()
+    this._quick?.destroy()
+    this._quick = null
     super.destroy()
   }
 
   status(current: string, header: string, subtitle: string) {
+    if (!this._quick) return
+
     this._quick.subtitle = current
     this._quick.menu.setHeader(this._icon, header, subtitle)
 

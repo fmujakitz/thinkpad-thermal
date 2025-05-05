@@ -60,7 +60,7 @@ class FanControl extends PopupSection {
 }
 
 export default class ThermalPopup extends PopupMenu {
-  _dd: QuickDropdown
+  _dd: QuickDropdown | null
 
   constructor(
     align: number,
@@ -78,7 +78,11 @@ export default class ThermalPopup extends PopupMenu {
 
     acpi.connect('notify::status', (data: IbmAcpiUtil) => {
       //
-      if (!data.isControllable) return this._dd?.destroy()
+      if (!data.isControllable) {
+        this._dd?.destroy()
+        this._dd = null
+        return
+      }
 
       if (this._dd) return
 
@@ -105,6 +109,7 @@ export default class ThermalPopup extends PopupMenu {
 
   override destroy(): void {
     this._dd?.destroy()
+    this._dd = null
     super.destroy()
   }
 }
