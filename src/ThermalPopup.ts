@@ -7,6 +7,8 @@ import St from 'gi://St'
 import { PopupMenu } from 'resource:///org/gnome/shell/ui/popupMenu.js'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js'
+
 import {
   PopupSection,
   Item,
@@ -26,9 +28,9 @@ class Sensors extends PopupSection {
   constructor(data: SensorsUtil) {
     super('Sensors', data, false)
     this.addMenuItem(new Groups('cpu'))
-    this.addMenuItem(new Group('hdd', 'Disks', data.hdd))
-    this.addMenuItem(new Group('other', 'Thermal', data.other, 'sensor'))
-    this.addMenuItem(new Group('fan', 'Cooling', data.fan))
+    this.addMenuItem(new Group('hdd', _('Disks'), data.hdd))
+    this.addMenuItem(new Group('other', _('Thermals'), data.other, 'sensor'))
+    this.addMenuItem(new Group('fan', _('Cooling'), data.fan))
   }
 }
 
@@ -51,11 +53,11 @@ class Acpi extends PopupSection {
 
 class FanControl extends PopupSection {
   constructor(data: IbmAcpiUtil) {
-    super('Fan control', data)
+    super(_('Fan Control'), data)
 
-    this.addMenuItem(new Item('status', 'Status', data.status))
-    this.addMenuItem(new Item('speed', 'Speed', data.speed))
-    this.addMenuItem(new Item('level', 'Level', data.level))
+    this.addMenuItem(new Item('status', _('Status'), data.status))
+    this.addMenuItem(new Item('speed', _('Speed'), data.speed))
+    this.addMenuItem(new Item('level', _('Level'), data.level))
   }
 }
 
@@ -83,7 +85,7 @@ export default class ThermalPopup extends PopupMenu {
       if (this._dd) return
 
       this._dd = new QuickDropdown(
-        'Fan Level',
+        _('Fan Level'),
         'fan',
         data.levels,
         data.level,
@@ -97,8 +99,8 @@ export default class ThermalPopup extends PopupMenu {
     acpi.connect('notify::level', (data: IbmAcpiUtil) => {
       this._dd?.status(
         data.level,
-        'ThinkPad Fan Control',
-        `Current level is: ${data.level}`
+        _('ThinkPad Fan Control'),
+        _('Current level is: %s').format(data.level)
       )
     })
   }

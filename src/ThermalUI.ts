@@ -340,6 +340,7 @@ export class PopupSection extends PopupMenuSection {
 
   constructor(name: string, data: ThinkPadThermal.Util, createTitle = true) {
     super()
+
     this.name = name
     this.actor.y_expand = false
 
@@ -418,7 +419,7 @@ export class QuickDropdown extends SystemIndicator {
 
     this._quick.menu.addMenuItem(new PopupSeparatorMenuItem())
     this._quick.menu.addAction(
-      'Settings',
+      _('Settings'),
       () => ME?.openPreferences(),
       'org.gnome.Settings-symbolic' as unknown as Gio.Icon
     )

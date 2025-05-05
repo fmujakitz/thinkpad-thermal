@@ -1,6 +1,8 @@
 import GObject from 'gi://GObject'
 import ConsoleUtil from './Console.js'
 
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js'
+
 export default class DmiUtil extends ConsoleUtil {
   static {
     GObject.registerClass(
@@ -56,8 +58,8 @@ export default class DmiUtil extends ConsoleUtil {
       [this.data.product_version]: {
         [this.data.sys_vendor]: this.data.product_name,
         BIOS: this.data.bios_version,
-        Date: this.data.bios_date,
-        Release: this.data.bios_release,
+        [_('Date')]: this.data.bios_date,
+        [_('Release')]: this.data.bios_release,
         'EC firmware': this.data.ec_firmware_release,
       },
     }

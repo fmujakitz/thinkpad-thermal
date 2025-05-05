@@ -7,6 +7,7 @@
   "uuid": "thinkpadthermal@moonlight.drive.vk.gmail.com",
   "url": "https://github.com/fmujakitz/thinkpad-thermal",
   "settings-schema": "org.gnome.shell.extensions.thinkpadthermal",
+  "gettext-domain": "thinkpadthermal",
   "version": 36,
   "shell-version": ["46", "47", "48"]
 }

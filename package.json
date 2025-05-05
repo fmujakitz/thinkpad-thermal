@@ -8,12 +8,14 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "clean": "rm -rf ./dist",
+    "clean": "rm -rf ./dist && yarn locale:get && yarn locale:pack",
     "build:package": "yarn clean && rollup -c && yarn package",
     "copy:dist": "cp -a dist/. ~/.local/share/gnome-shell/extensions/thinkpadthermal@moonlight.drive.vk.gmail.com",
     "dev": "yarn clean && yarn ts:compile && yarn copy:dist",
     "package": "cd ./dist && zip -qr 'thinkpadthermal@moonlight.drive.vk.gmail.com.zip' . && cd ..",
     "schema:compile": "glib-compile-schemas resources/schemas/",
+    "locale:pack": "sh ./locale-pack.sh",
+    "locale:get": "xgettext --from-code=UTF-8 --output=po/thinkpadthermal.pot src/*.ts --language=JavaScript",
     "ts:compile": "tsc --build tsconfig.json && cp -a resources/. dist"
   },
   "dependencies": {},
