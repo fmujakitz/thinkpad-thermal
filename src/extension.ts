@@ -41,7 +41,7 @@ export default class ThinkPadThermal extends Extension {
       : 0
   }
   get _area() {
-    return this._settings.get_boolean('position-area')
+    return this._settings.get_boolean('position-enable')
       ? this._settings.get_string('position-area')
       : 'right'
   }
