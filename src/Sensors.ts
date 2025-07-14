@@ -3,6 +3,7 @@ import GObject from 'gi://GObject'
 import ConsoleUtil from './Console.js'
 import LsblkUtil from './Lsblk.js'
 import LscpuUtil from './Lscpu.js'
+import IbmAcpiUtil from './IbmAcpi.js'
 
 export default class SensorsUtil extends ConsoleUtil {
   static {
@@ -17,11 +18,12 @@ export default class SensorsUtil extends ConsoleUtil {
       SensorsUtil
     )
   }
-  private static NOTIFY = ['cpu', 'hdd', 'fan', 'other']
+  private static NOTIFY = ['cpus', 'hdds', 'fans', 'other']
   private static IS = {
     INPUT: /_input$/,
     FANS: /^fan/i,
-    CPU: /^coretemp/i,
+    CPU: /^(coretemp|k10temp)/i,
+    GPU: /^amdgpu/i,
     DRIVETEMP: /^drivetemp/i,
     NVME: /^nvme/i,
     TPISA: /^thinkpad-isa/i,
@@ -33,6 +35,7 @@ export default class SensorsUtil extends ConsoleUtil {
   private _lsblk: LsblkUtil
   private data: object = {}
   private config: ThinkPadThermal.Config
+  private prev: { cpu: number, gpu: number }
 
   constructor(config?: ThinkPadThermal.Config) {
     super('sensors', '-A', '-j')
@@ -69,33 +72,90 @@ export default class SensorsUtil extends ConsoleUtil {
 
     try {
       this.data = await super.execute(this.parse.bind(this))
-      const obj = SensorsUtil.NOTIFY.reduce((acc, key) => {
+
+      this.emit('updated', SensorsUtil.NOTIFY.reduce((acc, key) => {
         acc[key] = this[key]
         return acc
-      }, {})
+      }, {}))
 
-      this.emit('updated', obj)
     } catch (error) {
       logError(error)
     }
   }
 
-  private select(
-    f: FilterFn<string>,
-    r: ReduceFn<string, object>,
-    key?: string
-  ) {
-    return Object.keys(key ? this.data[key] : this.data)
-      .filter(f) //
-      .reduce(r, {})
+  isGpuDetected() {
+    const gpu = parseInt(this.avg.gpu.split(' ')[0]!)
+    return IbmAcpiUtil.isValidSensor(gpu)
   }
 
-  get cpu() {
+  private select = <T extends string, I = {}>(
+    f: RegExp | RegExp[] | FilterFn<T>,
+    r: ReduceFn<T, I>,
+    i: I = {} as I
+  ) => (key?: string|RegExp): I => {
+    const source = key instanceof RegExp
+      ? Object.keys(this.data).find((k) => key.test(k))
+      : key
+
+    const data = source ? this.data[source] : this.data
+    const keys = Object.keys(data) as T[]
+
+    let fn: FilterFn<T>
+    if (typeof f === 'function') {
+      fn = f
+    } else {
+      const test = Array.isArray(f) ? f : [f]
+      fn = (k => test.some(exp => exp.test(String(k))))
+    }
+
+    return keys
+      .filter(fn) //
+      .reduce((acc, k) => r(acc, k, data[k]), i)
+  }
+
+  get avg() {
+    let cpu = this.select(
+      [SensorsUtil.IS.TPISA, SensorsUtil.IS.CPU],
+      (acc, _, data) => (
+        data.CPU ?? data.Tctl ?? ConsoleUtil.average(Object.values(data))
+      ) || acc,
+      0
+    )()
+
+    let gpu = this.select(
+      [SensorsUtil.IS.TPISA, SensorsUtil.IS.GPU],
+      (acc, _, data) => (
+        data.GPU ?? data.edge
+      ) || acc,
+      0
+    )()
+
+    const speed = this.select(
+      SensorsUtil.IS.FANS,
+      (acc, _, value) => acc.concat(value),
+      []
+    )(SensorsUtil.IS.TPISA)
+
+    // GPU Fallback, flaky sensor = {}
+    if (typeof gpu !== 'number') {
+      // log('=====> Flaky gpu sensor!!!', [gpu, this.prev.gpu])
+      gpu = this.prev.gpu
+    }
+
+    this.prev = { cpu, gpu }
+    return ({
+      cpu: ConsoleUtil.temperature(Math.round(cpu), this.config.temperatureUnit),
+      gpu: ConsoleUtil.temperature(Math.round(gpu), this.config.temperatureUnit),
+      speed: ConsoleUtil.revs(ConsoleUtil.average(speed)),
+    })
+  }
+
+  get cpus() {
     return this.select(
-      (k) => SensorsUtil.IS.CPU.test(k),
-      (acc, k) => {
-        const name = this._lscpu.name(k)
-        const value = { ...this.data[k] }
+      SensorsUtil.IS.CPU,
+      (acc, k, data) => {
+        const name = this._lscpu.name(k) ?? k
+        const value = { ...data }
 
         for (const key of Object.keys(value)) {
           value[key] = ConsoleUtil.temperature(
@@ -108,15 +168,15 @@ export default class SensorsUtil extends ConsoleUtil {
 
         return acc
       }
-    )
+    )()
   }
 
-  get hdd() {
+  get hdds() {
     return this.select(
-      (k) => SensorsUtil.IS.DRIVETEMP.test(k) || SensorsUtil.IS.NVME.test(k),
-      (acc, k) => {
+      [SensorsUtil.IS.DRIVETEMP, SensorsUtil.IS.NVME],
+      (acc, k, data) => {
         const name = this._lsblk.name(k)
-        let value = this.data[k]
+        let value = data
 
         if (typeof value === 'object') {
           value = Math.max(...(Object.values(value) as number[]))
@@ -126,45 +186,36 @@ export default class SensorsUtil extends ConsoleUtil {
 
         return acc
       }
-    )
+    )()
   }
 
-  get bat() {
+  get bats() {
     return this.select(
-      (k) => SensorsUtil.IS.BATTERIES.test(k),
-      (acc, k) => {
-        acc[k] = this.data[k]
+      SensorsUtil.IS.BATTERIES,
+      (acc, k, value) => {
+        acc[k] = value
         return acc
       }
-    )
+    )()
   }
 
-  get fan() {
-    const key = Object.keys(this.data).find((k) =>
-      SensorsUtil.IS.TPISA.test(k)
-    ) as string
-
+  get fans() {
     return this.select(
-      (k) => SensorsUtil.IS.FANS.test(k),
-      (acc, k) => {
-        acc[k] = ConsoleUtil.revs(this.data[key][k])
+      SensorsUtil.IS.FANS,
+      (acc, k, value) => {
+        acc[k] = ConsoleUtil.revs(value)
         return acc
-      },
-      key
-    )
+      }
+    )(SensorsUtil.IS.TPISA)
   }
 
   get other() {
     return this.select(
-      (k) =>
-        Object.keys(SensorsUtil.IS).every(
-          (check) => !SensorsUtil.IS[check].test(k)
-        ),
-      (acc, k) => {
-        const value = this.data[k]
+      (k) => !Object.values(SensorsUtil.IS).some(exp => exp.test(k)),
+      (acc, k, value) => {
         acc[k] = ConsoleUtil.temperature(value, this.config.temperatureUnit)
         return acc
       }
-    )
+    )()
   }
 }

@@ -12,7 +12,7 @@ export default class LscpuUtil extends ConsoleUtil {
   }
 
   private extractModel(modelName: string): string {
-    if (modelName.toLowerCase().includes('intel')) {
+    if (/intel/i.test(modelName)) {
       return (
         // @ts-ignore
         modelName
@@ -24,13 +24,15 @@ export default class LscpuUtil extends ConsoleUtil {
       )
     }
 
-    if (modelName.toLowerCase().includes('amd')) {
+    if (/amd/i.test(modelName)) {
       return (
         // @ts-ignore
         modelName
           .split('with')[0]
           .split(/\s+\d+-Core/)[0]
           .split(/\s+[A-Za-z]+-Core/)[0]
+          .split('w/')[0]
+          .replace('AMD','AMD®')
           .trim() || 'AMD CPU'
       )
     }

@@ -1,5 +1,5 @@
 import type Gio from 'gi://Gio'
-import type IbmAcpiUtil from './IbmAcpi.js'
+import type ThermalData from './ThermalData.js'
 
 import GObject from 'gi://GObject'
 import St from 'gi://St'
@@ -10,7 +10,7 @@ class ThermalButton extends PanelMenu.Button {
   static {
     GObject.registerClass(ThermalButton)
   }
-  private _data: IbmAcpiUtil
+  private _data: ThermalData
   private layout: St.BoxLayout = new St.BoxLayout({
     style_class: 'layout',
   })
@@ -18,7 +18,7 @@ class ThermalButton extends PanelMenu.Button {
   constructor(
     align: number,
     name: string,
-    data: IbmAcpiUtil,
+    data: ThermalData,
     settings: Gio.Settings
   ) {
     super(align, name)
@@ -29,10 +29,10 @@ class ThermalButton extends PanelMenu.Button {
 
     this.addIndicator('cpu')()
 
-    this.addIndicator('gpu')((el, next) => {
-      if (next.hasDedicatedGpu) {
+    this.addIndicator('gpu')((el, { hasDedicatedGpu, gpu }) => {
+      if (hasDedicatedGpu) {
         el.show()
-        el.update(next.gpu)
+        el.update(gpu)
       } else {
         el.hide()
       }
@@ -64,7 +64,7 @@ class ThermalButton extends PanelMenu.Button {
     key: K,
     icon?: string
   ) {
-    return (handler?: (child: ButtonSection, next: IbmAcpiUtil) => void) => {
+    return (handler?: (child: ButtonSection, next: ThermalData) => void) => {
       const text = this._data[key]
       const child = new ButtonSection(key, text, icon)
 

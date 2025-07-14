@@ -46,7 +46,7 @@ export default class DmiUtil extends ConsoleUtil {
       return acc
     }, {}) as typeof this.data
 
-    this.emit('updated', this.dmi)
+    this.emit('updated', { dmi: this.dmi })
   }
 
   get dmi() {

@@ -22,6 +22,12 @@ export default class ThinkpadThermalPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT
     )
     settings.bind(
+      'quirks-mode',
+      builder.get_object('field_quirks_mode'),
+      'active',
+      Gio.SettingsBindFlags.DEFAULT
+    )
+    settings.bind(
       'temperature-unit',
       builder.get_object('field_unit'),
       'active_id',

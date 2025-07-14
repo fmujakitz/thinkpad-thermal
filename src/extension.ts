@@ -23,7 +23,7 @@ export default class ThinkPadThermal extends Extension {
     this._indicator = new ThermalButton(
       0.5,
       'ThinkPad Thermal',
-      this._data.acpi,
+      this._data,
       this._settings
     )
     this._indicator.setMenu(new ThermalPopup(0.5, this._indicator, this._data))

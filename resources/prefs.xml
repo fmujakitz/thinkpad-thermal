@@ -35,6 +35,21 @@
           </child>
         </object>
       </child>
+
+      <!-- Quirks Mode Setting -->
+      <child>
+        <object class="AdwActionRow">
+            <property name="title" translatable="yes">Enable quirks mode</property>
+            <property name="subtitle" translatable="yes">Use when thinkpad_acpi is not providing the readings via the driver ie. unsupported firmware release. Disables fan control, derives cpu/gpu values if those are provided by lmsensors via coretemp, k10temp, amdgpu modules/drivers.</property>
+            <property name="activatable-widget">field_quirks_mode</property>
+            <child>
+                <object class="GtkSwitch" id="field_quirks_mode">
+                    <property name="valign">center</property>
+                    <property name="active">true</property>
+                </object>
+            </child>
+        </object>
+      </child>
     </object>
   </child>
 

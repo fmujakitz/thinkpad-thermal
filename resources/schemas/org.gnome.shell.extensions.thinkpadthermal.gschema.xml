@@ -9,6 +9,12 @@
       <description>Interval in seconds between temperature checks</description>
     </key>
 
+    <key name="quirks-mode" type="b">
+      <default>false</default>
+      <summary>Enable quirks mode</summary>
+      <description>Use when thinkpad_acpi is not providing the readings via the driver ie. unsupported firmware release. Disables fan control, derives cpu/gpu values if those are provided by lmsensors via coretemp, k10temp, amdgpu modules/drivers.</description>
+    </key>
+
     <key name="temperature-unit" type="s">
       <choices>
         <choice value="celsius"/>
