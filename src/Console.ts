@@ -54,7 +54,7 @@ export default class ConsoleUtil extends GObject.Object {
     })
   }
 
-  async execute(callback: (arg:any) => any) {
+  async execute(callback) {
     try {
       return callback(
         await this.run(
@@ -95,8 +95,9 @@ export default class ConsoleUtil extends GObject.Object {
     return `${n} RPM`
   }
   static average(values: number[]) {
-    return Math.ceil(
-      (values.reduce((acc, curr) => acc + curr, 0)) / values.length
-    ) || 0
+    return (
+      Math.ceil(values.reduce((acc, curr) => acc + curr, 0) / values.length) ||
+      0
+    )
   }
 }

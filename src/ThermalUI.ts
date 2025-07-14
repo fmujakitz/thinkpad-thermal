@@ -17,7 +17,7 @@ import {
 } from 'resource:///org/gnome/shell/ui/quickSettings.js'
 
 import { ME } from './extension.js'
-import ThermalData from './ThermalData.js'
+import type ThermalData from './ThermalData.js'
 
 export class ButtonSection extends St.BoxLayout {
   static {
@@ -89,10 +89,12 @@ export class Icon extends St.Icon {
 
   static createIcon(filename: string) {
     if (!ME) return null
-    let file = ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`);
+    let file = ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`)
 
     if (!file.query_exists(null)) {
-      file = ME.dir.resolve_relative_path(`icons/${filename.slice(0, filename.length-1)}-symbolic.svg`)
+      file = ME.dir.resolve_relative_path(
+        `icons/${filename.slice(0, filename.length - 1)}-symbolic.svg`
+      )
     }
 
     return new Gio.FileIcon({ file })
@@ -361,33 +363,37 @@ export class PopupSection extends PopupMenuSection {
     return this.elements.find((e) => e.key === key)
   }
 
-  private sync(_:object, data: object, diff: ThinkPadThermal.Diffs, keys: Set<string>) {
+  private sync(
+    _: object,
+    data: object,
+    diff: ThinkPadThermal.Diffs,
+    keys: Set<string>
+  ) {
     for (const el of this.elements) {
       if (!keys.has(el.key)) continue
 
-      let diffs =  diff.filter(d => d.path.includes(el.key))
-
-      // const first = diffs[0]!
-
-      // if (diffs.length === 1 && typeof first.value !== 'object') {
-      //   el.value = first.value
-      //   continue
-      // }
-
-      diffs = diffs.reduce(
-        (acc, curr) => {
-          if (curr.type === 'CREATE' && curr.path.length === 1 && typeof curr.value === 'object') {
-            const innerDiffs = Object.keys(curr.value).map(k => ({
+      const diffs = diff
+        .filter((d) => d.path.includes(el.key))
+        .reduce((acc, curr) => {
+          if (
+            curr.path.length === 1 &&
+            curr.type === 'CREATE' &&
+            typeof curr.value === 'object'
+          ) {
+            const innerDiffs = Object.keys(curr.value).map((k) => ({
               type: curr.type,
               path: [k],
-              value: curr.value[k]
+              value: curr.value[k],
             })) as ThinkPadThermal.Diffs
             return acc.concat(innerDiffs)
           }
 
-          curr.path = curr.path.filter(k => k !== el.key)
+          const diff = {
+            ...curr,
+            path: curr.path.filter((k) => k !== el.key),
+          }
 
-          return acc.concat([curr])
+          return acc.concat([diff])
         }, [] as ThinkPadThermal.Diffs)
 
       if (el instanceof Group || el instanceof Groups) {

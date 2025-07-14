@@ -59,11 +59,7 @@ class FanControl extends PopupSection {
 export default class ThermalPopup extends PopupMenu {
   _dd: QuickDropdown | null
 
-  constructor(
-    align: number,
-    actor: St.Widget,
-    data: ThermalData
-  ) {
+  constructor(align: number, actor: St.Widget, data: ThermalData) {
     super(actor, align, St.Side.TOP)
 
     this.actor.add_style_class_name('tpt-popup')
@@ -88,7 +84,9 @@ export default class ThermalPopup extends PopupMenu {
         'fan',
         data.levels,
         data.level,
-        (next) => data.level = next
+        (next) => {
+          data.level = next
+        }
       )
 
       Main.panel.statusArea.quickSettings //

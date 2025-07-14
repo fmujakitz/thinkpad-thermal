@@ -16,7 +16,16 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     )
   }
 
-  private static NOTIFY = ['cpu', 'gpu', 'speed', 'level', 'status', 'levels', 'hasDedicatedGpu','isControllable']
+  private static NOTIFY = [
+    'cpu',
+    'gpu',
+    'speed',
+    'level',
+    'status',
+    'levels',
+    'hasDedicatedGpu',
+    'isControllable',
+  ]
   private static CHECKS = [-128, 0]
   private static DISABLED_LEVELS = [0, 'disengaged']
 
@@ -110,11 +119,13 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     try {
       this.data = await super.execute(this.parse.bind(this))
 
-      this.emit('updated', IbmAcpiUtil.NOTIFY.reduce((acc, key) => {
-        acc[key] = this[key]
-        return acc
-      }, {}))
-
+      this.emit(
+        'updated',
+        IbmAcpiUtil.NOTIFY.reduce((acc, key) => {
+          acc[key] = this[key]
+          return acc
+        }, {})
+      )
     } catch (e) {
       logError(e as Error)
     }

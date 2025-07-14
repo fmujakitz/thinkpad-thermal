@@ -53,11 +53,15 @@ class ThermalData extends GObject.Object {
             'Fan levels',
             'Supported fan levels',
             GObject.ParamFlags.READABLE
-          )
+          ),
         },
         Signals: {
           updated: {
-            param_types: [GObject.TYPE_JSOBJECT, GObject.TYPE_JSOBJECT, GObject.TYPE_JSOBJECT],
+            param_types: [
+              GObject.TYPE_JSOBJECT,
+              GObject.TYPE_JSOBJECT,
+              GObject.TYPE_JSOBJECT,
+            ],
           },
         },
       },
@@ -68,9 +72,8 @@ class ThermalData extends GObject.Object {
   private _interval: number | null
   private config: ThinkPadThermal.Config
 
-  // @ts-ignore
-  private data: ThinkPadThermal.ThermalData = {}
-  private prev = {}
+  private data: Partial<ThinkPadThermal.ThermalData> = {}
+  private prev: Partial<ThinkPadThermal.ThermalData> = {}
 
   acpi: IbmAcpiUtil
   dmi: DmiUtil
@@ -81,8 +84,10 @@ class ThermalData extends GObject.Object {
 
     this.config = {
       checkInterval: settings.get_int('check-interval'),
-      temperatureUnit: settings.get_string('temperature-unit'),
-      quirksMode: settings.get_boolean('quirks-mode')
+      temperatureUnit: settings.get_string(
+        'temperature-unit'
+      ) as ThinkPadThermal.Unit,
+      quirksMode: settings.get_boolean('quirks-mode'),
     }
 
     this.dmi = new DmiUtil()
@@ -98,7 +103,9 @@ class ThermalData extends GObject.Object {
       this.startInterval()
     })
     settings.connect('changed::temperature-unit', () => {
-      this.config.temperatureUnit = settings.get_string('temperature-unit')
+      this.config.temperatureUnit = settings.get_string(
+        'temperature-unit'
+      ) as ThinkPadThermal.Unit
       this.startInterval()
     })
     settings.connect('changed::quirks-mode', () => {
@@ -120,6 +127,7 @@ class ThermalData extends GObject.Object {
   }
 
   private fetchData() {
+    setTimeout(() => console.log('==== fetch ====>'))
     this.acpi.update(this.config)
     this.sensors.update(this.config)
     //
@@ -127,19 +135,18 @@ class ThermalData extends GObject.Object {
   }
 
   private static NOTIFY = ['cpu', 'gpu', 'speed', 'level', 'status']
-  private static isNotifiable = (s:Set<string>) => ThermalData.NOTIFY
-    .filter(k => s.has(k))
+  private static isNotifiable = (s: Set<string>) =>
+    ThermalData.NOTIFY.filter((k) => s.has(k))
 
-  private setData(next:object) {
+  private setData(next: object) {
     this.data = {
       ...this.data,
-      ...next
+      ...next,
     }
   }
 
-  private sync = (_:object, updated:object) => {
+  private sync = (_: object, updated: object) => {
     this.setData(updated)
-    console.log(updated)
 
     if (this.config.quirksMode) {
       this.setData(this.sensors.avg)
@@ -147,7 +154,7 @@ class ThermalData extends GObject.Object {
       this.setData({
         hasDedicatedGpu: this.sensors.isGpuDetected(),
         status: 'disabled',
-        isControllable: false
+        isControllable: false,
       })
     }
 
@@ -155,14 +162,23 @@ class ThermalData extends GObject.Object {
 
     if (diff.length === 0) return
 
+    setTimeout(() =>
+      diff.map((d: ThinkPadThermal.Diff) =>
+        console.log(
+          `${d.type}: ${d.path.join('.').padEnd(50)}`,
+          d.type === 'REMOVE' ? d.oldValue : d.value
+        )
+      )
+    )
+
+    this.prev = this.data
+
     const keys = new Set(diff.flatMap(({ path }) => path as string[]))
     const notify = ThermalData.isNotifiable(keys)
 
     for (const k of notify) this.notify(k as string)
 
     this.emit('updated', this.data, diff, keys)
-
-    this.prev = this.data
   }
 
   destroy() {
@@ -182,16 +198,16 @@ class ThermalData extends GObject.Object {
     return this.data.speed ?? '...'
   }
   get status() {
-    return this.data.status ?? '...'
+    return this.data.status ?? 'initializing'
   }
   get level() {
-    return this.data.level ?? '...'
+    return this.data.level ?? 'auto'
   }
   set level(next) {
     this.acpi.setLevel(next)
   }
   get levels() {
-    return this.data.levels ?? '...'
+    return this.data.levels ?? []
   }
   get hasDedicatedGpu() {
     return this.data.hasDedicatedGpu ?? false
@@ -212,7 +228,6 @@ class ThermalData extends GObject.Object {
   get other() {
     return this.data.other ?? {}
   }
-
 }
 
 export default ThermalData

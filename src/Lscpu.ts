@@ -32,7 +32,7 @@ export default class LscpuUtil extends ConsoleUtil {
           .split(/\s+\d+-Core/)[0]
           .split(/\s+[A-Za-z]+-Core/)[0]
           .split('w/')[0]
-          .replace('AMD','AMD®')
+          .replace('AMD', 'AMD®')
           .trim() || 'AMD CPU'
       )
     }
