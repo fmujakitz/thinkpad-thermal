@@ -127,7 +127,6 @@ class ThermalData extends GObject.Object {
   }
 
   private fetchData() {
-    setTimeout(() => console.log('==== fetch ====>'))
     this.acpi.update(this.config)
     this.sensors.update(this.config)
     //
@@ -161,15 +160,6 @@ class ThermalData extends GObject.Object {
     const diff = microdiff(this.prev, this.data, { cyclesFix: false })
 
     if (diff.length === 0) return
-
-    setTimeout(() =>
-      diff.map((d: ThinkPadThermal.Diff) =>
-        console.log(
-          `${d.type}: ${d.path.join('.').padEnd(50)}`,
-          d.type === 'REMOVE' ? d.oldValue : d.value
-        )
-      )
-    )
 
     this.prev = this.data
 
