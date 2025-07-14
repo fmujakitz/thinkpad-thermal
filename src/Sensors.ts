@@ -35,7 +35,7 @@ export default class SensorsUtil extends ConsoleUtil {
   private _lsblk: LsblkUtil
   private data: object = {}
   private config: ThinkPadThermal.Config
-  private prev: { cpu: number; gpu: number }
+  protected prev: { cpu: number; gpu?: number }
 
   constructor(config?: ThinkPadThermal.Config) {
     super('sensors', '-A', '-j')
@@ -85,9 +85,11 @@ export default class SensorsUtil extends ConsoleUtil {
     }
   }
 
-  isGpuDetected() {
-    const gpu = this.avg.gpu.split(' ')[0] ?? '-128'
-    return IbmAcpiUtil.isValidSensor(Number.parseInt(gpu))
+  isGpuDetected(): this is { prev: { gpu: number } } {
+    return (
+      typeof this.prev?.gpu === 'number' &&
+      IbmAcpiUtil.isValidSensor(this.prev.gpu)
+    )
   }
 
   private select =
@@ -118,19 +120,20 @@ export default class SensorsUtil extends ConsoleUtil {
         .reduce((acc, k) => r(acc, k, data[k]), i)
     }
 
-  get avg() {
+  get quirks() {
     const cpu = this.select(
       [SensorsUtil.IS.TPISA, SensorsUtil.IS.CPU],
       (acc, _, data) =>
-        (data.CPU ?? data.Tctl ?? ConsoleUtil.average(Object.values(data))) ||
-        acc,
+        Number.parseInt(
+          data.CPU ?? data.Tctl ?? ConsoleUtil.average(Object.values(data))
+        ) || acc,
       0
     )()
 
     let gpu = this.select(
       [SensorsUtil.IS.TPISA, SensorsUtil.IS.GPU],
-      (acc, _, data) => (data.GPU ?? data.edge) || acc,
-      0
+      (acc, _, data) => Number.parseInt(data.GPU ?? data.edge) || acc,
+      -128
     )()
 
     const speed = this.select(
@@ -139,13 +142,14 @@ export default class SensorsUtil extends ConsoleUtil {
       []
     )(SensorsUtil.IS.TPISA)
 
-    // GPU Fallback, flaky sensor = {}
-    if (typeof gpu !== 'number' && this.prev?.gpu) {
-      // log('=====> Flaky gpu sensor!!!', [gpu, this.prev.gpu])
+    const hasDedicatedGpu = this.isGpuDetected()
+    // GPU Fallback, flaky sensor, {} -> -128
+    if (gpu <= 0 && hasDedicatedGpu) {
       gpu = this.prev.gpu
     }
 
     this.prev = { cpu, gpu }
+
     return {
       cpu: ConsoleUtil.temperature(
         Math.round(cpu),
@@ -156,6 +160,9 @@ export default class SensorsUtil extends ConsoleUtil {
         this.config.temperatureUnit
       ),
       speed: ConsoleUtil.revs(ConsoleUtil.average(speed)),
+      hasDedicatedGpu,
+      status: 'disabled',
+      isControllable: false,
     }
   }
 

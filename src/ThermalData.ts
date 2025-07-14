@@ -119,18 +119,20 @@ class ThermalData extends GObject.Object {
   private startInterval() {
     if (this._interval) GLib.source_remove(this._interval)
 
+    const fetch = () => {
+      this.acpi.update(this.config)
+      this.sensors.update(this.config)
+      //
+      return GLib.SOURCE_CONTINUE
+    }
+
+    fetch()
+
     this._interval = GLib.timeout_add_seconds(
       GLib.PRIORITY_DEFAULT,
       this.config.checkInterval,
-      this.fetchData.bind(this)
+      fetch.bind(this)
     )
-  }
-
-  private fetchData() {
-    this.acpi.update(this.config)
-    this.sensors.update(this.config)
-    //
-    return GLib.SOURCE_CONTINUE
   }
 
   private static NOTIFY = ['cpu', 'gpu', 'speed', 'level', 'status']
@@ -147,15 +149,7 @@ class ThermalData extends GObject.Object {
   private sync = (_: object, updated: object) => {
     this.setData(updated)
 
-    if (this.config.quirksMode) {
-      this.setData(this.sensors.avg)
-
-      this.setData({
-        hasDedicatedGpu: this.sensors.isGpuDetected(),
-        status: 'disabled',
-        isControllable: false,
-      })
-    }
+    if (this.config.quirksMode) this.setData(this.sensors.quirks)
 
     const diff = microdiff(this.prev, this.data, { cyclesFix: false })
 
