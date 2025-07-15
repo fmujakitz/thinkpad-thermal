@@ -48,11 +48,19 @@ Can be enabled via extension settings.
 - Disables fan control via the extension
 - Derived readings for CPU/GPU via lm-sensors if those are not available via [thinkpad_acpi driver 0.26](https://github.com/torvalds/linux/blob/master/drivers/platform/x86/thinkpad_acpi.c) ie. `/proc/acpi/ibm/thermal` is missing and/or firmware is not supported.
 
-**Readings pipeline**
+**Readings pipeline:**
 - CPU: thinkpad-isa-\*.CPU > k10-temp-\*.Tctl > avg coretemp-isa-\* > 0
 - GPU: thinkpad-isa-\*.GPU > amdgpu-\*.edge > -128
 - FAN: avg thinkpad-isa-\*.fanX > 0
 
+### Level 0
+This extension does not provide this option out of the box. Thinkpad-acpi docs regarding (fan levels)[https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/laptops/thinkpad-acpi.rst#fan-levels] contain a warning about setting the level to 0 ie. turning the fan off.
+
+```WARNING WARNING WARNING: do not leave the fan disabled unless you are monitoring all of the temperature sensor readings and you are ready to enable it if necessary to avoid overheating.```
+
+If you really want to have the option available, you can modify the `../extension.js` and change `DISABLED_LEVELS = [0, 'disengaged']` to `DISABLED_LEVELS = ['disengaged']`.
+
+**Note:** Level `disengaged` is an alias for `full-speed`
 
 
 ## Todo

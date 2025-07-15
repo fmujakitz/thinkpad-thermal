@@ -27,7 +27,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     'isControllable',
   ]
   private static CHECKS = [-128, 0]
-  private static DISABLED_LEVELS = [0, 'disengaged']
+  private static DISABLED_LEVELS: (string | number)[] = [0, 'disengaged']
 
   public static isValidSensor = (v: number): boolean =>
     IbmAcpiUtil.CHECKS.every((check) => check !== v)
