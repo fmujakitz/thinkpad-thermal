@@ -12,6 +12,11 @@ dmi=(
 
 {
   echo -e "\n========== $(date) =========="
+  # driver
+  journalctl -k -b | grep thinkpad_
+  echo "=========="
+  ls /proc/acpi/ibm -l
+  # info
   echo -e "\n=== dmi ==="
   for file in "${dmi[@]}"
   do

@@ -95,9 +95,8 @@ export default class ConsoleUtil extends GObject.Object {
     return `${n} RPM`
   }
   static average(values: number[]) {
-    return (
-      Math.ceil(values.reduce((acc, curr) => acc + curr, 0) / values.length) ||
-      0
-    )
+    return values.length
+      ? Math.ceil(values.reduce((acc, curr) => acc + curr, 0) / values.length)
+      : 0
   }
 }

@@ -2,7 +2,7 @@
 ![Panel indicator, Dropdown menu, Quick settings fan control](images/screens.png)
 
 # ThinkPad Thermal GNOME Shell Extension
-<b>Extension that displays thermal and fan status on ThinkPads</b>
+<b>Extension that displays device info, thermals and fan status on ThinkPads</b>
 
 ## Requirements
 - [thinkpad-acpi](https://www.kernel.org/doc/Documentation/laptops/thinkpad-acpi.txt), check contents of `/proc/acpi/ibm/thermal` and `/proc/acpi/ibm/fan`
@@ -31,6 +31,29 @@ You can clone this repo and build the extension manually with `yarn build:packag
 - Run `./run-log.sh` and check the generated logs `hw.log, err.log`
 - Clone the repo, install dependencies, `yarn dev` and `./run-nested-shell.sh`
 
+### Unsupported firmwares
+Generated `hw.log` contains a message like the one below, see [quirks mode](#Quirks-mode)
+```
+$ hw.log
+...
+thinkpad_acpi: ThinkPad firmware release *fw_str* doesn't match the known patterns
+thinkpad_acpi: please report this to ibm-acpi-devel@lists.sourceforge.net
+thinkpad_acpi: ThinkPad ACPI Extras v0.26
+...
+```
+
+
+### Quirks mode
+Can be enabled via extension settings.
+- Disables fan control via the extension
+- Derived readings for CPU/GPU via lm-sensors if those are not available via [thinkpad_acpi driver 0.26](https://github.com/torvalds/linux/blob/master/drivers/platform/x86/thinkpad_acpi.c) ie. `/proc/acpi/ibm/thermal` is missing and/or firmware is not supported.
+
+#### Readings pipeline
+- CPU: thinkpad-isa-\*.CPU > k10-temp-\*.Tctl > avg coretemp-isa-\* > 0
+- GPU: thinkpad-isa-\*.GPU > amdgpu-\*.edge > -128
+- FAN: avg thinkpad-isa-\*.fanX > 0
+
+
 
 ## Todo
   - [x] thinkpad-acpi
@@ -39,4 +62,5 @@ You can clone this repo and build the extension manually with `yarn build:packag
   - [x] lsblk
   - [x] Fan speed control
   - [x] Settings dialog
+  - [x] Quirks mode
   - [ ] Multilang
