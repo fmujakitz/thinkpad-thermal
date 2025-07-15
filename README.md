@@ -54,9 +54,11 @@ Can be enabled via extension settings.
 - FAN: avg thinkpad-isa-\*.fanX > 0
 
 ### Level 0
-This extension does not provide this option out of the box. Thinkpad-acpi docs regarding (fan levels)[https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/laptops/thinkpad-acpi.rst#fan-levels] contain a warning about setting the level to 0 ie. turning the fan off.
+This extension does not provide this option out of the box. Thinkpad-acpi docs regarding [fan levels](https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/laptops/thinkpad-acpi.rst#fan-levels) contain a warning about setting the level to 0 ie. turning the fan off.
 
-```WARNING WARNING WARNING: do not leave the fan disabled unless you are monitoring all of the temperature sensor readings and you are ready to enable it if necessary to avoid overheating.```
+```
+WARNING WARNING WARNING: do not leave the fan disabled unless you are monitoring all of the temperature sensor readings and you are ready to enable it if necessary to avoid overheating.
+```
 
 If you really want to have the option available, you can modify the `../extension.js` and change `DISABLED_LEVELS = [0, 'disengaged']` to `DISABLED_LEVELS = ['disengaged']`.
 
