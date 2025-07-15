@@ -48,7 +48,7 @@ Can be enabled via extension settings.
 - Disables fan control via the extension
 - Derived readings for CPU/GPU via lm-sensors if those are not available via [thinkpad_acpi driver 0.26](https://github.com/torvalds/linux/blob/master/drivers/platform/x86/thinkpad_acpi.c) ie. `/proc/acpi/ibm/thermal` is missing and/or firmware is not supported.
 
-#### Readings pipeline
+**Readings pipeline**
 - CPU: thinkpad-isa-\*.CPU > k10-temp-\*.Tctl > avg coretemp-isa-\* > 0
 - GPU: thinkpad-isa-\*.GPU > amdgpu-\*.edge > -128
 - FAN: avg thinkpad-isa-\*.fanX > 0
