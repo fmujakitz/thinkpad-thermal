@@ -38,6 +38,8 @@ export default class ThinkPadThermal extends Extension {
     this._settings.connect('changed', (_, change) => {
       if (change.startsWith('position-')) this.reposition()
     })
+
+    if (this._settings.get_boolean('position-enable')) this.ensurePosition(6)
   }
 
   get _position() {
@@ -63,6 +65,11 @@ export default class ThinkPadThermal extends Extension {
       this._position,
       this._box
     )
+  }
+  private ensurePosition(n: number) {
+    if (n === 0) return
+    this.reposition()
+    setTimeout(() => this.ensurePosition(n - 1), 500)
   }
 
   override disable() {
