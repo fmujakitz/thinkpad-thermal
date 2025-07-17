@@ -29,6 +29,10 @@ declare global {
       [k: string]: string
     }
 
+    type DmiData = {
+      [K in (typeof DmiUtil.TAGS)[number]]: string
+    }
+
     type IbmAcpiData<V = number> = {
       cpu: V
       gpu: V

@@ -25,11 +25,10 @@ export default class ConsoleUtil extends GObject.Object {
   }
   protected data: unknown
   protected setData(next = {}) {
-    if (typeof this.data === 'object')
-      this.data = {
-        ...this.data,
-        ...next,
-      }
+    this.data = {
+      ...(this.data || {}),
+      ...next,
+    }
   }
 
   constructor(

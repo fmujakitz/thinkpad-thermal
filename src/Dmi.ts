@@ -31,12 +31,10 @@ export default class DmiUtil extends ConsoleUtil {
     'sys_vendor',
   ] as const
 
-  protected declare data: {
-    [K in (typeof DmiUtil.TAGS)[number]]: string
-  }
+  protected override data = {} as ThinkPadThermal.DmiData
 
   private parse(str: string) {
-    const values = str.split('\n')
+    const values = str.trim().split('\n')
 
     this.setData(
       DmiUtil.TAGS.reduce((acc, curr, i) => {
@@ -45,8 +43,8 @@ export default class DmiUtil extends ConsoleUtil {
           .replace(/\s+\)/g, ')')
           .trim()
         return acc
-      }, {})
-    ) // as typeof this.data
+      }, {}) as typeof this.data
+    )
 
     this.emit('updated', { dmi: this.dmi })
   }
