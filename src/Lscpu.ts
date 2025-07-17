@@ -44,12 +44,15 @@ export default class LscpuUtil extends ConsoleUtil {
     const { cpus } = JSON.parse(str) as ThinkPadThermal.LscpuEntries
     this.setData(
       Object.values(cpus).reduce<Record<string, string>>((acc, curr) => {
-        let key = curr.socket.toString().padStart(4, '0')
-        key = `coretemp-isa-${key}`
+        const key = /intel/i.test(curr.modelname)
+          ? `coretemp-isa-${curr.socket.toString().padStart(4, '0')}`
+          : 'k10temp' // 'k10temp-pci-00c3'
+
         acc[key] = this.extractModel(curr.modelname)
         return acc
       }, {})
     )
+    this.setData({ k10temp: 'AMD detected' })
     return this.data
   }
 
@@ -58,6 +61,10 @@ export default class LscpuUtil extends ConsoleUtil {
   }
 
   name(key: string): string {
-    return this.data[key] ?? key
+    return (
+      this.data[key] ?? //
+      this.data[key.slice(0, key.indexOf('-'))] ??
+      key
+    )
   }
 }

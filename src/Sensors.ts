@@ -50,7 +50,7 @@ export default class SensorsUtil extends ConsoleUtil {
 
     if (keys.length === 0) return obj
 
-    if (keys.length === 1)
+    if (keys.length === 1 && keys[0] !== 'Tctl')
       return this.parse(Object.values(obj)[0] as string | object)
 
     const input = keys.find((k) => SensorsUtil.IS.INPUT.test(k))
@@ -122,7 +122,7 @@ export default class SensorsUtil extends ConsoleUtil {
       [SensorsUtil.IS.TPISA, SensorsUtil.IS.CPU],
       (acc, _, data) =>
         Number.parseInt(
-          data.CPU ?? data.Tctl ?? ConsoleUtil.average(Object.values(data))
+          (data.CPU || data.Tctl) ?? ConsoleUtil.average(Object.values(data))
         ) || acc,
       0
     )()

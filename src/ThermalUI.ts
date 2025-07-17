@@ -320,7 +320,7 @@ export class Groups extends PopupMenuSection {
   }
   private CHANGE(path: (string | number)[], value: string) {
     const key = path[0] as string
-    this.element(key).update([
+    this.element(key)?.update([
       {
         type: 'CHANGE',
         path: path.slice(1),
@@ -331,7 +331,7 @@ export class Groups extends PopupMenuSection {
   }
   private REMOVE(path: (string | number)[]) {
     const key = path[0] as string
-    this.element(key).destroy()
+    this.element(key)?.destroy()
   }
 
   update(diffs: ThinkPadThermal.Diffs) {
@@ -388,12 +388,12 @@ export class PopupSection extends PopupMenuSection {
             return acc.concat(innerDiffs)
           }
 
-          const diff = {
-            ...curr,
-            path: curr.path.filter((k) => k !== el.key),
-          }
-
-          return acc.concat([diff])
+          return acc.concat([
+            {
+              ...curr,
+              path: curr.path.filter((k) => k !== el.key),
+            },
+          ])
         }, [] as ThinkPadThermal.Diffs)
 
       if (el instanceof Group || el instanceof Groups) {
