@@ -31,20 +31,22 @@ export default class DmiUtil extends ConsoleUtil {
     'sys_vendor',
   ] as const
 
-  private data: {
+  protected declare data: {
     [K in (typeof DmiUtil.TAGS)[number]]: string
   }
 
   private parse(str: string) {
     const values = str.split('\n')
 
-    this.data = DmiUtil.TAGS.reduce((acc, curr, i) => {
-      acc[curr] = (values[i] ?? '')
-        .replace(/\(\s+/g, '(')
-        .replace(/\s+\)/g, ')')
-        .trim()
-      return acc
-    }, {}) as typeof this.data
+    this.setData(
+      DmiUtil.TAGS.reduce((acc, curr, i) => {
+        acc[curr] = (values[i] ?? '')
+          .replace(/\(\s+/g, '(')
+          .replace(/\s+\)/g, ')')
+          .trim()
+        return acc
+      }, {})
+    ) // as typeof this.data
 
     this.emit('updated', { dmi: this.dmi })
   }

@@ -6,7 +6,7 @@ class LsnvmeUtil extends ConsoleUtil {
     GObject.registerClass(LsnvmeUtil)
   }
 
-  private data: ThinkPadThermal.ValueReadings = {}
+  protected override data: ThinkPadThermal.ValueReadings = {}
 
   constructor() {
     super('ls', '-l', '/dev/disk/by-path')
@@ -49,7 +49,7 @@ export default class LsblkUtil extends ConsoleUtil {
 
   private _lsnvme = new LsnvmeUtil()
 
-  private data: ThinkPadThermal.ValueReadings = {}
+  protected override data: ThinkPadThermal.ValueReadings = {}
 
   constructor() {
     super('lsblk', '-o', 'HCTL,MODEL,NAME,TRAN', '-dnJ')
@@ -57,8 +57,8 @@ export default class LsblkUtil extends ConsoleUtil {
 
   private parse(str: string) {
     const { blockdevices } = JSON.parse(str)
-    this.data = blockdevices.reduce(
-      (acc: object, { hctl, model, name, tran }) => {
+    this.setData(
+      blockdevices.reduce((acc: object, { hctl, model, name, tran }) => {
         if (hctl) {
           const key = [
             'drivetemp',
@@ -76,8 +76,7 @@ export default class LsblkUtil extends ConsoleUtil {
         }
 
         return acc
-      },
-      {}
+      }, {})
     )
   }
 

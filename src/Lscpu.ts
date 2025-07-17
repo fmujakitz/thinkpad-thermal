@@ -5,7 +5,7 @@ export default class LscpuUtil extends ConsoleUtil {
   static {
     GObject.registerClass(LscpuUtil)
   }
-  private _data = {}
+  protected override data = {}
 
   constructor() {
     super('lscpu', '-e=MODELNAME,SOCKET', '-J')
@@ -42,16 +42,15 @@ export default class LscpuUtil extends ConsoleUtil {
 
   private parse(str: string) {
     const { cpus } = JSON.parse(str) as ThinkPadThermal.LscpuEntries
-    this._data = Object.values(cpus).reduce<Record<string, string>>(
-      (acc, curr) => {
+    this.setData(
+      Object.values(cpus).reduce<Record<string, string>>((acc, curr) => {
         let key = curr.socket.toString().padStart(4, '0')
         key = `coretemp-isa-${key}`
         acc[key] = this.extractModel(curr.modelname)
         return acc
-      },
-      {}
+      }, {})
     )
-    return this._data
+    return this.data
   }
 
   update() {
@@ -59,6 +58,6 @@ export default class LscpuUtil extends ConsoleUtil {
   }
 
   name(key: string): string {
-    return this._data[key] ?? key
+    return this.data[key] ?? key
   }
 }

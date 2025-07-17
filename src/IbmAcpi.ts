@@ -32,7 +32,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   public static isValidSensor = (v: number): boolean =>
     IbmAcpiUtil.CHECKS.every((check) => check !== v)
 
-  private data: ThinkPadThermal.IbmAcpiData = {
+  protected override data: ThinkPadThermal.IbmAcpiData = {
     cpu: 0,
     gpu: 0,
     status: 'disabled',
@@ -40,12 +40,10 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     level: 'auto',
     levels: [],
   }
-  private prev: ThinkPadThermal.IbmAcpiData | object = {}
-  private config: ThinkPadThermal.Config
+  private prev = {} as ThinkPadThermal.IbmAcpiData
 
-  constructor(config: ThinkPadThermal.Config) {
-    super('cat', '/proc/acpi/ibm/thermal', '/proc/acpi/ibm/fan')
-    this.update(config)
+  constructor(config?: ThinkPadThermal.Config) {
+    super('cat', '/proc/acpi/ibm/thermals', '/proc/acpi/ibm/fan', config)
   }
 
   // temperatures: 43 50 0 0 0 0 0 0
@@ -107,17 +105,14 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   }
 
   async update(config?: object) {
-    if (config) {
-      this.config = {
-        ...(this.config || {}),
-        ...config,
-      }
-    }
+    if (!this.available) return
+
+    if (config) this.setConfig(config)
 
     this.prev = this.data
 
     try {
-      this.data = await super.execute(this.parse.bind(this))
+      this.setData(await super.execute(this.parse.bind(this)))
 
       this.emit(
         'updated',

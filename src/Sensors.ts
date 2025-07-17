@@ -33,17 +33,15 @@ export default class SensorsUtil extends ConsoleUtil {
 
   private _lscpu: LscpuUtil
   private _lsblk: LsblkUtil
-  private data: object = {}
-  private config: ThinkPadThermal.Config
+  protected override data: object = {}
+
   protected prev: { cpu: number; gpu?: number }
 
   constructor(config?: ThinkPadThermal.Config) {
-    super('sensors', '-A', '-j')
+    super('sensors', '-A', '-j', config)
 
     this._lscpu = new LscpuUtil()
     this._lsblk = new LsblkUtil()
-
-    this.update(config)
   }
 
   private parse(str: string | object) {
@@ -65,13 +63,12 @@ export default class SensorsUtil extends ConsoleUtil {
   }
 
   async update(config?: ThinkPadThermal.Config) {
-    this.config = {
-      ...this.config,
-      ...config,
-    }
+    if (!this.available) return
+
+    this.setConfig(config)
 
     try {
-      this.data = await super.execute(this.parse.bind(this))
+      this.setData(await super.execute(this.parse.bind(this)))
 
       this.emit(
         'updated',
