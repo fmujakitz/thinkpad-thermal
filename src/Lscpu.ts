@@ -52,7 +52,7 @@ export default class LscpuUtil extends ConsoleUtil {
         return acc
       }, {})
     )
-    this.setData({ k10temp: 'AMD detected' })
+
     return this.data
   }
 
