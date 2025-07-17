@@ -43,7 +43,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   private prev = {} as ThinkPadThermal.IbmAcpiData
 
   constructor(config?: ThinkPadThermal.Config) {
-    super('cat', '/proc/acpi/ibm/thermals', '/proc/acpi/ibm/fan', config)
+    super('cat', '/proc/acpi/ibm/thermal', '/proc/acpi/ibm/fan', config)
   }
 
   // temperatures: 43 50 0 0 0 0 0 0
