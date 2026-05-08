@@ -8,5 +8,5 @@
   "url": "https://github.com/fmujakitz/thinkpad-thermal",
   "settings-schema": "org.gnome.shell.extensions.thinkpadthermal",
   "version": 40,
-  "shell-version": ["46", "47", "48", "49"]
+  "shell-version": ["46", "47", "48", "49", "50"]
 }
