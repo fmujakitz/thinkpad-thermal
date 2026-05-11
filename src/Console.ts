@@ -16,13 +16,39 @@ export default class ConsoleUtil extends GObject.Object {
 
   private _command: string[]
 
-  constructor(...args: string[]) {
+  protected config = {} as ThinkPadThermal.Config
+  protected setConfig(next = {}) {
+    this.config = {
+      ...this.config,
+      ...next,
+    }
+  }
+  protected data: unknown
+  protected setData(next = {}) {
+    this.data = {
+      ...(this.data || {}),
+      ...next,
+    }
+  }
+
+  constructor(
+    cmd: string,
+    ...args: (string | ThinkPadThermal.Config | undefined)[]
+  ) {
     super()
 
-    assert(!!args[0], 'Util not defined')
-    assert(!!GLib.find_program_in_path(args[0]), `Util ${args[0]} not found`)
+    assert(!!cmd, 'Util not defined')
+    assert(!!GLib.find_program_in_path(cmd), `Util ${cmd} not found`)
 
-    this._command = ConsoleUtil.args(args.join(' '))
+    let rest = args
+    const last = rest[rest.length - 1]
+
+    if (typeof last === 'object') {
+      this.setConfig(last)
+      rest = args.slice(0, args.length - 1)
+    }
+
+    this._command = ConsoleUtil.args([cmd, ...rest].join(' '))
 
     if (
       this.available &&
@@ -65,6 +91,10 @@ export default class ConsoleUtil extends GObject.Object {
       )
     } catch (e) {
       logError(e)
+      if (/no such file or directory/i.test(e as string)) {
+        console.log('Disabling utility', this._command)
+        this._command = []
+      }
     }
   }
 
@@ -93,5 +123,10 @@ export default class ConsoleUtil extends GObject.Object {
   }
   static revs(n: number) {
     return `${n} RPM`
+  }
+  static average(values: number[]) {
+    return values.length
+      ? Math.ceil(values.reduce((acc, curr) => acc + curr, 0) / values.length)
+      : 0
   }
 }

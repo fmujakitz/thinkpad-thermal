@@ -1,52 +1,14 @@
 import GObject from 'gi://GObject'
 
 import ConsoleUtil from './Console.js'
-import microdiff, { type DifferenceChange } from './vendor/microdiff.js'
 
 export default class IbmAcpiUtil extends ConsoleUtil {
   static {
     GObject.registerClass(
       {
-        Properties: {
-          cpu: GObject.ParamSpec.string(
-            'cpu',
-            'CPU temperature',
-            'Current CPU temperature',
-            GObject.ParamFlags.READABLE,
-            '...'
-          ),
-          gpu: GObject.ParamSpec.string(
-            'gpu',
-            'GPU temperature',
-            'Current GPU temperature',
-            GObject.ParamFlags.READABLE,
-            '...'
-          ),
-          speed: GObject.ParamSpec.string(
-            'speed',
-            'Fan speed',
-            'Current fan speed',
-            GObject.ParamFlags.READABLE,
-            '...'
-          ),
-          status: GObject.ParamSpec.string(
-            'status',
-            'Fan status',
-            'Current fan status',
-            GObject.ParamFlags.READABLE,
-            '...'
-          ),
-          level: GObject.ParamSpec.string(
-            'level',
-            'Fan level',
-            'Current fan level',
-            GObject.ParamFlags.READABLE,
-            '...'
-          ),
-        },
         Signals: {
           updated: {
-            param_types: [GObject.TYPE_JSOBJECT, GObject.TYPE_JSOBJECT],
+            param_types: [GObject.TYPE_JSOBJECT],
           },
         },
       },
@@ -54,7 +16,23 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     )
   }
 
-  private data: ThinkPadThermal.IbmAcpiData = {
+  private static NOTIFY = [
+    'cpu',
+    'gpu',
+    'speed',
+    'level',
+    'status',
+    'levels',
+    'hasDedicatedGpu',
+    'isControllable',
+  ]
+  private static CHECKS = [-128, 0]
+  private static DISABLED_LEVELS: (string | number)[] = [0, 'disengaged']
+
+  public static isValidSensor = (v: number): boolean =>
+    IbmAcpiUtil.CHECKS.every((check) => check !== v)
+
+  protected override data: ThinkPadThermal.IbmAcpiData = {
     cpu: 0,
     gpu: 0,
     status: 'disabled',
@@ -62,12 +40,10 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     level: 'auto',
     levels: [],
   }
-  private prev: ThinkPadThermal.IbmAcpiData | object = {}
-  private config: ThinkPadThermal.Config
+  private prev = {} as ThinkPadThermal.IbmAcpiData
 
-  constructor(config: ThinkPadThermal.Config) {
-    super('cat', '/proc/acpi/ibm/thermal', '/proc/acpi/ibm/fan')
-    this.update(config)
+  constructor(config?: ThinkPadThermal.Config) {
+    super('cat', '/proc/acpi/ibm/thermal', '/proc/acpi/ibm/fan', config)
   }
 
   // temperatures: 43 50 0 0 0 0 0 0
@@ -129,43 +105,22 @@ export default class IbmAcpiUtil extends ConsoleUtil {
   }
 
   async update(config?: object) {
-    if (config) {
-      this.config = {
-        ...(this.config || {}),
-        ...config,
-      }
-    }
+    if (!this.available) return
 
-    if (config && Object.keys(this.prev).length > 0) {
-      for (const k of IbmAcpiUtil.NOTIFY) this.notify(k)
-      const diffs = IbmAcpiUtil.NOTIFY.map(
-        (k) =>
-          ({
-            type: 'CHANGE',
-            path: [k],
-            value: this[k],
-            oldValue: '*',
-          }) as DifferenceChange
-      )
-      this.emit('updated', IbmAcpiUtil.NOTIFY, diffs)
-      return
-    }
+    if (config) this.setConfig(config)
+
+    this.prev = this.data
 
     try {
-      this.data = await super.execute(this.parse.bind(this))
+      this.setData(await super.execute(this.parse.bind(this)))
 
-      const diff = microdiff(this.prev, this.data)
-      this.prev = this.data
-
-      if (diff.length === 0) return
-
-      const keys = diff
-        .flatMap(({ path }) => path as string[])
-        .filter(IbmAcpiUtil.isNotifiable)
-
-      for (const k of keys) this.notify(k as string)
-
-      this.emit('updated', keys, diff)
+      this.emit(
+        'updated',
+        IbmAcpiUtil.NOTIFY.reduce((acc, key) => {
+          acc[key] = this[key]
+          return acc
+        }, {})
+      )
     } catch (e) {
       logError(e as Error)
     }
@@ -180,16 +135,6 @@ export default class IbmAcpiUtil extends ConsoleUtil {
       `Invalid level: ${next}. Available levels: ${this.data.levels.join(', ')}`
     )
   }
-
-  private static NOTIFY = ['cpu', 'gpu', 'speed', 'level', 'status']
-  private static CHECKS = [-128, 0]
-  private static DISABLED_LEVELS = [0, 'disengaged']
-
-  private static isNotifiable = (key: string): boolean =>
-    IbmAcpiUtil.NOTIFY.includes(key)
-
-  private static isValidSensor = (v: number): boolean =>
-    IbmAcpiUtil.CHECKS.every((check) => check !== v)
 
   get cpu() {
     return ConsoleUtil.temperature(

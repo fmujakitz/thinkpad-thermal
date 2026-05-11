@@ -6,34 +6,31 @@ class LsnvmeUtil extends ConsoleUtil {
     GObject.registerClass(LsnvmeUtil)
   }
 
-  private data: {
-    [key: string]: string
-  } = {}
+  protected override data: ThinkPadThermal.ValueReadings = {}
 
   constructor() {
     super('ls', '-l', '/dev/disk/by-path')
   }
 
   private static IS = {
-    NVME: /nvme/i,
-    PART: /part/i,
+    NVME: /^(?=.*nvme)(?!.*-part).*/i,
   }
 
   private parse(str: string) {
-    this.data = str
-      .split('\n')
-      .filter((l) => !LsnvmeUtil.IS.PART.test(l))
+    const ids = str
+      .split('\n') //
       .filter((l) => LsnvmeUtil.IS.NVME.test(l))
-      .map((l) => l.slice(l.indexOf('pci-')))
-      .map((l) => l.replace(/(\.\.\/)/gim, '').split('->') as [string, string])
-      .map(([a, b]): [string, string] => [
-        b.trim(),
-        ['nvme', 'pci', a.slice(9, 14).replace(/[:.]/gim, '')].join('-'),
-      ])
-      .reduce((acc, [path, name]) => {
-        acc[path] = name
-        return acc
-      }, {})
+      .map((l) => l.slice(l.indexOf('pci-')).split('->') as [string, string])
+      .map(
+        ([a, b]) =>
+          [
+            b.slice(b.indexOf('nvme')).trim(),
+            ['nvme-pci', a.slice(9, 14).replace(/[:.]/gim, '')].join('-'),
+          ] as [string, string]
+      )
+    for (const [path, id] of ids) {
+      this.data[path] = id
+    }
   }
 
   update() {
@@ -52,9 +49,7 @@ export default class LsblkUtil extends ConsoleUtil {
 
   private _lsnvme = new LsnvmeUtil()
 
-  private data: {
-    [key: string]: string
-  } = {}
+  protected override data: ThinkPadThermal.ValueReadings = {}
 
   constructor() {
     super('lsblk', '-o', 'HCTL,MODEL,NAME,TRAN', '-dnJ')
@@ -62,8 +57,8 @@ export default class LsblkUtil extends ConsoleUtil {
 
   private parse(str: string) {
     const { blockdevices } = JSON.parse(str)
-    this.data = blockdevices.reduce(
-      (acc: object, { hctl, model, name, tran }) => {
+    this.setData(
+      blockdevices.reduce((acc: object, { hctl, model, name, tran }) => {
         if (hctl) {
           const key = [
             'drivetemp',
@@ -81,8 +76,7 @@ export default class LsblkUtil extends ConsoleUtil {
         }
 
         return acc
-      },
-      {}
+      }, {})
     )
   }
 
@@ -92,8 +86,8 @@ export default class LsblkUtil extends ConsoleUtil {
 
   name(key: string): string {
     if (!this.data[key]) {
-      this.update()
       this._lsnvme.update()
+      this.update()
     }
     return this.data[key] ?? key
   }

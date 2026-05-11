@@ -31,22 +31,22 @@ export default class DmiUtil extends ConsoleUtil {
     'sys_vendor',
   ] as const
 
-  private data: {
-    [K in (typeof DmiUtil.TAGS)[number]]: string
-  }
+  protected override data = {} as ThinkPadThermal.DmiData
 
   private parse(str: string) {
-    const values = str.split('\n')
+    const values = str.trim().split('\n')
 
-    this.data = DmiUtil.TAGS.reduce((acc, curr, i) => {
-      acc[curr] = (values[i] ?? '')
-        .replace(/\(\s+/g, '(')
-        .replace(/\s+\)/g, ')')
-        .trim()
-      return acc
-    }, {}) as typeof this.data
+    this.setData(
+      DmiUtil.TAGS.reduce((acc, curr, i) => {
+        acc[curr] = (values[i] ?? '')
+          .replace(/\(\s+/g, '(')
+          .replace(/\s+\)/g, ')')
+          .trim()
+        return acc
+      }, {}) as typeof this.data
+    )
 
-    this.emit('updated', this.dmi)
+    this.emit('updated', { dmi: this.dmi })
   }
 
   get dmi() {

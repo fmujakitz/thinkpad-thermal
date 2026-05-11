@@ -23,16 +23,23 @@ export default class ThinkPadThermal extends Extension {
     this._indicator = new ThermalButton(
       0.5,
       'ThinkPad Thermal',
-      this._data.acpi,
+      this._data,
       this._settings
     )
     this._indicator.setMenu(new ThermalPopup(0.5, this._indicator, this._data))
 
-    Main.panel.addToStatusArea(this.uuid, this._indicator, this._position, this._area)
+    Main.panel.addToStatusArea(
+      this.uuid,
+      this._indicator,
+      this._position,
+      this._area
+    )
 
     this._settings.connect('changed', (_, change) => {
       if (change.startsWith('position-')) this.reposition()
     })
+
+    if (this._settings.get_boolean('position-enable')) this.ensurePosition(6)
   }
 
   get _position() {
@@ -46,7 +53,8 @@ export default class ThinkPadThermal extends Extension {
       : 'right'
   }
   get _box() {
-    return Main.panel.get_child_at_index(['left', 'center', 'right'].indexOf(this._area))
+    const i = ['left', 'center', 'right'].indexOf(this._area)
+    return Main.panel.get_child_at_index(i)
   }
   private reposition() {
     if (!this._settings.get_boolean('position-enable')) return
@@ -57,6 +65,11 @@ export default class ThinkPadThermal extends Extension {
       this._position,
       this._box
     )
+  }
+  private ensurePosition(n: number) {
+    if (n === 0) return
+    this.reposition()
+    setTimeout(() => this.ensurePosition(n - 1), 500)
   }
 
   override disable() {

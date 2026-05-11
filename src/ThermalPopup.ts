@@ -1,7 +1,4 @@
 import type ThermalData from './ThermalData.js'
-import type DmiUtil from './Dmi.js'
-import type IbmAcpiUtil from './IbmAcpi.js'
-import type SensorsUtil from './Sensors.js'
 
 import St from 'gi://St'
 import { PopupMenu } from 'resource:///org/gnome/shell/ui/popupMenu.js'
@@ -16,30 +13,30 @@ import {
 } from './ThermalUI.js'
 
 class Dmi extends PopupSection {
-  constructor(data: DmiUtil) {
+  constructor(data: ThermalData) {
     super('Device info', data, false)
     this.addMenuItem(new Groups('dmi', 'thinkpad'))
   }
 }
 
 class Sensors extends PopupSection {
-  constructor(data: SensorsUtil) {
+  constructor(data: ThermalData) {
     super('Sensors', data, false)
-    this.addMenuItem(new Groups('cpu'))
-    this.addMenuItem(new Group('hdd', 'Disks', data.hdd))
+    this.addMenuItem(new Groups('cpus'))
+    this.addMenuItem(new Group('hdds', 'Disks', data.hdds))
     this.addMenuItem(new Group('other', 'Thermal', data.other, 'sensor'))
-    this.addMenuItem(new Group('fan', 'Cooling', data.fan))
+    this.addMenuItem(new Group('fans', 'Cooling', data.fans))
   }
 }
 
 class Acpi extends PopupSection {
-  constructor(data: IbmAcpiUtil) {
+  constructor(data: ThermalData) {
     super('ACPI', data)
 
     this.addMenuItem(new Item('cpu', 'CPU', data.cpu, 'cpu'))
     this.addMenuItem(new Item('gpu', 'GPU', data.gpu, 'gpu'))
 
-    data.connect('notify::gpu', (next: IbmAcpiUtil) => {
+    data.connect('notify::gpu', (next: ThermalData) => {
       if (!next.hasDedicatedGpu) {
         this.item('gpu')?.hide()
       } else {
@@ -50,7 +47,7 @@ class Acpi extends PopupSection {
 }
 
 class FanControl extends PopupSection {
-  constructor(data: IbmAcpiUtil) {
+  constructor(data: ThermalData) {
     super('Fan control', data)
 
     this.addMenuItem(new Item('status', 'Status', data.status))
@@ -62,21 +59,17 @@ class FanControl extends PopupSection {
 export default class ThermalPopup extends PopupMenu {
   _dd: QuickDropdown | null
 
-  constructor(
-    align: number,
-    actor: St.Widget,
-    { acpi, dmi, sensors }: ThermalData
-  ) {
+  constructor(align: number, actor: St.Widget, data: ThermalData) {
     super(actor, align, St.Side.TOP)
 
     this.actor.add_style_class_name('tpt-popup')
 
-    this.addMenuItem(new Dmi(dmi))
-    this.addMenuItem(new Sensors(sensors))
-    this.addMenuItem(new Acpi(acpi))
-    this.addMenuItem(new FanControl(acpi))
+    this.addMenuItem(new Dmi(data))
+    this.addMenuItem(new Sensors(data))
+    this.addMenuItem(new Acpi(data))
+    this.addMenuItem(new FanControl(data))
 
-    acpi.connect('notify::status', (data: IbmAcpiUtil) => {
+    data.connect('notify::status', (data: ThermalData) => {
       //
       if (!data.isControllable) {
         this._dd?.destroy()
@@ -91,14 +84,16 @@ export default class ThermalPopup extends PopupMenu {
         'fan',
         data.levels,
         data.level,
-        (next) => data.setLevel(next)
+        (next) => {
+          data.level = next
+        }
       )
 
       Main.panel.statusArea.quickSettings //
         .addExternalIndicator(this._dd)
     })
 
-    acpi.connect('notify::level', (data: IbmAcpiUtil) => {
+    data.connect('notify::level', (data: ThermalData) => {
       this._dd?.status(
         data.level,
         'ThinkPad Fan Control',

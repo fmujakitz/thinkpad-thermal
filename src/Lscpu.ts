@@ -5,14 +5,14 @@ export default class LscpuUtil extends ConsoleUtil {
   static {
     GObject.registerClass(LscpuUtil)
   }
-  private _data = {}
+  protected override data = {}
 
   constructor() {
     super('lscpu', '-e=MODELNAME,SOCKET', '-J')
   }
 
   private extractModel(modelName: string): string {
-    if (modelName.toLowerCase().includes('intel')) {
+    if (/intel/i.test(modelName)) {
       return (
         // @ts-ignore
         modelName
@@ -24,13 +24,15 @@ export default class LscpuUtil extends ConsoleUtil {
       )
     }
 
-    if (modelName.toLowerCase().includes('amd')) {
+    if (/amd/i.test(modelName)) {
       return (
         // @ts-ignore
         modelName
           .split('with')[0]
           .split(/\s+\d+-Core/)[0]
           .split(/\s+[A-Za-z]+-Core/)[0]
+          .split('w/')[0]
+          .replace('AMD', 'AMD®')
           .trim() || 'AMD CPU'
       )
     }
@@ -40,16 +42,18 @@ export default class LscpuUtil extends ConsoleUtil {
 
   private parse(str: string) {
     const { cpus } = JSON.parse(str) as ThinkPadThermal.LscpuEntries
-    this._data = Object.values(cpus).reduce<Record<string, string>>(
-      (acc, curr) => {
-        let key = curr.socket.toString().padStart(4, '0')
-        key = `coretemp-isa-${key}`
+    this.setData(
+      Object.values(cpus).reduce<Record<string, string>>((acc, curr) => {
+        const key = /intel/i.test(curr.modelname)
+          ? `coretemp-isa-${curr.socket.toString().padStart(4, '0')}`
+          : 'k10temp' // 'k10temp-pci-00c3'
+
         acc[key] = this.extractModel(curr.modelname)
         return acc
-      },
-      {}
+      }, {})
     )
-    return this._data
+
+    return this.data
   }
 
   update() {
@@ -57,6 +61,10 @@ export default class LscpuUtil extends ConsoleUtil {
   }
 
   name(key: string): string {
-    return this._data[key] ?? key
+    return (
+      this.data[key] ?? //
+      this.data[key.slice(0, key.indexOf('-'))] ??
+      key
+    )
   }
 }

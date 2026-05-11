@@ -16,8 +16,8 @@ import {
   SystemIndicator,
 } from 'resource:///org/gnome/shell/ui/quickSettings.js'
 
-import microdiff from './vendor/microdiff.js'
 import { ME } from './extension.js'
+import type ThermalData from './ThermalData.js'
 
 export class ButtonSection extends St.BoxLayout {
   static {
@@ -89,9 +89,15 @@ export class Icon extends St.Icon {
 
   static createIcon(filename: string) {
     if (!ME) return null
-    return new Gio.FileIcon({
-      file: ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`),
-    })
+    let file = ME.dir.resolve_relative_path(`icons/${filename}-symbolic.svg`)
+
+    if (!file.query_exists(null)) {
+      file = ME.dir.resolve_relative_path(
+        `icons/${filename.slice(0, filename.length - 1)}-symbolic.svg`
+      )
+    }
+
+    return new Gio.FileIcon({ file })
   }
 }
 
@@ -314,7 +320,7 @@ export class Groups extends PopupMenuSection {
   }
   private CHANGE(path: (string | number)[], value: string) {
     const key = path[0] as string
-    this.element(key).update([
+    this.element(key)?.update([
       {
         type: 'CHANGE',
         path: path.slice(1),
@@ -325,7 +331,7 @@ export class Groups extends PopupMenuSection {
   }
   private REMOVE(path: (string | number)[]) {
     const key = path[0] as string
-    this.element(key).destroy()
+    this.element(key)?.destroy()
   }
 
   update(diffs: ThinkPadThermal.Diffs) {
@@ -338,18 +344,18 @@ export class Groups extends PopupMenuSection {
 export class PopupSection extends PopupMenuSection {
   name = 'Section'
 
-  constructor(name: string, data: ThinkPadThermal.Util, createTitle = true) {
+  constructor(name: string, data: ThermalData, createTitle = true) {
     super()
     this.name = name
     this.actor.y_expand = false
 
     if (createTitle) this.addMenuItem(new Title(name))
 
-    data.connect('updated', (next) => this.sync(next))
+    data.connect('updated', this.sync.bind(this))
   }
 
   private get elements() {
-    return (this._getMenuItems() as ThinkPadThermal.PrevElement[]) //
+    return (this._getMenuItems() as ThinkPadThermal.Element[]) //
       .filter((e) => e.key)
   }
 
@@ -357,29 +363,46 @@ export class PopupSection extends PopupMenuSection {
     return this.elements.find((e) => e.key === key)
   }
 
-  private sync(data: object) {
+  private sync(
+    _: object,
+    data: object,
+    diff: ThinkPadThermal.Diffs,
+    keys: Set<string>
+  ) {
     for (const el of this.elements) {
-      const { key, prev } = el
-      const value = data[key]
+      if (!keys.has(el.key)) continue
 
-      if (prev === value) continue
+      const diffs = diff
+        .filter((d) => d.path.includes(el.key))
+        .reduce((acc, curr) => {
+          if (
+            curr.path.length === 1 &&
+            curr.type === 'CREATE' &&
+            typeof curr.value === 'object'
+          ) {
+            const innerDiffs = Object.keys(curr.value).map((k) => ({
+              type: curr.type,
+              path: [k],
+              value: curr.value[k],
+            })) as ThinkPadThermal.Diffs
+            return acc.concat(innerDiffs)
+          }
 
-      if (
-        typeof value === 'object' ||
-        el instanceof Group ||
-        el instanceof Groups
-      ) {
-        const diffs = microdiff(prev ?? {}, value)
+          return acc.concat([
+            {
+              ...curr,
+              path: curr.path.filter((k) => k !== el.key),
+            },
+          ])
+        }, [] as ThinkPadThermal.Diffs)
 
+      if (el instanceof Group || el instanceof Groups) {
         if (diffs.length === 0) continue
-
-        el.prev = value
         if ('update' in el) el.update(diffs)
         continue
       }
 
-      el.prev = value
-      el.value = value
+      el.value = data[el.key]
     }
   }
 }

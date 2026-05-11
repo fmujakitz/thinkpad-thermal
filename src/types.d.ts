@@ -10,7 +10,7 @@ type TupleOf<T, N extends number, R extends T[] = []> = R['length'] extends N
 
 declare global {
   type FilterFn<T> = (value: T, index: number, array: T[]) => boolean
-  type ReduceFn<T, U> = (accumulator: U, value: T) => U
+  type ReduceFn<T, U> = (accumulator: U, value: T, data) => U
   type SizedArray<T, N extends number> = TupleOf<T, N>
 
   namespace ThinkPadThermal {
@@ -19,19 +19,44 @@ declare global {
     type Unit = 'celsius' | 'fahrenheit'
 
     type Config = {
-      temperatureUnit: TemperatureUnit
+      temperatureUnit: Unit
       checkInterval: number
       fanSpeedUnit?: string
+      quirksMode: boolean
     }
 
-    type IbmAcpiData = {
-      cpu: number
-      gpu: number
+    type ValueReadings = {
+      [k: string]: string
+    }
+
+    type DmiData = {
+      [K in (typeof DmiUtil.TAGS)[number]]: string
+    }
+
+    type IbmAcpiData<V = number> = {
+      cpu: V
+      gpu: V
       status: 'initializing' | 'enabled' | 'disabled'
-      speed: number
+      speed: V
       level: 'auto' | 'disengaged' | 'full-speed' | string
       levels: string[]
     }
+
+    type SensorsData = {
+      cpus: {
+        [name: string]: ValueReadings
+      }
+      hdds: ValueReadings
+      // bats: object
+      fans: ValueReadings
+      other: ValueReadings
+    }
+
+    type ThermalData = IbmAcpiData<string> &
+      SensorsData & {
+        hasDedicatedGpu: boolean
+        isControllable: boolean
+      }
 
     type LscpuEntries = {
       cpus: {
