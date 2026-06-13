@@ -47,7 +47,7 @@ export class ButtonSection extends St.BoxLayout {
 
   update(text: string) {
     const [value, unit = ''] = text.split(' ')
-    this._value.set_text(value)
+    this._value.set_text(value ?? '')
     this._unit.set_text(unit)
   }
 

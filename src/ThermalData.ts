@@ -58,6 +58,8 @@ class ThermalData {
       GLib.source_remove(this._interval)
       this._interval = null
     }
+    this.acpi.destroy()
+    this.sensors.destroy()
   }
 }
 

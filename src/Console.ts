@@ -15,6 +15,7 @@ export default class ConsoleUtil extends GObject.Object {
   }
 
   private _command: string[]
+  protected _destroyed = false
 
   constructor(...args: string[]) {
     super()
@@ -66,6 +67,10 @@ export default class ConsoleUtil extends GObject.Object {
     } catch (e) {
       logError(e)
     }
+  }
+
+  destroy() {
+    this._destroyed = true
   }
 
   get available() {

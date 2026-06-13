@@ -154,6 +154,8 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     try {
       this.data = await super.execute(this.parse.bind(this))
 
+      if (this._destroyed) return
+
       const diff = microdiff(this.prev, this.data)
       this.prev = this.data
 

@@ -95,7 +95,8 @@ export default class ThermalPopup extends PopupMenu {
       )
 
       Main.panel.statusArea.quickSettings //
-        .addExternalIndicator(this._dd)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .addExternalIndicator(this._dd as any)
     })
 
     acpi.connect('notify::level', (data: IbmAcpiUtil) => {

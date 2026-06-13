@@ -69,6 +69,9 @@ export default class SensorsUtil extends ConsoleUtil {
 
     try {
       this.data = await super.execute(this.parse.bind(this))
+
+      if (this._destroyed) return
+
       const obj = SensorsUtil.NOTIFY.reduce((acc, key) => {
         acc[key] = this[key]
         return acc
