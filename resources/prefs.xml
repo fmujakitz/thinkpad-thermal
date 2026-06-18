@@ -43,19 +43,16 @@
       <property name="title" translatable="yes">Units</property>
       <!-- Temperature Unit Setting -->
       <child>
-        <object class="AdwActionRow">
+        <object class="AdwComboRow" id="field_unit">
             <property name="title" translatable="yes">Temperature</property>
-            <!-- <property name="subtitle" translatable="yes">The unit of measurement</property> -->
-            <property name="activatable-widget">field_unit</property>
-            <child>
-                <object class="GtkComboBoxText" id="field_unit">
-                    <property name="valign">center</property>
+            <property name="model">
+                <object class="GtkStringList">
                     <items>
-                        <item id="celsius">°C</item>
-                        <item id="fahrenheit">°F</item>
+                        <item translatable="yes">°C</item>
+                        <item translatable="yes">°F</item>
                     </items>
                 </object>
-            </child>
+            </property>
         </object>
       </child>
     </object>
@@ -97,7 +94,7 @@
 							<property name="margin-start">12</property>
 							<property name="hexpand">false</property>
 							<property name="sensitive">false</property>
-							<!-->
+							<!--
 							<child>
 								<object class="GtkComboBoxText" id="field_indicator_position_area">
 									<property name="valign">3</property>
@@ -166,6 +163,7 @@
                     </child>
                     <child>
                         <object class="GtkLabel" id="about_url">
+                            <property name="use-markup">true</property>
                         </object>
                     </child>
                 </object>

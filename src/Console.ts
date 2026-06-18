@@ -5,7 +5,7 @@ import GObject from 'gi://GObject'
 type Assert = (condition: boolean, errorMessage: string) => asserts condition
 export const assert: Assert = (condition, errorMessage) => {
   if (condition) return
-  logError(errorMessage)
+  console.error(errorMessage)
   throw new Error(errorMessage)
 }
 
@@ -64,7 +64,7 @@ export default class ConsoleUtil extends GObject.Object {
         )
       )
     } catch (e) {
-      logError(e)
+      console.error(e)
     }
   }
 

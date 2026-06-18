@@ -46,7 +46,7 @@ export class ButtonSection extends St.BoxLayout {
   }
 
   update(text: string) {
-    const [value, unit = ''] = text.split(' ')
+    const [value = '', unit = ''] = text.split(' ')
     this._value.set_text(value)
     this._unit.set_text(unit)
   }
@@ -236,7 +236,7 @@ export class Group extends PopupSubMenuMenuItem {
     super(label, true)
     this.key = key
 
-    this.actor.y_expand = false
+    this.y_expand = false
     this.add_style_class_name('submenu')
     this.setOrnament(Ornament.HIDDEN)
 
@@ -266,7 +266,7 @@ export class Group extends PopupSubMenuMenuItem {
 
     const curr = this.element(key)
     if (curr) {
-      this.menu.actor.replace_child(curr, el)
+      this.menu.box.replace_child(curr, el)
     } else {
       this.menu.addMenuItem(el)
     }
@@ -299,7 +299,7 @@ export class Groups extends PopupMenuSection {
     super()
     this.key = key
     this.icon = icon ?? key
-    this.actor.y_expand = false
+    ;(this as unknown as { y_expand: boolean }).y_expand = false
   }
 
   element(key: string) {
@@ -341,7 +341,7 @@ export class PopupSection extends PopupMenuSection {
   constructor(name: string, data: ThinkPadThermal.Util, createTitle = true) {
     super()
     this.name = name
-    this.actor.y_expand = false
+    ;(this as unknown as { y_expand: boolean }).y_expand = false
 
     if (createTitle) this.addMenuItem(new Title(name))
 

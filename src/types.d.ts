@@ -2,7 +2,7 @@ import type DmiUtil from './Dmi.ts'
 import type IbmAcpiUtil from './IbmAcpi.ts'
 import type SensorsUtil from './Sensors.ts'
 import type { Difference } from './vendor/microdiff.ts'
-import type { Item, DropDown, Group } from './ThermalUI.ts'
+import type { Item, Group } from './ThermalUI.ts'
 
 type TupleOf<T, N extends number, R extends T[] = []> = R['length'] extends N
   ? R
@@ -19,7 +19,7 @@ declare global {
     type Unit = 'celsius' | 'fahrenheit'
 
     type Config = {
-      temperatureUnit: TemperatureUnit
+      temperatureUnit: Unit
       checkInterval: number
       fanSpeedUnit?: string
     }
@@ -44,7 +44,7 @@ declare global {
     type Diffs = Diff[]
 
     type Util = DmiUtil | IbmAcpiUtil | SensorsUtil
-    type Element = Item | DropDown | Group
+    type Element = Item | Group
     type PrevElement = Element & { prev: unknown }
   }
 }

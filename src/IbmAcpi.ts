@@ -152,7 +152,10 @@ export default class IbmAcpiUtil extends ConsoleUtil {
     }
 
     try {
-      this.data = await super.execute(this.parse.bind(this))
+      const result = await super.execute(this.parse.bind(this))
+      if (!result) return
+
+      this.data = result
 
       const diff = microdiff(this.prev, this.data)
       this.prev = this.data
@@ -167,7 +170,7 @@ export default class IbmAcpiUtil extends ConsoleUtil {
 
       this.emit('updated', keys, diff)
     } catch (e) {
-      logError(e as Error)
+      console.error(e)
     }
   }
 

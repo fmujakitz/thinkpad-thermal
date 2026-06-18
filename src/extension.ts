@@ -11,6 +11,7 @@ export { ME }
 
 export default class ThinkPadThermal extends Extension {
   _settings: Gio.Settings
+  _settingsChangedId: number
   _data: ThermalData
   _indicator: ThermalButton
 
@@ -30,7 +31,7 @@ export default class ThinkPadThermal extends Extension {
 
     Main.panel.addToStatusArea(this.uuid, this._indicator, this._position, this._area)
 
-    this._settings.connect('changed', (_, change) => {
+    this._settingsChangedId = this._settings.connect('changed', (_, change) => {
       if (change.startsWith('position-')) this.reposition()
     })
   }
@@ -45,26 +46,29 @@ export default class ThinkPadThermal extends Extension {
       ? this._settings.get_string('position-area')
       : 'right'
   }
-  get _box() {
-    return Main.panel.get_child_at_index(['left', 'center', 'right'].indexOf(this._area))
-  }
   private reposition() {
     if (!this._settings.get_boolean('position-enable')) return
 
-    Main.panel._addToPanelBox(
+    Main.panel.addToStatusArea(
       this.uuid,
       this._indicator,
       this._position,
-      this._box
+      this._area
     )
   }
 
   override disable() {
+    if (this._settingsChangedId) {
+      this._settings.disconnect(this._settingsChangedId)
+      this._settingsChangedId = 0
+    }
+
     this._indicator?.destroy()
     this._data?.destroy()
 
     this._indicator = null as unknown as ThermalButton
     this._data = null as unknown as ThermalData
+    this._settings = null as unknown as Gio.Settings
 
     ME = null
   }

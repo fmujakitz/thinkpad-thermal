@@ -1,8 +1,10 @@
 import Gtk from 'gi://Gtk'
 import Gio from 'gi://Gio'
-import type Adw from 'gi://Adw'
+import Adw from 'gi://Adw'
 
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js'
+
+const TEMPERATURE_UNITS = ['celsius', 'fahrenheit'] as const
 
 export default class ThinkpadThermalPreferences extends ExtensionPreferences {
   // @ts-expect-error
@@ -21,12 +23,24 @@ export default class ThinkpadThermalPreferences extends ExtensionPreferences {
       'value',
       Gio.SettingsBindFlags.DEFAULT
     )
-    settings.bind(
-      'temperature-unit',
-      builder.get_object('field_unit'),
-      'active_id',
-      Gio.SettingsBindFlags.DEFAULT
+
+    // AdwComboRow uses a numeric index; map the GSettings string to/from index manually
+    const fieldUnit = builder.get_object('field_unit') as Adw.ComboRow
+    fieldUnit.set_selected(
+      Math.max(0, TEMPERATURE_UNITS.indexOf(
+        settings.get_string('temperature-unit') as typeof TEMPERATURE_UNITS[number]
+      ))
     )
+    fieldUnit.connect('notify::selected', () => {
+      const idx = fieldUnit.get_selected()
+      const unit = TEMPERATURE_UNITS[idx] ?? TEMPERATURE_UNITS[0]
+      settings.set_string('temperature-unit', unit)
+    })
+    settings.connect('changed::temperature-unit', () => {
+      const unit = settings.get_string('temperature-unit') as typeof TEMPERATURE_UNITS[number]
+      const idx = Math.max(0, TEMPERATURE_UNITS.indexOf(unit))
+      if (fieldUnit.get_selected() !== idx) fieldUnit.set_selected(idx)
+    })
     settings.bind(
       'show-indicator-unit',
       builder.get_object('field_indicator_show_unit'),
@@ -45,12 +59,14 @@ export default class ThinkpadThermalPreferences extends ExtensionPreferences {
       'sensitive',
       Gio.SettingsBindFlags.DEFAULT
     )
-    settings.bind(
-      'position-area',
-      builder.get_object('field_indicator_position_area'),
-      'active_id',
-      Gio.SettingsBindFlags.DEFAULT
-    )
+    // field_indicator_position_area is currently commented out in prefs.xml;
+    // skip binding to avoid a null-target settings.bind() call.
+    // settings.bind(
+    //   'position-area',
+    //   builder.get_object('field_indicator_position_area'),
+    //   'active_id',
+    //   Gio.SettingsBindFlags.DEFAULT
+    // )
     settings.bind(
       'position-index',
       builder.get_object('field_indicator_position_index'),

@@ -68,7 +68,10 @@ export default class SensorsUtil extends ConsoleUtil {
     }
 
     try {
-      this.data = await super.execute(this.parse.bind(this))
+      const result = await super.execute(this.parse.bind(this))
+      if (!result) return
+
+      this.data = result
       const obj = SensorsUtil.NOTIFY.reduce((acc, key) => {
         acc[key] = this[key]
         return acc
@@ -76,7 +79,7 @@ export default class SensorsUtil extends ConsoleUtil {
 
       this.emit('updated', obj)
     } catch (error) {
-      logError(error)
+      console.error(error)
     }
   }
 
@@ -142,7 +145,9 @@ export default class SensorsUtil extends ConsoleUtil {
   get fan() {
     const key = Object.keys(this.data).find((k) =>
       SensorsUtil.IS.TPISA.test(k)
-    ) as string
+    )
+
+    if (!key) return {}
 
     return this.select(
       (k) => SensorsUtil.IS.FANS.test(k),

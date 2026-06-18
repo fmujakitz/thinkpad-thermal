@@ -69,7 +69,7 @@ export default class ThermalPopup extends PopupMenu {
   ) {
     super(actor, align, St.Side.TOP)
 
-    this.actor.add_style_class_name('tpt-popup')
+    this.box.add_style_class_name('tpt-popup')
 
     this.addMenuItem(new Dmi(dmi))
     this.addMenuItem(new Sensors(sensors))
